@@ -102,7 +102,11 @@ import {
   Schedule,
   AccessTime,
   CalendarToday,
+  VerifiedUser,
+  TaskAlt,
+  Payments,
 } from "@mui/icons-material";
+
 import { useAuth } from "../contexts/AuthContext";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -116,6 +120,7 @@ import {
   endOfDay,
 } from "date-fns";
 import { useNavigate } from "react-router-dom";
+
 
 // ========== CONSTANTS & CONFIGURATION ==========
 const PRIMARY = "#3a5ac8";
