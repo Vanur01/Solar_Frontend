@@ -134,7 +134,43 @@ const INSTALLATION_STATUS_CONFIG = {
     color: "#1976d2",
     icon: <Schedule sx={{ fontSize: 16 }} />,
     description: "Installation is scheduled",
-    progress: 33,
+    progress: 10,
+  },
+
+  installation_in_progress: {
+    label: "Installation In Progress",
+    bg: "#fffde7",
+    color: "#f9a825",
+    icon: <Build sx={{ fontSize: 16 }} />,
+    description: "Installation work is ongoing",
+    progress: 40,
+  },
+
+  installation_completed: {
+    label: "Installation Completed",
+    bg: "#e8f5e9",
+    color: "#2e7d32",
+    icon: <CheckCircle sx={{ fontSize: 16 }} />,
+    description: "Installation completed successfully",
+    progress: 60,
+  },
+
+  sent_for_jee_verification: {
+    label: "Sent for JEE Verification",
+    bg: "#ede7f6",
+    color: "#5e35b1",
+    icon: <VerifiedUser sx={{ fontSize: 16 }} />,
+    description: "Project sent to JEE for verification",
+    progress: 80,
+  },
+
+  jee_verified: {
+    label: "JEE Verified",
+    bg: "#e0f2f1",
+    color: "#00695c",
+    icon: <TaskAlt sx={{ fontSize: 16 }} />,
+    description: "Verified and approved by JEE",
+    progress: 100,
   },
   "meter-charge": {
     label: "Meter Charge",
@@ -142,13 +178,14 @@ const INSTALLATION_STATUS_CONFIG = {
     color: "#ef6c00",
     icon: <LocalAtm sx={{ fontSize: 16 }} />,
     description: "Meter charging in progress",
-    progress: 66,
+    progress: 85,
   },
+
   "final-payment": {
     label: "Final Payment",
     bg: "#e8f5e9",
     color: "#2e7d32",
-    icon: <CheckCircle sx={{ fontSize: 16 }} />,
+    icon: <Payments sx={{ fontSize: 16 }} />,
     description: "Final payment completed",
     progress: 100,
   },
