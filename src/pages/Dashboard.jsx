@@ -766,6 +766,7 @@ export default function UnifiedDashboard() {
               color={PRIMARY_COLOR}
               gutterBottom
             >
+              {console.log("data...", getRoleDisplayName())}
               {getRoleDisplayName()} Dashboard
             </Typography>
             <Typography variant="body2" color="text.secondary">

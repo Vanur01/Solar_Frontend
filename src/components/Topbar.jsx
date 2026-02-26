@@ -1,5 +1,5 @@
 // components/Topbar.jsx
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -14,6 +14,8 @@ import {
   alpha,
   Badge,
   InputBase,
+  Divider,
+  CircularProgress,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -22,68 +24,131 @@ import {
   Person as PersonIcon,
   Settings as SettingsIcon,
   Search as SearchIcon,
+  AccountCircle as AccountCircleIcon,
+  Help as HelpIcon,
+  Dashboard as DashboardIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from "../contexts/AuthContext";
 
 const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
   const navigate = useNavigate();
-  
+  const { user, logout, getUserRole, fetchAPI } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Mock user data (replace with actual auth context)
-  const user = {
-    firstName: "John",
-    lastName: "Doe",
-    role: "Head_office"
-  };
 
   const handleProfileMenu = useCallback((event) => setAnchorEl(event.currentTarget), []);
   const handleNotificationMenu = useCallback((event) => setNotificationAnchor(event.currentTarget), []);
   
   const handleClose = useCallback(() => {
     setAnchorEl(null);
-    setNotificationAnchor(null);
   }, []);
   
   const handleLogout = useCallback(async () => {
     try {
       setLoggingOut(true);
       handleClose();
-      // Add logout logic here
+      await logout();
       navigate('/login', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
       navigate('/login', { replace: true });
+    } finally {
+      setLoggingOut(false);
     }
+  }, [navigate, logout, handleClose]);
+
+  const handleProfile = useCallback(() => {
+    handleClose();
+    navigate('/profile');
   }, [navigate, handleClose]);
+
+  const handleSettings = useCallback(() => {
+    handleClose();
+    navigate('/settings');
+  }, [navigate, handleClose]);
+
+  const handleHelp = useCallback(() => {
+    handleClose();
+    navigate('/help');
+  }, [navigate, handleClose]);
+
+  const handleDashboard = useCallback(() => {
+    handleClose();
+    navigate('/dashboard');
+  }, [navigate, handleClose]);
+
+  const handleSearch = useCallback((e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+    }
+  }, [navigate, searchQuery]);
+
+  const handleMarkAsRead = useCallback(async (notificationId) => {
+    try {
+      await fetchAPI(`/notifications/${notificationId}/read`, 'PATCH');
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif.id === notificationId ? { ...notif, read: true } : notif
+        )
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }, [fetchAPI]);
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    try {
+      await fetchAPI('/notifications/read-all', 'POST');
+      setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  }, [fetchAPI]);
 
   // User information
   const userInitials = useMemo(() => {
     if (!user) return 'U';
-    return `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'U';
+    const firstName = user?.firstName || user?.name?.split(' ')[0] || '';
+    const lastName = user?.lastName || user?.name?.split(' ')[1] || '';
+    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U';
   }, [user]);
 
   const displayName = useMemo(() => {
-    return user?.firstName || 'User';
+    if (!user) return 'User';
+    return user?.firstName || user?.name?.split(' ')[0] || 'User';
+  }, [user]);
+
+  const fullName = useMemo(() => {
+    if (!user) return 'User';
+    return user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User';
   }, [user]);
 
   const userRole = useMemo(() => {
+    if (!user?.role) return 'User';
+    const role = getUserRole ? getUserRole() : user.role;
     const roleMap = {
-      Head_office: 'Head Office',
-      ZSM: 'Zonal Manager',
-      ASM: 'Area Manager',
-      TEAM: 'Field Executive'
+      'superadmin': 'Super Administrator',
+      'admin': 'Administrator',
+      'instructor': 'Instructor',
+      'user': 'Member',
+      'Head_office': 'Head Office',
+      'ZSM': 'Zonal Sales Manager',
+      'ASM': 'Area Sales Manager',
+      'TEAM': 'Field Executive'
     };
-    return roleMap[user?.role] || 'User';
-  }, [user]);
+    return roleMap[role] || role || 'User';
+  }, [user, getUserRole]);
 
-  const notifications = [
-    { id: 1, title: 'New lead assigned', time: '5 min ago', read: false },
-    { id: 2, title: 'Installation completed', time: '1 hour ago', read: true },
-    { id: 3, title: 'Payment received', time: '2 hours ago', read: true },
-  ];
+  const userAvatar = useMemo(() => {
+    return user?.avatar || user?.profilePicture || null;
+  }, [user]);
 
   const unreadCount = useMemo(() => 
     notifications.filter(n => !n.read).length
@@ -97,8 +162,9 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
         sx={{
           bgcolor: '#ffffff',
           borderBottom: '1px solid #e0e0e0',
-          width: isMobile ? "100%" : "82%",
-          zIndex: 1200,
+          width: isMobile ? "100%" : `calc(100% - ${drawerOpen ? sidebarWidth : 72}px)`,
+          ml: isMobile ? 0 : (drawerOpen ? `${sidebarWidth}px` : '72px'),
+          zIndex: (theme) => theme.zIndex.drawer + 1,
           transition: 'all 0.3s ease',
         }}
       >
@@ -130,11 +196,13 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
                 display: { xs: isMobile ? 'none' : 'block', sm: 'block' },
               }}
             >
-              Dashboard
+              {user?.dashboardTitle || 'Dashboard'}
             </Typography>
 
             {/* Search Bar - Hidden on mobile */}
             <Box
+              component="form"
+              onSubmit={handleSearch}
               sx={{
                 display: { xs: 'none', md: 'flex' },
                 alignItems: 'center',
@@ -146,11 +214,17 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
                 ml: 4,
                 border: '1px solid #e0e0e0',
                 '&:hover': { bgcolor: '#f0f0f0' },
+                '&:focus-within': {
+                  borderColor: '#4569ea',
+                  boxShadow: `0 0 0 2px ${alpha('#4569ea', 0.2)}`,
+                },
               }}
             >
               <SearchIcon sx={{ color: '#999', mr: 1, fontSize: 20 }} />
               <InputBase
                 placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 sx={{
                   flex: 1,
                   fontSize: '0.9rem',
@@ -169,6 +243,7 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
                 color: '#666',
                 '&:hover': { bgcolor: alpha('#4569ea', 0.05) },
               }}
+              onClick={() => navigate('/search')}
             >
               <SearchIcon />
             </IconButton>
@@ -211,8 +286,9 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
               onClick={handleProfileMenu}
             >
               <Avatar
+                src={userAvatar}
                 sx={{
-                  bgcolor: '#4569ea',
+                  bgcolor: userAvatar ? 'transparent' : '#4569ea',
                   width: { xs: 32, sm: 36 },
                   height: { xs: 32, sm: 36 },
                   fontSize: { xs: '0.8rem', sm: '0.9rem' },
@@ -220,7 +296,7 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
                   color: '#ffffff',
                 }}
               >
-                {userInitials}
+                {!userAvatar && userInitials}
               </Avatar>
               <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                 <Typography 
@@ -250,40 +326,123 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
           onClose={handleClose}
           PaperProps={{ 
             sx: { 
-              width: 320,
+              width: 360,
               mt: 1,
               borderRadius: '8px',
               border: '1px solid #e0e0e0',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-              maxHeight: 400,
+              maxHeight: 480,
             } 
           }}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         >
-          <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
-            <Typography fontWeight={600} color="#333333">Notifications</Typography>
+          <Box sx={{ 
+            p: 2, 
+            borderBottom: '1px solid #e0e0e0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <Typography fontWeight={600} color="#333333">
+              Notifications
+              {unreadCount > 0 && (
+                <Badge
+                  badgeContent={unreadCount}
+                  color="error"
+                  sx={{ ml: 1 }}
+                />
+              )}
+            </Typography>
+            {unreadCount > 0 && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#4569ea',
+                  cursor: 'pointer',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+                onClick={handleMarkAllAsRead}
+              >
+                Mark all as read
+              </Typography>
+            )}
           </Box>
-          {notifications.map((notification) => (
-            <MenuItem 
-              key={notification.id} 
-              onClick={handleClose}
-              sx={{ 
-                py: 1.5, 
-                px: 2,
-                bgcolor: !notification.read ? alpha('#4569ea', 0.05) : 'transparent',
-              }}
-            >
-              <Box>
-                <Typography variant="body2" fontWeight={500} color="#333333">
-                  {notification.title}
+          
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : notifications.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <NotificationsIcon sx={{ fontSize: 48, color: '#ccc', mb: 1 }} />
+              <Typography color="#999" fontSize="0.9rem">
+                No notifications
+              </Typography>
+            </Box>
+          ) : (
+            notifications.slice(0, 5).map((notification) => (
+              <MenuItem 
+                key={notification.id} 
+                onClick={() => {
+                  handleMarkAsRead(notification.id);
+                  if (notification.link) {
+                    navigate(notification.link);
+                  }
+                  handleClose();
+                }}
+                sx={{ 
+                  py: 1.5, 
+                  px: 2,
+                  bgcolor: !notification.read ? alpha('#4569ea', 0.05) : 'transparent',
+                  borderBottom: '1px solid #f0f0f0',
+                  '&:last-child': { borderBottom: 'none' },
+                }}
+              >
+                <Box sx={{ width: '100%' }}>
+                  <Typography variant="body2" fontWeight={500} color="#333333" mb={0.5}>
+                    {notification.title}
+                  </Typography>
+                  <Typography variant="body2" color="#666666" fontSize="0.8rem" mb={0.5}>
+                    {notification.message}
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="#999">
+                      {notification.timeAgo || new Date(notification.createdAt).toLocaleDateString()}
+                    </Typography>
+                    {!notification.read && (
+                      <Box
+                        component="span"
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          bgcolor: '#4569ea',
+                          display: 'inline-block',
+                        }}
+                      />
+                    )}
+                  </Box>
+                </Box>
+              </MenuItem>
+            ))
+          )}
+          
+          {notifications.length > 5 && (
+            <Box sx={{ p: 1, borderTop: '1px solid #e0e0e0' }}>
+              <MenuItem
+                onClick={() => {
+                  handleClose();
+                  navigate('/notifications');
+                }}
+                sx={{ justifyContent: 'center' }}
+              >
+                <Typography color="#4569ea" fontSize="0.9rem">
+                  View all notifications
                 </Typography>
-                <Typography variant="caption" color="#999">
-                  {notification.time}
-                </Typography>
-              </Box>
-            </MenuItem>
-          ))}
+              </MenuItem>
+            </Box>
+          )}
         </Menu>
 
         {/* Profile Menu */}
@@ -293,7 +452,7 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
           onClose={handleClose}
           PaperProps={{ 
             sx: { 
-              width: 240,
+              width: 280,
               mt: 1,
               borderRadius: '8px',
               border: '1px solid #e0e0e0',
@@ -307,23 +466,27 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
           <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Avatar
+                src={userAvatar}
                 sx={{
-                  bgcolor: '#4569ea',
+                  bgcolor: userAvatar ? 'transparent' : '#4569ea',
                   color: '#ffffff',
-                  width: 40,
-                  height: 40,
-                  fontSize: '0.9rem',
+                  width: 48,
+                  height: 48,
+                  fontSize: '1rem',
                   fontWeight: 600,
                 }}
               >
-                {userInitials}
+                {!userAvatar && userInitials}
               </Avatar>
               <Box>
-                <Typography fontWeight={600} fontSize="0.9rem" color="#333333">
-                  {displayName}
+                <Typography fontWeight={600} fontSize="0.95rem" color="#333333">
+                  {fullName}
                 </Typography>
-                <Typography fontSize="0.75rem" color="#666666">
+                <Typography fontSize="0.8rem" color="#666666" mb={0.5}>
                   {userRole}
+                </Typography>
+                <Typography fontSize="0.75rem" color="#999">
+                  {user?.email || ''}
                 </Typography>
               </Box>
             </Box>
@@ -332,51 +495,15 @@ const Topbar = ({ toggleDrawer, isMobile, drawerOpen, sidebarWidth = 280 }) => {
           {/* Menu Items */}
           <Box sx={{ py: 0.5 }}>
             <MenuItem 
-              onClick={handleClose}
-              sx={{ 
-                py: 1.25, 
-                px: 2,
-                '&:hover': { bgcolor: alpha('#4569ea', 0.05) }
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: '#666666' }}>
-                <PersonIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText 
-                primary="Profile" 
-                primaryTypographyProps={{ fontSize: '0.9rem', color: '#333333' }}
-              />
-            </MenuItem>
-            
-            <MenuItem 
-              onClick={handleClose}
-              sx={{ 
-                py: 1.25, 
-                px: 2,
-                '&:hover': { bgcolor: alpha('#4569ea', 0.05) }
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: '#666666' }}>
-                <SettingsIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText 
-                primary="Settings" 
-                primaryTypographyProps={{ fontSize: '0.9rem', color: '#333333' }}
-              />
-            </MenuItem>
-            
-            <MenuItem 
               onClick={handleLogout} 
               sx={{ 
-                py: 1.25, 
-                px: 2,
                 color: '#ff4444',
                 '&:hover': { bgcolor: alpha('#ff4444', 0.05) }
               }}
               disabled={loggingOut}
             >
-              <ListItemIcon sx={{ minWidth: 36, color: 'inherit' }}>
-                <LogoutIcon fontSize="small" />
+              <ListItemIcon sx={{ color: 'inherit' }}>
+                {loggingOut ? <CircularProgress size={20} color="inherit" /> : <LogoutIcon fontSize="small" />}
               </ListItemIcon>
               <ListItemText 
                 primary={loggingOut ? "Logging out..." : "Logout"} 

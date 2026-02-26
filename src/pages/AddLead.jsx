@@ -440,6 +440,7 @@ export default function CreateLeadPage() {
             width: "100%",
             borderRadius: 2,
             boxShadow: 3,
+            color:"#fff",
             alignItems: "center",
             "& .MuiAlert-icon": {
               alignItems: "center",

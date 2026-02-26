@@ -1449,7 +1449,7 @@ export default function TotalVisitsPage() {
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%" }}
+          sx={{ width: "100%",color:"#fff" }}
         >
           {snackbar.message}
         </Alert>
