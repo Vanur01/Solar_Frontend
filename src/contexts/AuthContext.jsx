@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 const AuthContext = createContext({});
 
 // api url
-const API_BASE_URL = "http://localhost:9001/api/v1";
+const API_BASE_URL = "https://backend.sunergytechsolar.com/api/v1";
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
