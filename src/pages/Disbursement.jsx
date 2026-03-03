@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -264,12 +259,12 @@ const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
 const getUserPermissions = (userRole) => ({
   canView: true,
-  canEdit: ["Head_office", "ZSM", "ASM"].includes(userRole),
+  canEdit: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canDelete: userRole === "Head_office",
   canManage: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeAll: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeOwn: userRole === "TEAM",
-  canUpdateStatus: ["Head_office", "ZSM", "ASM"].includes(userRole),
+  canUpdateStatus: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
 });
 
 const getDisbursementStatusColor = (status) => {
@@ -374,19 +369,19 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
 
   const handleZoomIn = useCallback(
     () => setZoom((prev) => Math.min(prev + 0.25, 3)),
-    []
+    [],
   );
   const handleZoomOut = useCallback(
     () => setZoom((prev) => Math.max(prev - 0.25, 0.5)),
-    []
+    [],
   );
   const handleRotateRight = useCallback(
     () => setRotation((prev) => (prev + 90) % 360),
-    []
+    [],
   );
   const handleRotateLeft = useCallback(
     () => setRotation((prev) => (prev - 90) % 360),
-    []
+    [],
   );
   const handleReset = useCallback(() => {
     setZoom(1);
@@ -400,7 +395,7 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
 
   const isImage = useMemo(
     () => imageUrl && /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(imageUrl),
-    [imageUrl]
+    [imageUrl],
   );
 
   const handleDownload = useCallback(() => {
@@ -610,7 +605,7 @@ const DocumentCard = React.memo(
         </Stack>
       </Card>
     );
-  }
+  },
 );
 
 DocumentCard.displayName = "DocumentCard";
@@ -625,7 +620,8 @@ const DisbursementStatusUpdateModal = React.memo(
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
     const [loading, setLoading] = useState(false);
-    const [selectedDisbursementStatus, setSelectedDisbursementStatus] = useState("");
+    const [selectedDisbursementStatus, setSelectedDisbursementStatus] =
+      useState("");
     const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
     const [disbursementAmount, setDisbursementAmount] = useState("");
     const [disbursementDate, setDisbursementDate] = useState(null);
@@ -638,7 +634,7 @@ const DisbursementStatusUpdateModal = React.memo(
         setSelectedLeadStatus(lead.status || "Disbursement");
         setDisbursementAmount(lead.disbursementAmount?.toString() || "");
         setDisbursementDate(
-          lead.disbursementDate ? parseISO(lead.disbursementDate) : null
+          lead.disbursementDate ? parseISO(lead.disbursementDate) : null,
         );
         setNotes(lead.disbursementNotes || "");
         setErrors({});
@@ -773,7 +769,11 @@ const DisbursementStatusUpdateModal = React.memo(
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
         <DialogTitle sx={{ bgcolor: alpha(PRIMARY, 0.06), pb: 2 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between">
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
             <Box display="flex" alignItems="center" gap={2}>
               <Box
                 sx={{
@@ -832,11 +832,17 @@ const DisbursementStatusUpdateModal = React.memo(
                   Current Disbursement Status
                 </Typography>
                 <Chip
-                  label={getDisbursementStatusColor(lead.disbursementStatus).label}
-                  icon={getDisbursementStatusColor(lead.disbursementStatus).icon}
+                  label={
+                    getDisbursementStatusColor(lead.disbursementStatus).label
+                  }
+                  icon={
+                    getDisbursementStatusColor(lead.disbursementStatus).icon
+                  }
                   sx={{
-                    bgcolor: getDisbursementStatusColor(lead.disbursementStatus).bg,
-                    color: getDisbursementStatusColor(lead.disbursementStatus).color,
+                    bgcolor: getDisbursementStatusColor(lead.disbursementStatus)
+                      .bg,
+                    color: getDisbursementStatusColor(lead.disbursementStatus)
+                      .color,
                   }}
                 />
               </Box>
@@ -861,16 +867,23 @@ const DisbursementStatusUpdateModal = React.memo(
               <Typography variant="subtitle2" fontWeight={600} gutterBottom>
                 New Disbursement Status *
               </Typography>
-              <FormControl fullWidth size="small" error={!!errors.disbursementStatus}>
+              <FormControl
+                fullWidth
+                size="small"
+                error={!!errors.disbursementStatus}
+              >
                 <Select
                   value={selectedDisbursementStatus}
                   onChange={(e) => {
                     const val = e.target.value;
                     setSelectedDisbursementStatus(val);
                     // Auto-sync lead status
-                    if (val === "completed") setSelectedLeadStatus("Installation Completion");
-                    else if (val === "cancelled") setSelectedLeadStatus("Missed Leads");
-                    else if (val === "pending") setSelectedLeadStatus("Disbursement");
+                    if (val === "completed")
+                      setSelectedLeadStatus("Installation Completion");
+                    else if (val === "cancelled")
+                      setSelectedLeadStatus("Missed Leads");
+                    else if (val === "pending")
+                      setSelectedLeadStatus("Disbursement");
                   }}
                 >
                   <MenuItem value="" disabled>
@@ -880,11 +893,18 @@ const DisbursementStatusUpdateModal = React.memo(
                     const cfg = getDisbursementStatusColor(status);
                     return (
                       <MenuItem key={status} value={status}>
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          spacing={1.5}
+                        >
                           {cfg.icon}
                           <Box>
                             <Typography variant="body2">{cfg.label}</Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               {cfg.description}
                             </Typography>
                           </Box>
@@ -917,11 +937,18 @@ const DisbursementStatusUpdateModal = React.memo(
                     const cfg = getLeadStatusConfig(status);
                     return (
                       <MenuItem key={status} value={status}>
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          spacing={1.5}
+                        >
                           {cfg.icon}
                           <Box>
                             <Typography variant="body2">{status}</Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               {cfg.description}
                             </Typography>
                           </Box>
@@ -930,7 +957,9 @@ const DisbursementStatusUpdateModal = React.memo(
                     );
                   })}
                 </Select>
-                {errors.leadStatus && <FormHelperText>{errors.leadStatus}</FormHelperText>}
+                {errors.leadStatus && (
+                  <FormHelperText>{errors.leadStatus}</FormHelperText>
+                )}
               </FormControl>
             </Box>
 
@@ -992,14 +1021,16 @@ const DisbursementStatusUpdateModal = React.memo(
                 {selectedDisbursementStatus === "completed"
                   ? "Lead will move to → Installation Completion"
                   : selectedDisbursementStatus === "cancelled"
-                  ? "Lead will move to → Missed Leads"
-                  : "Lead remains in → Disbursement stage"}
+                    ? "Lead will move to → Missed Leads"
+                    : "Lead remains in → Disbursement stage"}
               </Alert>
             )}
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}>
+        <DialogActions
+          sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}
+        >
           <Button onClick={handleClose} variant="outlined" size="large">
             Cancel
           </Button>
@@ -1023,7 +1054,7 @@ const DisbursementStatusUpdateModal = React.memo(
         </DialogActions>
       </Dialog>
     );
-  }
+  },
 );
 
 DisbursementStatusUpdateModal.displayName = "DisbursementStatusUpdateModal";
@@ -1133,7 +1164,8 @@ const ViewLeadModal = React.memo(
                         Transaction ID
                       </Typography>
                       <Typography variant="body1">
-                        {displayData.disbursementTransactionId || "Not specified"}
+                        {displayData.disbursementTransactionId ||
+                          "Not specified"}
                       </Typography>
                     </Box>
                     <Box
@@ -1182,12 +1214,24 @@ const ViewLeadModal = React.memo(
                         Disbursement Status
                       </Typography>
                       <Chip
-                        label={getDisbursementStatusColor(displayData.disbursementStatus).label}
-                        icon={getDisbursementStatusColor(displayData.disbursementStatus).icon}
+                        label={
+                          getDisbursementStatusColor(
+                            displayData.disbursementStatus,
+                          ).label
+                        }
+                        icon={
+                          getDisbursementStatusColor(
+                            displayData.disbursementStatus,
+                          ).icon
+                        }
                         size="small"
                         sx={{
-                          bgcolor: getDisbursementStatusColor(displayData.disbursementStatus).bg,
-                          color: getDisbursementStatusColor(displayData.disbursementStatus).color,
+                          bgcolor: getDisbursementStatusColor(
+                            displayData.disbursementStatus,
+                          ).bg,
+                          color: getDisbursementStatusColor(
+                            displayData.disbursementStatus,
+                          ).color,
                           fontWeight: 600,
                         }}
                       />
@@ -1402,7 +1446,8 @@ const ViewLeadModal = React.memo(
                   {displayData.firstName} {displayData.lastName}
                 </Typography>
                 <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                  Disbursement Details • {formatCurrency(displayData.disbursementAmount)}
+                  Disbursement Details •{" "}
+                  {formatCurrency(displayData.disbursementAmount)}
                 </Typography>
               </Box>
             </Box>
@@ -1487,7 +1532,7 @@ const ViewLeadModal = React.memo(
         </DialogActions>
       </Dialog>
     );
-  }
+  },
 );
 
 ViewLeadModal.displayName = "ViewLeadModal";
@@ -1523,7 +1568,7 @@ export default function DisbursementPage() {
   const userRole = user?.role;
   const userPermissions = useMemo(
     () => getUserPermissions(userRole),
-    [userRole]
+    [userRole],
   );
 
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -1553,7 +1598,8 @@ export default function DisbursementPage() {
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState("");
-  const [disbursementStatusFilter, setDisbursementStatusFilter] = useState("All");
+  const [disbursementStatusFilter, setDisbursementStatusFilter] =
+    useState("All");
   const [leadStatusFilter, setLeadStatusFilter] = useState("All");
   const [bankFilter, setBankFilter] = useState("All");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -1611,7 +1657,7 @@ export default function DisbursementPage() {
       let response;
       try {
         response = await fetchAPI(
-          `/lead/disbursementSummary?${params.toString()}`
+          `/lead/disbursementSummary?${params.toString()}`,
         );
 
         if (response?.success) {
@@ -1620,7 +1666,7 @@ export default function DisbursementPage() {
           return;
         }
       } catch (endpointError) {
-        console.log('Specific endpoint failed, trying alternative...');
+        console.log("Specific endpoint failed, trying alternative...");
       }
 
       // Fallback to generic endpoint
@@ -1630,11 +1676,13 @@ export default function DisbursementPage() {
         const allLeads = response.result || [];
         // Filter leads with status "Disbursement"
         const disbursementLeads = allLeads.filter(
-          lead => lead.status === "Disbursement"
+          (lead) => lead.status === "Disbursement",
         );
         processLeadsData(disbursementLeads);
       } else {
-        throw new Error(response?.message || "Failed to fetch disbursement data");
+        throw new Error(
+          response?.message || "Failed to fetch disbursement data",
+        );
       }
     } catch (err) {
       console.error("Error fetching disbursement data:", err);
@@ -1646,56 +1694,60 @@ export default function DisbursementPage() {
   }, [period, fetchAPI, showSnackbar]);
 
   // Helper function to process leads data
-  const processLeadsData = useCallback((rawLeads) => {
-    if (!Array.isArray(rawLeads)) {
-      rawLeads = [];
-    }
-    
-    // Filter by user role if TEAM - FIXED LOGIC
-    let filteredLeads = [...rawLeads];
-    
-    if (userRole === "TEAM" && user?._id) {
-      filteredLeads = rawLeads.filter(lead => {
-        // Check if lead is assigned to this user or created by this user
-        const isAssigned = 
-          lead.assignedTo === user._id ||
-          lead.assignedManager === user._id ||
-          lead.assignedUser === user._id ||
-          lead.assignedUser?._id === user._id ||
-          lead.createdBy === user._id;
-        
-        return isAssigned;
+  const processLeadsData = useCallback(
+    (rawLeads) => {
+      if (!Array.isArray(rawLeads)) {
+        rawLeads = [];
+      }
+
+      // Filter by user role if TEAM - FIXED LOGIC
+      let filteredLeads = [...rawLeads];
+
+      if (userRole === "TEAM" && user?._id) {
+        filteredLeads = rawLeads.filter((lead) => {
+          // Check if lead is assigned to this user or created by this user
+          const isAssigned =
+            lead.assignedTo === user._id ||
+            lead.assignedManager === user._id ||
+            lead.assignedUser === user._id ||
+            lead.assignedUser?._id === user._id ||
+            lead.createdBy === user._id;
+
+          return isAssigned;
+        });
+      }
+
+      const totalLeads = filteredLeads.length;
+      const pendingLeads = filteredLeads.filter(
+        (lead) => lead.disbursementStatus?.toLowerCase() === "pending",
+      ).length;
+      const completedLeads = filteredLeads.filter(
+        (lead) => lead.disbursementStatus?.toLowerCase() === "completed",
+      ).length;
+      const cancelledLeads = filteredLeads.filter(
+        (lead) => lead.disbursementStatus?.toLowerCase() === "cancelled",
+      ).length;
+      const totalDisbursementAmount = filteredLeads.reduce(
+        (sum, lead) => sum + (parseFloat(lead.disbursementAmount) || 0),
+        0,
+      );
+      const avgDisbursementAmount =
+        totalLeads > 0 ? totalDisbursementAmount / totalLeads : 0;
+
+      setDisbursementData({
+        leads: filteredLeads,
+        summary: {
+          totalLeads,
+          pendingLeads,
+          completedLeads,
+          cancelledLeads,
+          totalDisbursementAmount,
+          avgDisbursementAmount,
+        },
       });
-    }
-
-    const totalLeads = filteredLeads.length;
-    const pendingLeads = filteredLeads.filter(
-      (lead) => lead.disbursementStatus?.toLowerCase() === "pending"
-    ).length;
-    const completedLeads = filteredLeads.filter(
-      (lead) => lead.disbursementStatus?.toLowerCase() === "completed"
-    ).length;
-    const cancelledLeads = filteredLeads.filter(
-      (lead) => lead.disbursementStatus?.toLowerCase() === "cancelled"
-    ).length;
-    const totalDisbursementAmount = filteredLeads.reduce(
-      (sum, lead) => sum + (parseFloat(lead.disbursementAmount) || 0),
-      0
-    );
-    const avgDisbursementAmount = totalLeads > 0 ? totalDisbursementAmount / totalLeads : 0;
-
-    setDisbursementData({
-      leads: filteredLeads,
-      summary: {
-        totalLeads,
-        pendingLeads,
-        completedLeads,
-        cancelledLeads,
-        totalDisbursementAmount,
-        avgDisbursementAmount,
-      },
-    });
-  }, [userRole, user?._id]);
+    },
+    [userRole, user?._id],
+  );
 
   // Apply Filters
   const applyFilters = useCallback(() => {
@@ -1712,14 +1764,16 @@ export default function DisbursementPage() {
             (lead.email?.toLowerCase() || "").includes(query) ||
             (lead.phoneNumber || lead.phone || "").includes(query) ||
             (lead.bank?.toLowerCase() || "").includes(query) ||
-            (lead.disbursementTransactionId?.toLowerCase() || "").includes(query)
+            (lead.disbursementTransactionId?.toLowerCase() || "").includes(
+              query,
+            ),
         );
       }
 
       // Disbursement Status filter
       if (disbursementStatusFilter !== "All") {
         filtered = filtered.filter(
-          (lead) => lead.disbursementStatus === disbursementStatusFilter
+          (lead) => lead.disbursementStatus === disbursementStatusFilter,
         );
       }
 
@@ -1748,8 +1802,8 @@ export default function DisbursementPage() {
             const leadDate = lead.disbursementDate
               ? parseISO(lead.disbursementDate)
               : lead.createdAt
-              ? parseISO(lead.createdAt)
-              : null;
+                ? parseISO(lead.createdAt)
+                : null;
             if (!leadDate || !isValid(leadDate)) return false;
             return isWithinInterval(leadDate, { start, end });
           } catch {
@@ -1836,7 +1890,7 @@ export default function DisbursementPage() {
       setSelectedLead(lead);
       setViewModalOpen(true);
     },
-    [showSnackbar]
+    [showSnackbar],
   );
 
   const handleStatusUpdateClick = useCallback(
@@ -1848,14 +1902,14 @@ export default function DisbursementPage() {
       if (!userPermissions.canUpdateStatus) {
         showSnackbar(
           "You don't have permission to update disbursement status",
-          "error"
+          "error",
         );
         return;
       }
       setSelectedLead(lead);
       setStatusUpdateModalOpen(true);
     },
-    [userPermissions, showSnackbar]
+    [userPermissions, showSnackbar],
   );
 
   const handleStatusUpdate = useCallback(
@@ -1868,7 +1922,7 @@ export default function DisbursementPage() {
         showSnackbar("Failed to refresh data", "error");
       }
     },
-    [fetchDisbursementData, showSnackbar]
+    [fetchDisbursementData, showSnackbar],
   );
 
   const handleViewDocument = useCallback(
@@ -1880,7 +1934,7 @@ export default function DisbursementPage() {
       setCurrentImageUrl(documentUrl);
       setImageViewerOpen(true);
     },
-    [showSnackbar]
+    [showSnackbar],
   );
 
   const handleCloseSnackbar = useCallback(() => {
@@ -1909,7 +1963,7 @@ export default function DisbursementPage() {
 
   const totalPages = useMemo(
     () => Math.ceil(filteredLeads.length / rowsPerPage),
-    [filteredLeads.length, rowsPerPage]
+    [filteredLeads.length, rowsPerPage],
   );
 
   const summaryCards = useMemo(
@@ -1931,19 +1985,19 @@ export default function DisbursementPage() {
       {
         label: "Completed",
         value: disbursementData.summary.completedLeads,
-           color: "#3a5ac8",
+        color: "#3a5ac8",
         icon: <CheckCircle />,
         subText: "Disbursement completed",
       },
       {
         label: "Cancelled",
         value: disbursementData.summary.cancelledLeads,
-           color: "#3a5ac8",
+        color: "#3a5ac8",
         icon: <Cancel />,
         subText: "Disbursement cancelled",
       },
     ],
-    [disbursementData.summary]
+    [disbursementData.summary],
   );
 
   // Access Check
@@ -1984,7 +2038,11 @@ export default function DisbursementPage() {
         <Alert
           severity="error"
           action={
-            <Button color="inherit" size="small" onClick={fetchDisbursementData}>
+            <Button
+              color="inherit"
+              size="small"
+              onClick={fetchDisbursementData}
+            >
               Retry
             </Button>
           }
@@ -2091,7 +2149,7 @@ export default function DisbursementPage() {
                   borderRadius: 3,
                   overflow: "visible",
                   position: "relative",
-                  width:"277px",
+                  width: "277px",
                   border: `1px solid ${alpha(card.color, 0.1)}`,
                   boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
                 }}
@@ -2200,16 +2258,24 @@ export default function DisbursementPage() {
                     <Select
                       value={disbursementStatusFilter}
                       label="Disbursement Status"
-                      onChange={(e) => setDisbursementStatusFilter(e.target.value)}
+                      onChange={(e) =>
+                        setDisbursementStatusFilter(e.target.value)
+                      }
                     >
                       <MenuItem value="All">All Status</MenuItem>
                       {DISBURSEMENT_STATUS_OPTIONS.map((status) => {
                         const config = getDisbursementStatusColor(status);
                         return (
                           <MenuItem key={status} value={status}>
-                            <Stack direction="row" alignItems="center" spacing={1.5}>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1.5}
+                            >
                               {config.icon}
-                              <Typography variant="body2">{config.label}</Typography>
+                              <Typography variant="body2">
+                                {config.label}
+                              </Typography>
                             </Stack>
                           </MenuItem>
                         );
@@ -2223,7 +2289,7 @@ export default function DisbursementPage() {
                     onClick={() => setShowFilterPanel(!showFilterPanel)}
                     size="small"
                   >
-                    {showFilterPanel ? 'Hide Filters' : 'More Filters'}
+                    {showFilterPanel ? "Hide Filters" : "More Filters"}
                   </Button>
 
                   <Button
@@ -2234,9 +2300,9 @@ export default function DisbursementPage() {
                     size="small"
                     disabled={
                       !searchQuery &&
-                      disbursementStatusFilter === 'All' &&
-                      leadStatusFilter === 'All' &&
-                      bankFilter === 'All' &&
+                      disbursementStatusFilter === "All" &&
+                      leadStatusFilter === "All" &&
+                      bankFilter === "All" &&
                       !dateFilter.startDate &&
                       !dateFilter.endDate
                     }
@@ -2251,10 +2317,10 @@ export default function DisbursementPage() {
                 <Box
                   sx={{
                     p: 3,
-                    bgcolor: 'grey.50',
+                    bgcolor: "grey.50",
                     borderRadius: 2,
-                    border: '1px solid',
-                    borderColor: 'divider',
+                    border: "1px solid",
+                    borderColor: "divider",
                   }}
                 >
                   <Typography variant="subtitle1" fontWeight={600} gutterBottom>
@@ -2274,9 +2340,15 @@ export default function DisbursementPage() {
                             const config = getLeadStatusConfig(status);
                             return (
                               <MenuItem key={status} value={status}>
-                                <Stack direction="row" alignItems="center" spacing={1.5}>
+                                <Stack
+                                  direction="row"
+                                  alignItems="center"
+                                  spacing={1.5}
+                                >
                                   {config.icon}
-                                  <Typography variant="body2">{status}</Typography>
+                                  <Typography variant="body2">
+                                    {status}
+                                  </Typography>
                                 </Stack>
                               </MenuItem>
                             );
@@ -2307,13 +2379,18 @@ export default function DisbursementPage() {
                       <DatePicker
                         label="From Date"
                         value={dateFilter.startDate}
-                        onChange={(date) => setDateFilter(prev => ({ ...prev, startDate: date }))}
+                        onChange={(date) =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            startDate: date,
+                          }))
+                        }
                         slotProps={{
                           textField: {
                             fullWidth: true,
-                            size: 'small',
+                            size: "small",
                             error: !!dateFilterError,
-                            helperText: dateFilterError || ' ',
+                            helperText: dateFilterError || " ",
                           },
                         }}
                       />
@@ -2323,13 +2400,15 @@ export default function DisbursementPage() {
                       <DatePicker
                         label="To Date"
                         value={dateFilter.endDate}
-                        onChange={(date) => setDateFilter(prev => ({ ...prev, endDate: date }))}
+                        onChange={(date) =>
+                          setDateFilter((prev) => ({ ...prev, endDate: date }))
+                        }
                         slotProps={{
                           textField: {
                             fullWidth: true,
-                            size: 'small',
+                            size: "small",
                             error: !!dateFilterError,
-                            helperText: dateFilterError || ' ',
+                            helperText: dateFilterError || " ",
                           },
                         }}
                       />
@@ -2342,8 +2421,8 @@ export default function DisbursementPage() {
         </Card>
 
         {/* Data Table */}
-        <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ overflowX: 'auto' }}>
+        <Card sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <Box sx={{ overflowX: "auto" }}>
             <TableContainer>
               <Table>
                 <TableHead>
@@ -2357,17 +2436,21 @@ export default function DisbursementPage() {
                       <Button
                         fullWidth
                         size="small"
-                        onClick={() => handleSort('disbursementAmount')}
+                        onClick={() => handleSort("disbursementAmount")}
                         startIcon={
-                          sortConfig.key === 'disbursementAmount' ? (
-                            sortConfig.direction === 'asc' ? <ArrowUpward /> : <ArrowDownward />
+                          sortConfig.key === "disbursementAmount" ? (
+                            sortConfig.direction === "asc" ? (
+                              <ArrowUpward />
+                            ) : (
+                              <ArrowDownward />
+                            )
                           ) : null
                         }
                         sx={{
-                          justifyContent: 'flex-start',
+                          justifyContent: "flex-start",
                           fontWeight: 600,
-                          textTransform: 'none',
-                          color: 'text.primary',
+                          textTransform: "none",
+                          color: "text.primary",
                         }}
                       >
                         Amount
@@ -2387,17 +2470,21 @@ export default function DisbursementPage() {
                       <Button
                         fullWidth
                         size="small"
-                        onClick={() => handleSort('disbursementDate')}
+                        onClick={() => handleSort("disbursementDate")}
                         startIcon={
-                          sortConfig.key === 'disbursementDate' ? (
-                            sortConfig.direction === 'asc' ? <ArrowUpward /> : <ArrowDownward />
+                          sortConfig.key === "disbursementDate" ? (
+                            sortConfig.direction === "asc" ? (
+                              <ArrowUpward />
+                            ) : (
+                              <ArrowDownward />
+                            )
                           ) : null
                         }
                         sx={{
-                          justifyContent: 'flex-start',
+                          justifyContent: "flex-start",
                           fontWeight: 600,
-                          textTransform: 'none',
-                          color: 'text.primary',
+                          textTransform: "none",
+                          color: "text.primary",
                         }}
                       >
                         Disbursement Date
@@ -2425,33 +2512,39 @@ export default function DisbursementPage() {
                   ) : paginatedLeads.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                        <Box sx={{ textAlign: 'center' }}>
+                        <Box sx={{ textAlign: "center" }}>
                           <Payment
-                            sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }}
+                            sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
                           />
-                          <Typography variant="h6" color="text.secondary" gutterBottom>
+                          <Typography
+                            variant="h6"
+                            color="text.secondary"
+                            gutterBottom
+                          >
                             No Disbursement Leads Found
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             {filteredLeads.length === 0
-                              ? 'No disbursement leads in the system'
-                              : 'No leads match the current filters'}
+                              ? "No disbursement leads in the system"
+                              : "No leads match the current filters"}
                           </Typography>
-                          {filteredLeads.length === 0 && userPermissions.canManage && (
-                            <Button
-                              variant="contained"
-                              sx={{ mt: 2 }}
-                              onClick={() => navigate('/leads/create')}
-                            >
-                              Create New Lead
-                            </Button>
-                          )}
+                          {filteredLeads.length === 0 &&
+                            userPermissions.canManage && (
+                              <Button
+                                variant="contained"
+                                sx={{ mt: 2 }}
+                                onClick={() => navigate("/leads/create")}
+                              >
+                                Create New Lead
+                              </Button>
+                            )}
                         </Box>
                       </TableCell>
                     </TableRow>
                   ) : (
                     paginatedLeads.map((lead) => {
-                      const disbursementStatusConfig = getDisbursementStatusColor(lead.disbursementStatus);
+                      const disbursementStatusConfig =
+                        getDisbursementStatusColor(lead.disbursementStatus);
                       const leadStatusConfig = getLeadStatusConfig(lead.status);
 
                       return (
@@ -2459,11 +2552,17 @@ export default function DisbursementPage() {
                           key={lead._id}
                           hover
                           sx={{
-                            '&:hover': { bgcolor: alpha(PRIMARY, 0.02) },
+                            "&:hover": { bgcolor: alpha(PRIMARY, 0.02) },
                           }}
                         >
                           <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 2,
+                              }}
+                            >
                               <Avatar
                                 sx={{
                                   bgcolor: alpha(PRIMARY, 0.1),
@@ -2471,25 +2570,35 @@ export default function DisbursementPage() {
                                   fontWeight: 600,
                                 }}
                               >
-                                {lead.firstName?.[0] || 'C'}
+                                {lead.firstName?.[0] || "C"}
                               </Avatar>
                               <Box>
                                 <Typography variant="body1" fontWeight={600}>
                                   {lead.firstName} {lead.lastName}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {lead.phoneNumber || lead.phone || 'No phone'}
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {lead.phoneNumber || lead.phone || "No phone"}
                                 </Typography>
                               </Box>
                             </Box>
                           </TableCell>
 
                           <TableCell>
-                            <Typography variant="body1" fontWeight={600} color="#2e7d32">
+                            <Typography
+                              variant="body1"
+                              fontWeight={600}
+                              color="#2e7d32"
+                            >
                               {formatCurrency(lead.disbursementAmount)}
                             </Typography>
                             {lead.disbursementTransactionId && (
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
                                 Txn: {lead.disbursementTransactionId}
                               </Typography>
                             )}
@@ -2525,16 +2634,26 @@ export default function DisbursementPage() {
                           <TableCell>
                             <Box>
                               <Typography variant="body2">
-                                {formatDate(lead.disbursementDate, 'dd MMM yyyy')}
+                                {formatDate(
+                                  lead.disbursementDate,
+                                  "dd MMM yyyy",
+                                )}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {formatDate(lead.disbursementDate, 'hh:mm a')}
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {formatDate(lead.disbursementDate, "hh:mm a")}
                               </Typography>
                             </Box>
                           </TableCell>
 
                           <TableCell align="center">
-                            <Stack direction="row" spacing={1} justifyContent="center">
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              justifyContent="center"
+                            >
                               <Tooltip title="View Details">
                                 <IconButton
                                   size="small"
@@ -2549,7 +2668,9 @@ export default function DisbursementPage() {
                                 <Tooltip title="Update Disbursement Status">
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleStatusUpdateClick(lead)}
+                                    onClick={() =>
+                                      handleStatusUpdateClick(lead)
+                                    }
                                     sx={{ color: PRIMARY }}
                                   >
                                     <TrendingUp fontSize="small" />
@@ -2573,18 +2694,18 @@ export default function DisbursementPage() {
               sx={{
                 p: 2,
                 borderTop: 1,
-                borderColor: 'divider',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
+                borderColor: "divider",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
                 gap: 2,
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Showing {page * rowsPerPage + 1} to{' '}
-                  {Math.min((page + 1) * rowsPerPage, filteredLeads.length)} of{' '}
+                  Showing {page * rowsPerPage + 1} to{" "}
+                  {Math.min((page + 1) * rowsPerPage, filteredLeads.length)} of{" "}
                   {filteredLeads.length} leads
                 </Typography>
                 <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -2614,7 +2735,7 @@ export default function DisbursementPage() {
                 siblingCount={1}
                 boundaryCount={1}
                 sx={{
-                  '& .MuiPaginationItem-root': {
+                  "& .MuiPaginationItem-root": {
                     borderRadius: 2,
                   },
                 }}
@@ -2627,15 +2748,15 @@ export default function DisbursementPage() {
         {loading && (
           <Box
             sx={{
-              position: 'fixed',
+              position: "fixed",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              bgcolor: 'rgba(255, 255, 255, 0.7)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              bgcolor: "rgba(255, 255, 255, 0.7)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               zIndex: 10,
             }}
           >

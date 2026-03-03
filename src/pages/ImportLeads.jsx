@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   Box,
   Typography,
@@ -37,10 +43,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 const PRIMARY = "#3a5ac8"; // Updated primary color
-const API_BASE = (process.env.REACT_APP_API_URL || "https://admin.saurashakti.com").replace(/\/+$/, "");
+const API_BASE = (
+  process.env.REACT_APP_API_URL || "https://backend.sunergytechsolar.com/api/v1"
+).replace(/\/+$/, "");
 
 // Role-based access control
-const ALLOWED_ROLES = ["ASM", "ZSM", "Head_office"];
+const ALLOWED_ROLES = ["ASM", "ZSM", "Head_office", "TEAM"];
 
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
@@ -69,7 +77,7 @@ export default function InputLeadsPage() {
   const { fetchAPI, getUserRole } = useAuth();
   const userRole = getUserRole();
   const theme = useTheme();
-  
+
   // Responsive breakpoints
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isTablet = useMediaQuery(theme.breakpoints.down("md"));
@@ -80,40 +88,46 @@ export default function InputLeadsPage() {
   // Stats cards data - memoized
   const statsCards = useMemo(
     () => [
-      { 
-        label: "Total Leads", 
-        value: leadsData.totalLeads, 
+      {
+        label: "Total Leads",
+        value: leadsData.totalLeads,
         color: PRIMARY,
         icon: <People />,
         subText: "All time leads",
-        trend: leadsData.todayLeads > 0 ? `+${leadsData.todayLeads} today` : "No new leads"
+        trend:
+          leadsData.todayLeads > 0
+            ? `+${leadsData.todayLeads} today`
+            : "No new leads",
       },
-      { 
-        label: "Active Leads", 
-        value: leadsData.activeLeads, 
+      {
+        label: "Active Leads",
+        value: leadsData.activeLeads,
         color: PRIMARY,
         icon: <TrendingUp />,
         subText: "Currently active",
-        trend: "Follow up required"
+        trend: "Follow up required",
       },
-      { 
-        label: "Converted", 
-        value: leadsData.convertedLeads, 
+      {
+        label: "Converted",
+        value: leadsData.convertedLeads,
         color: PRIMARY,
         icon: <People />,
         subText: "Successfully converted",
-        trend: `${leadsData.conversionRate}% rate`
+        trend: `${leadsData.conversionRate}% rate`,
       },
-      { 
-        label: "This Month", 
-        value: leadsData.thisMonthLeads, 
+      {
+        label: "This Month",
+        value: leadsData.thisMonthLeads,
         color: PRIMARY,
         icon: <TrendingUp />,
         subText: "Monthly performance",
-        trend: leadsData.thisWeekLeads > 0 ? `+${leadsData.thisWeekLeads} this week` : "No weekly leads"
+        trend:
+          leadsData.thisWeekLeads > 0
+            ? `+${leadsData.thisWeekLeads} this week`
+            : "No weekly leads",
       },
     ],
-    [leadsData]
+    [leadsData],
   );
 
   // Fetch leads stats - optimized
@@ -163,38 +177,41 @@ export default function InputLeadsPage() {
   const validateFile = useCallback((file) => {
     const allowedTypes = [".xlsx", ".csv"];
     const ext = "." + file.name.split(".").pop().toLowerCase();
-    
+
     if (!allowedTypes.includes(ext)) {
       throw new Error(`Only ${allowedTypes.join(", ")} files are allowed`);
     }
-    
+
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       throw new Error("File size must be less than 10MB");
     }
-    
+
     return true;
   }, []);
 
   // Handle file change
-  const handleFileChange = useCallback((e) => {
-    if (!canImportLeads) {
-      showSnackbar("You don't have permission to import leads", "error");
-      return;
-    }
+  const handleFileChange = useCallback(
+    (e) => {
+      if (!canImportLeads) {
+        showSnackbar("You don't have permission to import leads", "error");
+        return;
+      }
 
-    const file = e.target.files[0];
-    if (!file) return;
+      const file = e.target.files[0];
+      if (!file) return;
 
-    try {
-      validateFile(file);
-      setSelectedFile(file);
-      showSnackbar(`Selected: ${file.name}`, "success");
-    } catch (error) {
-      showSnackbar(error.message, "error");
-      e.target.value = null;
-    }
-  }, [validateFile, canImportLeads]);
+      try {
+        validateFile(file);
+        setSelectedFile(file);
+        showSnackbar(`Selected: ${file.name}`, "success");
+      } catch (error) {
+        showSnackbar(error.message, "error");
+        e.target.value = null;
+      }
+    },
+    [validateFile, canImportLeads],
+  );
 
   // Import leads function
   const handleImportLeads = useCallback(async () => {
@@ -279,9 +296,9 @@ export default function InputLeadsPage() {
   // Download template
   const downloadTemplate = useCallback(() => {
     const templateUrl = `${API_BASE}/templates/leads_template.csv`;
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = templateUrl;
-    link.download = 'leads_template.csv';
+    link.download = "leads_template.csv";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -291,7 +308,16 @@ export default function InputLeadsPage() {
   // Check if user has access to this page
   if (!canImportLeads) {
     return (
-      <Box sx={{ p: 3, textAlign: "center", minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <Box
+        sx={{
+          p: 3,
+          textAlign: "center",
+          minHeight: "60vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <Alert severity="warning" sx={{ maxWidth: 500, borderRadius: 2 }}>
           <AlertTitle>Access Restricted</AlertTitle>
           Only ASM, ZSM, and Head Office can import leads.
@@ -299,7 +325,11 @@ export default function InputLeadsPage() {
           <Typography variant="body2" sx={{ mt: 1 }}>
             Your role: <strong>{userRole || "Unknown"}</strong>
           </Typography>
-          <Button sx={{ mt: 2 }} variant="contained" onClick={() => navigate("/dashboard")}>
+          <Button
+            sx={{ mt: 2 }}
+            variant="contained"
+            onClick={() => navigate("/dashboard")}
+          >
             Go to Dashboard
           </Button>
         </Alert>
@@ -310,7 +340,14 @@ export default function InputLeadsPage() {
   // Loading state
   if (loading) {
     return (
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "60vh",
+        }}
+      >
         <CircularProgress size={60} sx={{ color: PRIMARY }} />
       </Box>
     );
@@ -330,7 +367,11 @@ export default function InputLeadsPage() {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: "100%", borderRadius: 1 }}>
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: "100%", borderRadius: 1 }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
@@ -360,7 +401,11 @@ export default function InputLeadsPage() {
           </Typography>
         </Box>
 
-        <Stack direction="row" spacing={1} sx={{ width: { xs: "100%", sm: "auto" } }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
+        >
           <FormControl sx={{ minWidth: { xs: "100%", sm: 140 } }}>
             <Select
               value={filter}
@@ -395,7 +440,7 @@ export default function InputLeadsPage() {
                 borderRadius: 2,
                 boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                 bgcolor: "white",
-                width:"265px",
+                width: "265px",
                 height: "100%",
                 borderLeft: `4px solid ${stat.color}`,
                 transition: "all 0.2s",
@@ -405,7 +450,14 @@ export default function InputLeadsPage() {
                 },
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  mb: 2,
+                }}
+              >
                 <Box
                   sx={{
                     p: 1,
@@ -424,13 +476,30 @@ export default function InputLeadsPage() {
               >
                 {stat.value}
               </Typography>
-              <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ mb: 0.5 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontWeight={500}
+                sx={{ mb: 0.5 }}
+              >
                 {stat.label}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block" }}
+              >
                 {stat.subText}
               </Typography>
-              <Typography variant="caption" sx={{ color: stat.color, fontWeight: 500, display: "block", mt: 1 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: stat.color,
+                  fontWeight: 500,
+                  display: "block",
+                  mt: 1,
+                }}
+              >
                 {stat.trend}
               </Typography>
             </Card>
@@ -465,7 +534,7 @@ export default function InputLeadsPage() {
                 p: 3,
                 borderRadius: 2,
                 border: "2px dashed",
-                width:"530px",
+                width: "530px",
                 borderColor: alpha(PRIMARY, 0.3),
                 bgcolor: alpha(PRIMARY, 0.02),
                 height: "100%",
@@ -515,7 +584,7 @@ export default function InputLeadsPage() {
                 borderColor: alpha(PRIMARY, 0.3),
                 bgcolor: alpha(PRIMARY, 0.02),
                 height: "100%",
-                width:"530px",
+                width: "530px",
                 textAlign: "center",
               }}
             >
@@ -546,7 +615,7 @@ export default function InputLeadsPage() {
                 sx={{ display: "none" }}
                 id="file-upload"
               />
-              
+
               {!selectedFile ? (
                 <>
                   <label htmlFor="file-upload">
@@ -575,7 +644,11 @@ export default function InputLeadsPage() {
                     mb: 2,
                   }}
                 >
-                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
                     <Stack direction="row" alignItems="center" spacing={1.5}>
                       <Description sx={{ color: PRIMARY }} />
                       <Box>
@@ -597,7 +670,9 @@ export default function InputLeadsPage() {
                     disabled={uploading}
                     fullWidth
                     sx={{ mt: 2, borderRadius: 2, bgcolor: "#4569ea" }}
-                    startIcon={uploading ? <CircularProgress size={20} /> : null}
+                    startIcon={
+                      uploading ? <CircularProgress size={20} /> : null
+                    }
                   >
                     {uploading ? "Importing..." : "Import Leads"}
                   </Button>
@@ -618,15 +693,22 @@ export default function InputLeadsPage() {
             borderColor: "divider",
           }}
         >
-          <Typography variant="subtitle2" fontWeight={600} color="text.primary" gutterBottom>
+          <Typography
+            variant="subtitle2"
+            fontWeight={600}
+            color="text.primary"
+            gutterBottom
+          >
             📋 Import Instructions
           </Typography>
           <Stack spacing={1} sx={{ pl: 2 }}>
             <Typography variant="body2">
-              1. Use the template with required columns: <strong>name, phone, email, source, status</strong>
+              1. Use the template with required columns:{" "}
+              <strong>name, phone, email, source, status</strong>
             </Typography>
             <Typography variant="body2">
-              2. Save file as <strong>.xlsx</strong> or <strong>.csv</strong> format
+              2. Save file as <strong>.xlsx</strong> or <strong>.csv</strong>{" "}
+              format
             </Typography>
             <Typography variant="body2">
               3. Maximum file size: <strong>10MB</strong>
@@ -638,7 +720,7 @@ export default function InputLeadsPage() {
               onClick={downloadTemplate}
               variant="text"
               startIcon={<Download />}
-              sx={{ mt: 1, alignSelf: 'flex-start', color: PRIMARY }}
+              sx={{ mt: 1, alignSelf: "flex-start", color: PRIMARY }}
             >
               Download Template
             </Button>
@@ -659,11 +741,12 @@ export default function InputLeadsPage() {
           <Stack direction="row" spacing={1} alignItems="center">
             <Warning sx={{ color: PRIMARY }} />
             <Typography variant="body2">
-              <strong>Tip:</strong> Ensure phone numbers are in correct format (10 digits). Invalid data may be skipped during import.
+              <strong>Tip:</strong> Ensure phone numbers are in correct format
+              (10 digits). Invalid data may be skipped during import.
             </Typography>
           </Stack>
         </Box>
       </Card>
     </Box>
-  ); 
+  );
 }

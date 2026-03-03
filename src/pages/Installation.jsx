@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -121,7 +116,6 @@ import {
 } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-
 // ========== CONSTANTS & CONFIGURATION ==========
 const PRIMARY = "#3a5ac8";
 const SECONDARY = "#1a237e";
@@ -130,7 +124,15 @@ const DEFAULT_ITEMS_PER_PAGE = 10;
 const ALLOWED_ROLES = ["Head_office", "ZSM", "ASM", "TEAM"];
 
 // Installation Status Configuration
-const INSTALLATION_STATUS_OPTIONS = ["pending", "meter-charge", "final-payment"];
+const INSTALLATION_STATUS_OPTIONS = [
+  "pending",
+  "Installation In Progress",
+  "Installation Completed",
+  "Sent for JEE Verification",
+  "JEE Verified",
+  "Meter Charge",
+  "final-payment",
+];
 
 const INSTALLATION_STATUS_CONFIG = {
   pending: {
@@ -197,10 +199,7 @@ const INSTALLATION_STATUS_CONFIG = {
 };
 
 // Lead Status Configuration for Installation Page
-const LEAD_STATUS_OPTIONS = [
-  "Installation Completion",
-  "Missed Leads",
-];
+const LEAD_STATUS_OPTIONS = ["Installation Completion", "Missed Leads"];
 
 const LEAD_STATUS_CONFIG = {
   "Installation Completion": {
@@ -311,7 +310,8 @@ const InstallationStatusUpdateModal = React.memo(
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
     const [loading, setLoading] = useState(false);
-    const [selectedInstallationStatus, setSelectedInstallationStatus] = useState("");
+    const [selectedInstallationStatus, setSelectedInstallationStatus] =
+      useState("");
     const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
     const [installationDate, setInstallationDate] = useState(null);
     const [installationNotes, setInstallationNotes] = useState("");
@@ -319,12 +319,12 @@ const InstallationStatusUpdateModal = React.memo(
 
     const installationStatusConfig = useMemo(
       () => getInstallationStatusColor(lead?.installationStatus),
-      [lead?.installationStatus]
+      [lead?.installationStatus],
     );
 
     const leadStatusConfig = useMemo(
       () => getLeadStatusConfig(lead?.status),
-      [lead?.status]
+      [lead?.status],
     );
 
     useEffect(() => {
@@ -332,7 +332,7 @@ const InstallationStatusUpdateModal = React.memo(
         setSelectedInstallationStatus(lead.installationStatus || "");
         setSelectedLeadStatus(lead.status || "Installation Completion");
         setInstallationDate(
-          lead.installationDate ? parseISO(lead.installationDate) : null
+          lead.installationDate ? parseISO(lead.installationDate) : null,
         );
         setInstallationNotes(lead.installationNotes || "");
         setErrors({});
@@ -358,7 +358,8 @@ const InstallationStatusUpdateModal = React.memo(
       if (
         selectedInstallationStatus === lead?.installationStatus &&
         selectedLeadStatus === lead?.status &&
-        installationDate === (lead.installationDate ? parseISO(lead.installationDate) : null) &&
+        installationDate ===
+          (lead.installationDate ? parseISO(lead.installationDate) : null) &&
         installationNotes === (lead.installationNotes || "")
       ) {
         onClose();
@@ -371,7 +372,7 @@ const InstallationStatusUpdateModal = React.memo(
           installationStatus: selectedInstallationStatus,
           status: selectedLeadStatus,
           installationNotes: installationNotes,
-          installationDate:installationDate,
+          installationDate: installationDate,
           updatedBy: user?._id,
           updatedByRole: user?.role,
           updatedAt: new Date().toISOString(),
@@ -551,7 +552,11 @@ const InstallationStatusUpdateModal = React.memo(
               <Typography variant="subtitle2" fontWeight={600} gutterBottom>
                 New Installation Status *
               </Typography>
-              <FormControl fullWidth size="small" error={!!errors.installationStatus}>
+              <FormControl
+                fullWidth
+                size="small"
+                error={!!errors.installationStatus}
+              >
                 <Select
                   value={selectedInstallationStatus}
                   onChange={(e) => {
@@ -565,7 +570,9 @@ const InstallationStatusUpdateModal = React.memo(
                   <MenuItem value="" disabled>
                     Select installation status
                   </MenuItem>
-                  {INSTALLATION_STATUS_OPTIONS.filter((status) => status !== lead?.installationStatus).map((status) => {
+                  {INSTALLATION_STATUS_OPTIONS.filter(
+                    (status) => status !== lead?.installationStatus,
+                  ).map((status) => {
                     const config = getInstallationStatusColor(status);
                     return (
                       <MenuItem key={status} value={status}>
@@ -674,8 +681,8 @@ const InstallationStatusUpdateModal = React.memo(
                   {selectedInstallationStatus === "final-payment"
                     ? "When marked as final payment, installation will be considered completed."
                     : selectedInstallationStatus === "meter-charge"
-                    ? "Meter charge phase indicates installation is in progress."
-                    : "When scheduled, installation is planned but not yet started."}
+                      ? "Meter charge phase indicates installation is in progress."
+                      : "When scheduled, installation is planned but not yet started."}
                 </Typography>
               </Alert>
             )}
@@ -698,7 +705,10 @@ const InstallationStatusUpdateModal = React.memo(
               !selectedLeadStatus ||
               (selectedInstallationStatus === lead?.installationStatus &&
                 selectedLeadStatus === lead?.status &&
-                installationDate === (lead.installationDate ? parseISO(lead.installationDate) : null) &&
+                installationDate ===
+                  (lead.installationDate
+                    ? parseISO(lead.installationDate)
+                    : null) &&
                 installationNotes === (lead.installationNotes || ""))
             }
             startIcon={loading ? <CircularProgress size={20} /> : <Save />}
@@ -709,7 +719,7 @@ const InstallationStatusUpdateModal = React.memo(
         </DialogActions>
       </Dialog>
     );
-  }
+  },
 );
 
 InstallationStatusUpdateModal.displayName = "InstallationStatusUpdateModal";
@@ -777,12 +787,22 @@ const ViewLeadModal = React.memo(
                         Installation Status
                       </Typography>
                       <Chip
-                        label={getInstallationStatusColor(lead.installationStatus).label}
-                        icon={getInstallationStatusColor(lead.installationStatus).icon}
+                        label={
+                          getInstallationStatusColor(lead.installationStatus)
+                            .label
+                        }
+                        icon={
+                          getInstallationStatusColor(lead.installationStatus)
+                            .icon
+                        }
                         size="small"
                         sx={{
-                          bgcolor: getInstallationStatusColor(lead.installationStatus).bg,
-                          color: getInstallationStatusColor(lead.installationStatus).color,
+                          bgcolor: getInstallationStatusColor(
+                            lead.installationStatus,
+                          ).bg,
+                          color: getInstallationStatusColor(
+                            lead.installationStatus,
+                          ).color,
                           fontWeight: 600,
                         }}
                       />
@@ -868,7 +888,9 @@ const ViewLeadModal = React.memo(
                         Updated By Role
                       </Typography>
                       <Typography variant="body1">
-                        {lead.updatedByRole ? getRoleConfig(lead.updatedByRole).label : "Not set"}
+                        {lead.updatedByRole
+                          ? getRoleConfig(lead.updatedByRole).label
+                          : "Not set"}
                       </Typography>
                     </Box>
                   </Stack>
@@ -888,7 +910,7 @@ const ViewLeadModal = React.memo(
                         gap: 1,
                         mb: 2,
                         color: PRIMARY,
-                    }}
+                      }}
                     >
                       <Note /> Installation Notes
                     </Typography>
@@ -901,7 +923,10 @@ const ViewLeadModal = React.memo(
                         borderColor: "grey.300",
                       }}
                     >
-                      <Typography variant="body2" style={{ whiteSpace: "pre-wrap" }}>
+                      <Typography
+                        variant="body2"
+                        style={{ whiteSpace: "pre-wrap" }}
+                      >
                         {lead.installationNotes}
                       </Typography>
                     </Paper>
@@ -983,9 +1008,7 @@ const ViewLeadModal = React.memo(
                         <Typography variant="body2" color="text.secondary">
                           State
                         </Typography>
-                        <Typography variant="body1">
-                          {lead.state}
-                        </Typography>
+                        <Typography variant="body1">{lead.state}</Typography>
                       </Box>
                     )}
                   </Stack>
@@ -1027,7 +1050,8 @@ const ViewLeadModal = React.memo(
                   {lead.firstName} {lead.lastName}
                 </Typography>
                 <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                  Installation Details • {getInstallationStatusColor(lead.installationStatus).label}
+                  Installation Details •{" "}
+                  {getInstallationStatusColor(lead.installationStatus).label}
                 </Typography>
               </Box>
             </Box>
@@ -1039,15 +1063,15 @@ const ViewLeadModal = React.memo(
 
         <DialogContent sx={{ p: 0 }}>
           <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Stack 
-              direction="row" 
-              sx={{ 
-                px: 2, 
-                overflowX: 'auto',
-                '& .MuiButtonBase-root': {
-                  minWidth: 'auto',
+            <Stack
+              direction="row"
+              sx={{
+                px: 2,
+                overflowX: "auto",
+                "& .MuiButtonBase-root": {
+                  minWidth: "auto",
                   px: 2,
-                }
+                },
               }}
             >
               {tabs.map((tab, index) => (
@@ -1060,14 +1084,15 @@ const ViewLeadModal = React.memo(
                     fontWeight: 600,
                     fontSize: "0.875rem",
                     color: activeTab === index ? PRIMARY : "text.secondary",
-                    borderBottom: activeTab === index ? `2px solid ${PRIMARY}` : "none",
+                    borderBottom:
+                      activeTab === index ? `2px solid ${PRIMARY}` : "none",
                     borderRadius: 0,
                     py: 2,
-                    minHeight: 'auto',
-                    '&:hover': {
-                      bgcolor: 'transparent',
+                    minHeight: "auto",
+                    "&:hover": {
+                      bgcolor: "transparent",
                       color: PRIMARY,
-                    }
+                    },
                   }}
                 >
                   {tab.label}
@@ -1104,7 +1129,7 @@ const ViewLeadModal = React.memo(
         </DialogActions>
       </Dialog>
     );
-  }
+  },
 );
 
 ViewLeadModal.displayName = "ViewLeadModal";
@@ -1140,7 +1165,7 @@ export default function InstallationPage() {
   const userRole = user?.role;
   const userPermissions = useMemo(
     () => getUserPermissions(userRole),
-    [userRole]
+    [userRole],
   );
 
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -1168,7 +1193,8 @@ export default function InstallationPage() {
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState("");
-  const [installationStatusFilter, setInstallationStatusFilter] = useState("All");
+  const [installationStatusFilter, setInstallationStatusFilter] =
+    useState("All");
   const [leadStatusFilter, setLeadStatusFilter] = useState("All");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [dateFilter, setDateFilter] = useState({
@@ -1197,10 +1223,10 @@ export default function InstallationPage() {
     try {
       setLoading(true);
       setError(null);
-  
+
       const params = new URLSearchParams();
       const today = new Date();
-  
+
       if (period === "Today") {
         params.append("startDate", format(today, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
@@ -1215,45 +1241,45 @@ export default function InstallationPage() {
         params.append("startDate", format(monthAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       }
-  
+
       const response = await fetchAPI(
-        `/lead/installationSummary?${params.toString()}`
+        `/lead/installationSummary?${params.toString()}`,
       );
-  
+
       if (!response?.success) {
         throw new Error(response?.message || "Failed to fetch data");
       }
-  
+
       const allLeads = response.result?.installations || [];
-  
+
       let filteredLeads = allLeads;
       if (userRole === "TEAM" && user?._id) {
-        filteredLeads = allLeads.filter(lead =>
-          lead.assignedTo === user._id ||
-          lead.assignedManager === user._id ||
-          lead.assignedUser === user._id ||
-          lead.createdBy === user._id
+        filteredLeads = allLeads.filter(
+          (lead) =>
+            lead.assignedTo === user._id ||
+            lead.assignedManager === user._id ||
+            lead.assignedUser === user._id ||
+            lead.createdBy === user._id,
         );
       }
-  
+
       const summary = {
         totalInstallations: filteredLeads.length,
         pendingInstallations: filteredLeads.filter(
-          l => l.installationStatus === "pending"
+          (l) => l.installationStatus === "pending",
         ).length,
         inProgressInstallations: filteredLeads.filter(
-          l => l.installationStatus === "meter-charge"
+          (l) => l.installationStatus === "meter-charge",
         ).length,
         completedInstallations: filteredLeads.filter(
-          l => l.installationStatus === "final-payment"
+          (l) => l.installationStatus === "final-payment",
         ).length,
       };
-  
+
       setInstallationData({
         installations: filteredLeads,
         summary,
       });
-  
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -1262,7 +1288,6 @@ export default function InstallationPage() {
       setLoading(false);
     }
   }, [period, fetchAPI, userRole, user, showSnackbar]);
-  
 
   // Initial fetch
   useEffect(() => {
@@ -1281,28 +1306,31 @@ export default function InstallationPage() {
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(lead =>
-        lead.firstName?.toLowerCase().includes(query) ||
-        lead.lastName?.toLowerCase().includes(query) ||
-        lead.email?.toLowerCase().includes(query) ||
-        lead.phoneNumber?.toLowerCase().includes(query) ||
-        lead.phone?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (lead) =>
+          lead.firstName?.toLowerCase().includes(query) ||
+          lead.lastName?.toLowerCase().includes(query) ||
+          lead.email?.toLowerCase().includes(query) ||
+          lead.phoneNumber?.toLowerCase().includes(query) ||
+          lead.phone?.toLowerCase().includes(query),
       );
     }
 
     // Apply installation status filter
-    if (installationStatusFilter !== 'All') {
-      filtered = filtered.filter(lead => lead.installationStatus === installationStatusFilter);
+    if (installationStatusFilter !== "All") {
+      filtered = filtered.filter(
+        (lead) => lead.installationStatus === installationStatusFilter,
+      );
     }
 
     // Apply lead status filter
-    if (leadStatusFilter !== 'All') {
-      filtered = filtered.filter(lead => lead.status === leadStatusFilter);
+    if (leadStatusFilter !== "All") {
+      filtered = filtered.filter((lead) => lead.status === leadStatusFilter);
     }
 
     // Apply date filter
     if (dateFilter.startDate && dateFilter.endDate) {
-      filtered = filtered.filter(lead => {
+      filtered = filtered.filter((lead) => {
         if (!lead.installationDate) return false;
         const leadDate = parseISO(lead.installationDate);
         return isWithinInterval(leadDate, {
@@ -1318,26 +1346,37 @@ export default function InstallationPage() {
         const aValue = a[sortConfig.key];
         const bValue = b[sortConfig.key];
 
-        if (sortConfig.key === 'installationDate' || sortConfig.key === 'updatedAt' || sortConfig.key === 'createdAt') {
+        if (
+          sortConfig.key === "installationDate" ||
+          sortConfig.key === "updatedAt" ||
+          sortConfig.key === "createdAt"
+        ) {
           const aDate = aValue ? parseISO(aValue) : new Date(0);
           const bDate = bValue ? parseISO(bValue) : new Date(0);
-          return sortConfig.direction === 'asc' ? aDate - bDate : bDate - aDate;
+          return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
         }
 
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return sortConfig.direction === 'asc'
+        if (typeof aValue === "string" && typeof bValue === "string") {
+          return sortConfig.direction === "asc"
             ? aValue.localeCompare(bValue)
             : bValue.localeCompare(aValue);
         }
 
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
       });
     }
 
     return filtered;
-  }, [installationData.installations, searchQuery, installationStatusFilter, leadStatusFilter, dateFilter, sortConfig]);
+  }, [
+    installationData.installations,
+    searchQuery,
+    installationStatusFilter,
+    leadStatusFilter,
+    dateFilter,
+    sortConfig,
+  ]);
 
   // Pagination
   const paginatedData = useMemo(() => {
@@ -1350,28 +1389,35 @@ export default function InstallationPage() {
 
   // Handlers
   const handleSort = (key) => {
-    setSortConfig(current => ({
+    setSortConfig((current) => ({
       key,
-      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+      direction:
+        current.key === key && current.direction === "asc" ? "desc" : "asc",
     }));
   };
 
   const handleStatusUpdate = (updatedLead) => {
-    setInstallationData(prev => ({
+    setInstallationData((prev) => ({
       ...prev,
-      installations: prev.installations.map(lead =>
-        lead._id === updatedLead._id ? updatedLead : lead
+      installations: prev.installations.map((lead) =>
+        lead._id === updatedLead._id ? updatedLead : lead,
       ),
       summary: {
         ...prev.summary,
-        pendingInstallations: prev.installations.filter(l => 
-          l._id === updatedLead._id ? updatedLead.installationStatus === 'pending' : l.installationStatus === 'pending'
+        pendingInstallations: prev.installations.filter((l) =>
+          l._id === updatedLead._id
+            ? updatedLead.installationStatus === "pending"
+            : l.installationStatus === "pending",
         ).length,
-        meterChargeInstallations: prev.installations.filter(l =>
-          l._id === updatedLead._id ? updatedLead.installationStatus === 'meter-charge' : l.installationStatus === 'meter-charge'
+        meterChargeInstallations: prev.installations.filter((l) =>
+          l._id === updatedLead._id
+            ? updatedLead.installationStatus === "meter-charge"
+            : l.installationStatus === "meter-charge",
         ).length,
-        finalPaymentInstallations: prev.installations.filter(l =>
-          l._id === updatedLead._id ? updatedLead.installationStatus === 'final-payment' : l.installationStatus === 'final-payment'
+        finalPaymentInstallations: prev.installations.filter((l) =>
+          l._id === updatedLead._id
+            ? updatedLead.installationStatus === "final-payment"
+            : l.installationStatus === "final-payment",
         ).length,
       },
     }));
@@ -1388,17 +1434,17 @@ export default function InstallationPage() {
   };
 
   const handleDateFilterChange = (type, date) => {
-    setDateFilter(prev => {
+    setDateFilter((prev) => {
       const newFilter = { ...prev, [type]: date };
-      
+
       if (newFilter.startDate && newFilter.endDate) {
         if (newFilter.startDate > newFilter.endDate) {
-          setDateFilterError('Start date cannot be after end date');
+          setDateFilterError("Start date cannot be after end date");
         } else {
-          setDateFilterError('');
+          setDateFilterError("");
         }
       }
-      
+
       return newFilter;
     });
   };
@@ -1406,26 +1452,26 @@ export default function InstallationPage() {
   const handlePeriodChange = (newPeriod) => {
     setPeriod(newPeriod);
     setDateFilter({ startDate: null, endDate: null });
-    setDateFilterError('');
+    setDateFilterError("");
   };
 
   const handleClearFilters = () => {
-    setSearchQuery('');
-    setInstallationStatusFilter('All');
-    setLeadStatusFilter('All');
+    setSearchQuery("");
+    setInstallationStatusFilter("All");
+    setLeadStatusFilter("All");
     setDateFilter({ startDate: null, endDate: null });
-    setDateFilterError('');
-    setSortConfig({ key: null, direction: 'asc' });
+    setDateFilterError("");
+    setSortConfig({ key: null, direction: "asc" });
     setPage(0);
   };
 
   const handleRefresh = () => {
     fetchInstallationData();
-    showSnackbar('Data refreshed successfully', 'success');
+    showSnackbar("Data refreshed successfully", "success");
   };
 
   const handleCloseSnackbar = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
   // Access control
@@ -1433,25 +1479,30 @@ export default function InstallationPage() {
     return (
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '60vh',
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "60vh",
           p: 3,
         }}
       >
-        <Security sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+        <Security sx={{ fontSize: 64, color: "error.main", mb: 2 }} />
         <Typography variant="h5" color="error" gutterBottom>
           Access Denied
         </Typography>
-        <Typography variant="body1" color="text.secondary" align="center" sx={{ maxWidth: 400 }}>
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          align="center"
+          sx={{ maxWidth: 400 }}
+        >
           You do not have permission to access the installation management page.
         </Typography>
         <Button
           variant="contained"
           sx={{ mt: 3, bgcolor: PRIMARY }}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate("/dashboard")}
         >
           Go to Dashboard
         </Button>
@@ -1469,19 +1520,24 @@ export default function InstallationPage() {
     return (
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '60vh',
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "60vh",
           p: 3,
         }}
       >
-        <ErrorIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+        <ErrorIcon sx={{ fontSize: 64, color: "error.main", mb: 2 }} />
         <Typography variant="h5" color="error" gutterBottom>
           Error Loading Data
         </Typography>
-        <Typography variant="body1" color="text.secondary" align="center" sx={{ maxWidth: 400, mb: 3 }}>
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          align="center"
+          sx={{ maxWidth: 400, mb: 3 }}
+        >
           {error}
         </Typography>
         <Button
@@ -1499,36 +1555,36 @@ export default function InstallationPage() {
   // Summary cards data
   const summaryCards = [
     {
-      title: 'Total Installations',
+      title: "Total Installations",
       value: installationData.summary.totalInstallations,
-      icon: <Build sx={{ fontSize: 24 , color: '#4569ea'}} />,
-      bgcolor: '#e3f2fd',
-      color: '#4569ea',
-      subText: 'All installation leads',
+      icon: <Build sx={{ fontSize: 24, color: "#4569ea" }} />,
+      bgcolor: "#e3f2fd",
+      color: "#4569ea",
+      subText: "All installation leads",
     },
     {
-      title: 'Scheduled',
+      title: "Scheduled",
       value: installationData.summary.pendingInstallations,
-      icon: <Schedule sx={{ fontSize: 24, color: '#4569ea' }} />,
-      bgcolor: '#e3f2fd',
-      color: '#4569ea',
-      subText: 'Pending installation',
+      icon: <Schedule sx={{ fontSize: 24, color: "#4569ea" }} />,
+      bgcolor: "#e3f2fd",
+      color: "#4569ea",
+      subText: "Pending installation",
     },
     {
-      title: 'Meter Charge',
+      title: "Meter Charge",
       value: installationData.summary.meterChargeInstallations,
-      icon: <LocalAtm sx={{ fontSize: 24, color: '#4569ea'}} />,
-      bgcolor: '#e6edf5',
-      color: '#4569ea',
-      subText: 'Meter charging phase',
+      icon: <LocalAtm sx={{ fontSize: 24, color: "#4569ea" }} />,
+      bgcolor: "#e6edf5",
+      color: "#4569ea",
+      subText: "Meter charging phase",
     },
     {
-      title: 'Final Payment',
+      title: "Final Payment",
       value: installationData.summary.finalPaymentInstallations,
-      icon: <CheckCircle sx={{ fontSize: 24, color: '#4569ea'}} />,
-      bgcolor: '#e8f5e9',
-      color: '#4569ea',
-      subText: 'Installation completed',
+      icon: <CheckCircle sx={{ fontSize: 24, color: "#4569ea" }} />,
+      bgcolor: "#e8f5e9",
+      color: "#4569ea",
+      subText: "Installation completed",
     },
   ];
 
@@ -1537,7 +1593,13 @@ export default function InstallationPage() {
       <Box sx={{ p: { xs: 2, sm: 3 } }}>
         {/* Header */}
         <Box sx={{ mb: 4 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            spacing={2}
+            sx={{ mb: 3 }}
+          >
             <Box>
               <Typography variant="h4" fontWeight={700} sx={{ color: "black" }}>
                 Installation Management
@@ -1686,10 +1748,12 @@ export default function InstallationPage() {
                     <Select
                       value={installationStatusFilter}
                       label="Installation Status"
-                      onChange={(e) => setInstallationStatusFilter(e.target.value)}
+                      onChange={(e) =>
+                        setInstallationStatusFilter(e.target.value)
+                      }
                     >
                       <MenuItem value="All">All Status</MenuItem>
-                      {INSTALLATION_STATUS_OPTIONS.map(status => (
+                      {INSTALLATION_STATUS_OPTIONS.map((status) => (
                         <MenuItem key={status} value={status}>
                           {getInstallationStatusColor(status).label}
                         </MenuItem>
@@ -1732,7 +1796,7 @@ export default function InstallationPage() {
                           onChange={(e) => setLeadStatusFilter(e.target.value)}
                         >
                           <MenuItem value="All">All Status</MenuItem>
-                          {LEAD_STATUS_OPTIONS.map(status => (
+                          {LEAD_STATUS_OPTIONS.map((status) => (
                             <MenuItem key={status} value={status}>
                               {status}
                             </MenuItem>
@@ -1745,24 +1809,28 @@ export default function InstallationPage() {
                         <DatePicker
                           label="Start Date"
                           value={dateFilter.startDate}
-                          onChange={(date) => handleDateFilterChange('startDate', date)}
+                          onChange={(date) =>
+                            handleDateFilterChange("startDate", date)
+                          }
                           slotProps={{
                             textField: {
                               fullWidth: true,
-                              size: 'small',
+                              size: "small",
                               error: !!dateFilterError,
-                              helperText: dateFilterError || ' ',
+                              helperText: dateFilterError || " ",
                             },
                           }}
                         />
                         <DatePicker
                           label="End Date"
                           value={dateFilter.endDate}
-                          onChange={(date) => handleDateFilterChange('endDate', date)}
+                          onChange={(date) =>
+                            handleDateFilterChange("endDate", date)
+                          }
                           slotProps={{
                             textField: {
                               fullWidth: true,
-                              size: 'small',
+                              size: "small",
                               error: !!dateFilterError,
                             },
                           }}
@@ -1834,7 +1902,7 @@ export default function InstallationPage() {
                       <Chip
                         label={`From: ${format(
                           dateFilter.startDate,
-                          "dd MMM yyyy"
+                          "dd MMM yyyy",
                         )}`}
                         size="small"
                         onDelete={() =>
@@ -1849,7 +1917,7 @@ export default function InstallationPage() {
                       <Chip
                         label={`To: ${format(
                           dateFilter.endDate,
-                          "dd MMM yyyy"
+                          "dd MMM yyyy",
                         )}`}
                         size="small"
                         onDelete={() =>
@@ -1876,7 +1944,7 @@ export default function InstallationPage() {
         </Card>
 
         {/* Main Table */}
-        <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <Card sx={{ borderRadius: 3, overflow: "hidden" }}>
           <CardContent sx={{ p: 0 }}>
             {/* Header */}
             <Box
@@ -1941,10 +2009,10 @@ export default function InstallationPage() {
                       <Button
                         fullWidth
                         size="small"
-                        onClick={() => handleSort('installationDate')}
+                        onClick={() => handleSort("installationDate")}
                         startIcon={
-                          sortConfig.key === 'installationDate' ? (
-                            sortConfig.direction === 'asc' ? (
+                          sortConfig.key === "installationDate" ? (
+                            sortConfig.direction === "asc" ? (
                               <ArrowUpward fontSize="small" />
                             ) : (
                               <ArrowDownward fontSize="small" />
@@ -1965,10 +2033,10 @@ export default function InstallationPage() {
                       <Button
                         fullWidth
                         size="small"
-                        onClick={() => handleSort('installationStatus')}
+                        onClick={() => handleSort("installationStatus")}
                         startIcon={
-                          sortConfig.key === 'installationStatus' ? (
-                            sortConfig.direction === 'asc' ? (
+                          sortConfig.key === "installationStatus" ? (
+                            sortConfig.direction === "asc" ? (
                               <ArrowUpward fontSize="small" />
                             ) : (
                               <ArrowDownward fontSize="small" />
@@ -2007,31 +2075,45 @@ export default function InstallationPage() {
                   {paginatedData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Build sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-                          <Typography variant="h6" color="text.secondary" gutterBottom>
+                        <Box sx={{ textAlign: "center" }}>
+                          <Build
+                            sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
+                          />
+                          <Typography
+                            variant="h6"
+                            color="text.secondary"
+                            gutterBottom
+                          >
                             No Installation Leads Found
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mx: 'auto', mb: 3 }}>
-                            {filteredData.length === 0 && installationData.installations.length > 0
-                              ? 'Try adjusting your filters to see more results.'
-                              : 'No installation data available for the selected period.'}
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ maxWidth: 400, mx: "auto", mb: 3 }}
+                          >
+                            {filteredData.length === 0 &&
+                            installationData.installations.length > 0
+                              ? "Try adjusting your filters to see more results."
+                              : "No installation data available for the selected period."}
                           </Typography>
-                          {filteredData.length === 0 && installationData.installations.length > 0 && (
-                            <Button
-                              variant="outlined"
-                              startIcon={<FilterList />}
-                              onClick={handleClearFilters}
-                            >
-                              Clear All Filters
-                            </Button>
-                          )}
+                          {filteredData.length === 0 &&
+                            installationData.installations.length > 0 && (
+                              <Button
+                                variant="outlined"
+                                startIcon={<FilterList />}
+                                onClick={handleClearFilters}
+                              >
+                                Clear All Filters
+                              </Button>
+                            )}
                         </Box>
                       </TableCell>
                     </TableRow>
                   ) : (
                     paginatedData.map((lead) => {
-                      const installationStatus = getInstallationStatusColor(lead.installationStatus);
+                      const installationStatus = getInstallationStatusColor(
+                        lead.installationStatus,
+                      );
                       const leadStatus = getLeadStatusConfig(lead.status);
 
                       return (
@@ -2039,7 +2121,7 @@ export default function InstallationPage() {
                           key={lead._id}
                           hover
                           sx={{
-                            '&:hover': { bgcolor: alpha(PRIMARY, 0.02) },
+                            "&:hover": { bgcolor: alpha(PRIMARY, 0.02) },
                           }}
                         >
                           <TableCell>
@@ -2079,10 +2161,17 @@ export default function InstallationPage() {
                           <TableCell>
                             <Stack spacing={0.5}>
                               <Typography variant="body2">
-                                {formatDate(lead.installationDate, 'dd MMM yyyy')}
+                                {formatDate(
+                                  lead.installationDate,
+                                  "dd MMM yyyy",
+                                )}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                Created: {formatDate(lead.createdAt, 'dd MMM yyyy')}
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Created:{" "}
+                                {formatDate(lead.createdAt, "dd MMM yyyy")}
                               </Typography>
                             </Stack>
                           </TableCell>
@@ -2116,7 +2205,14 @@ export default function InstallationPage() {
 
                           <TableCell>
                             <Box sx={{ minWidth: 120 }}>
-                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 1,
+                                  mb: 0.5,
+                                }}
+                              >
                                 <LinearProgress
                                   variant="determinate"
                                   value={installationStatus.progress}
@@ -2124,8 +2220,11 @@ export default function InstallationPage() {
                                     flex: 1,
                                     height: 8,
                                     borderRadius: 4,
-                                    bgcolor: alpha(installationStatus.color, 0.2),
-                                    '& .MuiLinearProgress-bar': {
+                                    bgcolor: alpha(
+                                      installationStatus.color,
+                                      0.2,
+                                    ),
+                                    "& .MuiLinearProgress-bar": {
                                       bgcolor: installationStatus.color,
                                       borderRadius: 4,
                                     },
@@ -2135,23 +2234,30 @@ export default function InstallationPage() {
                                   {installationStatus.progress}%
                                 </Typography>
                               </Box>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
                                 {installationStatus.description}
                               </Typography>
                             </Box>
                           </TableCell>
 
                           <TableCell align="center">
-                            <Stack direction="row" spacing={1} justifyContent="center">
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              justifyContent="center"
+                            >
                               <Tooltip title="View Details">
                                 <IconButton
                                   size="small"
                                   onClick={() => handleViewLead(lead)}
                                   sx={{
-                                    bgcolor: alpha('#1976d2', 0.1),
-                                    color: '#1976d2',
-                                    '&:hover': {
-                                      bgcolor: alpha('#1976d2', 0.2),
+                                    bgcolor: alpha("#1976d2", 0.1),
+                                    color: "#1976d2",
+                                    "&:hover": {
+                                      bgcolor: alpha("#1976d2", 0.2),
                                     },
                                   }}
                                 >
@@ -2167,7 +2273,7 @@ export default function InstallationPage() {
                                     sx={{
                                       bgcolor: alpha(PRIMARY, 0.1),
                                       color: PRIMARY,
-                                      '&:hover': {
+                                      "&:hover": {
                                         bgcolor: alpha(PRIMARY, 0.2),
                                       },
                                     }}
@@ -2201,7 +2307,8 @@ export default function InstallationPage() {
                 }}
               >
                 <Typography variant="body2" color="text.secondary">
-                  Showing {Math.min(page * rowsPerPage + 1, filteredData.length)} to{" "}
+                  Showing{" "}
+                  {Math.min(page * rowsPerPage + 1, filteredData.length)} to{" "}
                   {Math.min((page + 1) * rowsPerPage, filteredData.length)} of{" "}
                   {filteredData.length} entries
                 </Typography>

@@ -255,13 +255,13 @@ const ROLE_CONFIG = {
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
 const getUserPermissions = (userRole) => ({
-  canView: true,
-  canEdit: ["Head_office", "ZSM", "ASM"].includes(userRole), // TEAM cannot edit
+  canView: ["Head_office", "ZSM", "ASM", "TEAM"],
+  canEdit: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole), // TEAM cannot edit
   canDelete: userRole === "Head_office",
   canManage: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeAll: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeOwn: userRole === "TEAM",
-  canUpdateStatus: ["Head_office", "ZSM", "ASM"].includes(userRole), // TEAM cannot update status
+  canUpdateStatus: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole), // TEAM cannot update status
 });
 
 const getBankStatusColor = (status) => {

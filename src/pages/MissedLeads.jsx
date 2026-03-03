@@ -120,7 +120,6 @@ import { format, isValid, parseISO, startOfDay, endOfDay } from "date-fns";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import PendingActions from "@mui/icons-material/PendingActions";
 
 // ========== CONSTANTS & CONFIGURATION ==========
 const PRIMARY_COLOR = "#4569ea";
@@ -132,7 +131,7 @@ const DEFAULT_ITEMS_PER_PAGE = 20;
 const PRIORITY_CONFIG = {
   High: {
     label: "High",
-    color: "#4569ea",
+    color: "#f44336",
     bgcolor: alpha("#f44336", 0.1),
     icon: <PriorityHigh sx={{ fontSize: 16 }} />,
     daysThreshold: 30,
@@ -140,7 +139,7 @@ const PRIORITY_CONFIG = {
   },
   Medium: {
     label: "Medium",
-    color: "#4569ea",
+    color: "#ff9800",
     bgcolor: alpha("#ff9800", 0.1),
     icon: <Warning sx={{ fontSize: 16 }} />,
     daysThreshold: 15,
@@ -148,7 +147,7 @@ const PRIORITY_CONFIG = {
   },
   Low: {
     label: "Low",
-    color: "#4569ea",
+    color: "#4caf50",
     bgcolor: alpha("#4caf50", 0.1),
     icon: <CheckCircle sx={{ fontSize: 16 }} />,
     daysThreshold: 0,
@@ -166,8 +165,8 @@ const STAGE_CONFIG = {
   },
   "Missed": {
     label: "Missed Lead",
-    color: PRIMARY_COLOR,
-    bgcolor: alpha(PRIMARY_COLOR, 0.1),
+    color: "#f44336",
+    bgcolor: alpha("#f44336", 0.1),
     icon: <Warning sx={{ fontSize: 16 }} />,
   },
 };
@@ -179,15 +178,11 @@ const getPriorityConfig = (daysInactive) => {
   return PRIORITY_CONFIG.Low;
 };
 
-const getStageFromStatus = (status) => {
-  return STAGE_CONFIG[status]?.label || status;
-};
-
 const getStageConfig = (status) => {
   return STAGE_CONFIG[status] || {
-    label: status,
-    color: PRIMARY_COLOR,
-    bgcolor: alpha(PRIMARY_COLOR, 0.1),
+    label: status || "New",
+    color: "#757575",
+    bgcolor: alpha("#757575", 0.1),
     icon: <Info sx={{ fontSize: 16 }} />,
   };
 };
@@ -200,6 +195,15 @@ const formatDate = (dateString, formatStr = "dd MMM yyyy") => {
   } catch (err) {
     return "Invalid Date";
   }
+};
+
+const formatDisplayName = (user) => {
+  if (!user) return "Not Assigned";
+  if (typeof user === 'string') return user;
+  if (user.firstName || user.lastName) {
+    return `${user.firstName || ''} ${user.lastName || ''}`.trim() || "Unknown User";
+  }
+  return "Unknown User";
 };
 
 // ========== REUSABLE COMPONENTS ==========
@@ -469,30 +473,35 @@ export default function MissedLeadsPage() {
   const fetchMissedLeads = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const params = new URLSearchParams({
         page: pagination.page,
         limit: pagination.limit,
         ...(priorityFilter && { priority: priorityFilter }),
         ...(searchTerm && { search: searchTerm }),
-        ...(period !== "Today" && { period })
+        ...(period !== "Today" && { period: period.toLowerCase().replace(' ', '_') })
       });
 
       const response = await fetchAPI(`/lead/missed?${params}`);
       
       if (response?.success) {
-        setMissedLeads(response.result.missedLeads || []);
+        const leads = response.result.missedLeads || [];
+        setMissedLeads(leads);
         setPagination(response.result.pagination || {
           page: 1,
           limit: DEFAULT_ITEMS_PER_PAGE,
-          total: 0,
-          totalPages: 1
+          total: leads.length,
+          totalPages: Math.ceil(leads.length / DEFAULT_ITEMS_PER_PAGE)
         });
-        calculateSummaryStats(response.result.missedLeads || []);
+        calculateSummaryStats(leads);
+      } else {
+        throw new Error(response?.message || "Failed to fetch missed leads");
       }
-      setLoading(false);
     } catch (err) {
       console.error("Error fetching missed leads:", err);
-      setError("Failed to load missed leads. Please try again.");
+      setError(err.message || "Failed to load missed leads. Please try again.");
+    } finally {
       setLoading(false);
     }
   }, [pagination.page, pagination.limit, priorityFilter, searchTerm, period, fetchAPI]);
@@ -636,8 +645,11 @@ export default function MissedLeadsPage() {
       const response = await fetchAPI(`/lead/getLeadById/${lead._id}`);
       if (response.success) {
         setLeadDetails(response.result);
+      } else {
+        throw new Error(response.message || "Failed to load lead details");
       }
     } catch (err) {
+      console.error("Error loading lead details:", err);
       setError("Failed to load lead details: " + err.message);
     } finally {
       setDetailsLoading(false);
@@ -649,6 +661,7 @@ export default function MissedLeadsPage() {
     try {
       const response = await fetchAPI(`/lead/updateLead/${lead._id}`, {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: "New",
           lastContactedAt: new Date().toISOString(),
@@ -690,8 +703,8 @@ export default function MissedLeadsPage() {
     }));
   }, []);
 
-  // Handle search
-  const handleSearch = useCallback((e) => {
+  // Handle search on Enter key
+  const handleSearchKeyPress = useCallback((e) => {
     if (e.key === 'Enter') {
       setPagination(prev => ({ ...prev, page: 1 }));
       fetchMissedLeads();
@@ -744,6 +757,10 @@ export default function MissedLeadsPage() {
 
   // Download document function
   const handleDownload = useCallback((url, filename) => {
+    if (!url) {
+      setError("No document URL provided");
+      return;
+    }
     const link = document.createElement('a');
     link.href = url;
     link.target = '_blank';
@@ -851,7 +868,7 @@ export default function MissedLeadsPage() {
                 minWidth: 'auto',
                 whiteSpace: 'nowrap',
                 borderRadius: 2,
-                background: period === item ? "#4569ea" : 'transparent',
+                background: period === item ? PRIMARY_COLOR : 'transparent',
                 borderColor: period === item ? PRIMARY_COLOR : 'divider',
                 color: period === item ? '#fff' : 'text.primary',
                 '&:hover': {
@@ -947,7 +964,7 @@ export default function MissedLeadsPage() {
                     placeholder="Search by name, phone, or email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyPress={handleSearch}
+                    onKeyPress={handleSearchKeyPress}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -1370,7 +1387,7 @@ export default function MissedLeadsPage() {
                           fullWidth
                           size="small"
                           onClick={() => handleSort("fullName")}
-                          startIcon={
+                          endIcon={
                             sortConfig.key === "fullName" ? (
                               sortConfig.direction === "asc" ? (
                                 <ArrowUpward fontSize="small" />
@@ -1394,7 +1411,7 @@ export default function MissedLeadsPage() {
                           fullWidth
                           size="small"
                           onClick={() => handleSort("createdAt")}
-                          startIcon={
+                          endIcon={
                             sortConfig.key === "createdAt" ? (
                               sortConfig.direction === "asc" ? (
                                 <ArrowUpward fontSize="small" />
@@ -1418,7 +1435,7 @@ export default function MissedLeadsPage() {
                           fullWidth
                           size="small"
                           onClick={() => handleSort("lastContactedAt")}
-                          startIcon={
+                          endIcon={
                             sortConfig.key === "lastContactedAt" ? (
                               sortConfig.direction === "asc" ? (
                                 <ArrowUpward fontSize="small" />
@@ -1442,7 +1459,7 @@ export default function MissedLeadsPage() {
                           fullWidth
                           size="small"
                           onClick={() => handleSort("daysInactive")}
-                          startIcon={
+                          endIcon={
                             sortConfig.key === "daysInactive" ? (
                               sortConfig.direction === "asc" ? (
                                 <ArrowUpward fontSize="small" />
@@ -1592,25 +1609,6 @@ export default function MissedLeadsPage() {
                                   <Visibility fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-
-                              {(lead.canReopen !== false) && (
-                                <Tooltip title="Reopen Lead" arrow>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleReopenClick(lead)}
-                                    sx={{
-                                      bgcolor: alpha(PRIORITY_CONFIG.Low.color, 0.1),
-                                      color: PRIORITY_CONFIG.Low.color,
-                                      "&:hover": {
-                                        bgcolor: PRIORITY_CONFIG.Low.color,
-                                        color: "white",
-                                      },
-                                    }}
-                                  >
-                                    <Restore fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
                             </Stack>
                           </TableCell>
                         </TableRow>
@@ -1738,7 +1736,7 @@ export default function MissedLeadsPage() {
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
                 <CircularProgress />
               </Box>
-            ) : selectedLead && (
+            ) : (
               <Box sx={{ p: 3, maxHeight: "60vh", overflow: "auto" }}>
                 {/* Basic Information */}
                 <Accordion defaultExpanded sx={{ mb: 2 }}>
@@ -1760,7 +1758,7 @@ export default function MissedLeadsPage() {
                             </ListItemIcon>
                             <ListItemText 
                               primary="Full Name" 
-                              secondary={`${selectedLead.firstName || ''} ${selectedLead.lastName || ''}`.trim() || 'Not Available'} 
+                              secondary={selectedLead ? `${selectedLead.firstName || ''} ${selectedLead.lastName || ''}`.trim() || 'Not Available' : 'Not Available'} 
                             />
                           </ListItem>
                           <ListItem>
@@ -1769,7 +1767,7 @@ export default function MissedLeadsPage() {
                             </ListItemIcon>
                             <ListItemText 
                               primary="Email" 
-                              secondary={selectedLead.email || 'Not Available'} 
+                              secondary={selectedLead?.email || 'Not Available'} 
                             />
                           </ListItem>
                           <ListItem>
@@ -1778,7 +1776,7 @@ export default function MissedLeadsPage() {
                             </ListItemIcon>
                             <ListItemText 
                               primary="Phone" 
-                              secondary={selectedLead.phone || 'Not Available'} 
+                              secondary={selectedLead?.phone || 'Not Available'} 
                             />
                           </ListItem>
                           <ListItem>
@@ -1787,7 +1785,7 @@ export default function MissedLeadsPage() {
                             </ListItemIcon>
                             <ListItemText 
                               primary="Address" 
-                              secondary={selectedLead.address || 'Not Available'} 
+                              secondary={selectedLead?.address || 'Not Available'} 
                             />
                           </ListItem>
                         </List>
@@ -1800,7 +1798,7 @@ export default function MissedLeadsPage() {
                             </ListItemIcon>
                             <ListItemText 
                               primary="City" 
-                              secondary={selectedLead.city || 'Not Available'} 
+                              secondary={selectedLead?.city || 'Not Available'} 
                             />
                           </ListItem>
                           <ListItem>
@@ -1809,7 +1807,7 @@ export default function MissedLeadsPage() {
                             </ListItemIcon>
                             <ListItemText 
                               primary="Pincode" 
-                              secondary={selectedLead.pincode || 'Not Available'} 
+                              secondary={selectedLead?.pincode || 'Not Available'} 
                             />
                           </ListItem>
                           <ListItem>
@@ -1818,7 +1816,7 @@ export default function MissedLeadsPage() {
                             </ListItemIcon>
                             <ListItemText 
                               primary="Solar Requirement" 
-                              secondary={selectedLead.solarRequirement || 'Not Available'} 
+                              secondary={selectedLead?.solarRequirement || 'Not Available'} 
                             />
                           </ListItem>
                           <ListItem>
@@ -1827,7 +1825,7 @@ export default function MissedLeadsPage() {
                             </ListItemIcon>
                             <ListItemText 
                               primary="Created Date" 
-                              secondary={formatDate(selectedLead.createdAt, "dd MMM yyyy, HH:mm:ss")} 
+                              secondary={formatDate(selectedLead?.createdAt, "dd MMM yyyy, HH:mm:ss")} 
                             />
                           </ListItem>
                         </List>
@@ -1854,14 +1852,14 @@ export default function MissedLeadsPage() {
                             Current Status
                           </Typography>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-                            <StageChip status={selectedLead.status} />
-                            <PriorityChip daysInactive={selectedLead.daysInactive || 0} />
+                            <StageChip status={selectedLead?.status} />
+                            <PriorityChip daysInactive={selectedLead?.daysInactive || 0} />
                           </Box>
                           <Typography variant="body2" color="text.secondary">
-                            Last Contacted: {formatDate(selectedLead.lastContactedAt, "dd MMM yyyy, HH:mm:ss")}
+                            Last Contacted: {formatDate(selectedLead?.lastContactedAt, "dd MMM yyyy, HH:mm:ss")}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Days Inactive: {selectedLead.daysInactive || 0} days
+                            Days Inactive: {selectedLead?.daysInactive || 0} days
                           </Typography>
                         </Card>
                       </Grid>
@@ -1877,7 +1875,7 @@ export default function MissedLeadsPage() {
                               </ListItemIcon>
                               <ListItemText 
                                 primary="Assigned Manager" 
-                                secondary={selectedLead.assignedManager || 'Not Assigned'} 
+                                secondary={selectedLead?.assignedManager ? formatDisplayName(selectedLead.assignedManager) : 'Not Assigned'} 
                               />
                             </ListItem>
                             <ListItem>
@@ -1886,7 +1884,7 @@ export default function MissedLeadsPage() {
                               </ListItemIcon>
                               <ListItemText 
                                 primary="Assigned User" 
-                                secondary={selectedLead.assignedUser || 'Not Assigned'} 
+                                secondary={selectedLead?.assignedUser ? formatDisplayName(selectedLead.assignedUser) : 'Not Assigned'} 
                               />
                             </ListItem>
                             <ListItem>
@@ -1895,7 +1893,7 @@ export default function MissedLeadsPage() {
                               </ListItemIcon>
                               <ListItemText 
                                 primary="Updated At" 
-                                secondary={formatDate(selectedLead.updatedAt, "dd MMM yyyy, HH:mm:ss")} 
+                                secondary={formatDate(selectedLead?.updatedAt, "dd MMM yyyy, HH:mm:ss")} 
                               />
                             </ListItem>
                           </List>
@@ -1906,7 +1904,7 @@ export default function MissedLeadsPage() {
                 </Accordion>
 
                 {/* Document Information */}
-                {(selectedLead.aadhaar?.url || selectedLead.panCard?.url || selectedLead.passbook?.url) && (
+                {(selectedLead?.aadhaar?.url || selectedLead?.panCard?.url || selectedLead?.passbook?.url) && (
                   <Accordion sx={{ mb: 2 }}>
                     <AccordionSummary expandIcon={<ExpandMore />}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1918,7 +1916,7 @@ export default function MissedLeadsPage() {
                     </AccordionSummary>
                     <AccordionDetails>
                       <Grid container spacing={2}>
-                        {selectedLead.aadhaar?.url && (
+                        {selectedLead?.aadhaar?.url && (
                           <Grid item xs={12} sm={6} md={4}>
                             <Card variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
@@ -1939,7 +1937,7 @@ export default function MissedLeadsPage() {
                             </Card>
                           </Grid>
                         )}
-                        {selectedLead.panCard?.url && (
+                        {selectedLead?.panCard?.url && (
                           <Grid item xs={12} sm={6} md={4}>
                             <Card variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
@@ -1960,7 +1958,7 @@ export default function MissedLeadsPage() {
                             </Card>
                           </Grid>
                         )}
-                        {selectedLead.passbook?.url && (
+                        {selectedLead?.passbook?.url && (
                           <Grid item xs={12} sm={6} md={4}>
                             <Card variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
@@ -1987,7 +1985,7 @@ export default function MissedLeadsPage() {
                 )}
 
                 {/* Notes */}
-                {selectedLead.notes && (
+                {selectedLead?.notes && (
                   <Accordion sx={{ mb: 2 }}>
                     <AccordionSummary expandIcon={<ExpandMore />}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

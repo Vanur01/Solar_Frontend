@@ -30,7 +30,11 @@ import Disbursement from "./pages/Disbursement";
 import LeadOverview from "./pages/LeadOverview";
 import BankAtPending from "./pages/BankAtPending";
 import Attandance from "./pages/Attandance";
-import Visitor from "./pages/Visitor";
+import VisitDetails from "./pages/VisitDetails";
+import RouteHistory from "./pages/RouteHistory";
+import PerformanceReports from "./pages/PerformanceReports";
+import SalesDailySummary from './pages/SalesDailySummary'
+
 
 const theme = createTheme({
   palette: {
@@ -170,6 +174,21 @@ function App() {
                           }
                         />
                         <Route
+                          path="team-performance-report"
+                          element={
+                            <ProtectedRoute
+                              allowedRoles={[
+                                "Head_office",
+                                "ZSM",
+                                "ASM",
+                                "TEAM",
+                              ]}
+                            >
+                              <PerformanceReports />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
                           path="registration"
                           element={
                             <ProtectedRoute
@@ -184,11 +203,41 @@ function App() {
                             </ProtectedRoute>
                           }
                         />
+                         <Route
+                          path="visit-route"
+                          element={
+                            <ProtectedRoute
+                              allowedRoles={[
+                                "Head_office",
+                                "ZSM",
+                                "ASM",
+                                "TEAM",
+                              ]}
+                            >
+                              <RouteHistory />
+                            </ProtectedRoute>
+                          }
+                        />
+                         <Route
+                          path="visit-summary"
+                          element={
+                            <ProtectedRoute
+                              allowedRoles={[
+                                "Head_office",
+                                "ZSM",
+                                "ASM",
+                                "TEAM",
+                              ]}
+                            >
+                              <SalesDailySummary />
+                            </ProtectedRoute>
+                          }
+                        />
                         <Route
                           path="reports"
                           element={
                             <ProtectedRoute
-                              allowedRoles={["Head_office", "ZSM", "ASM"]}
+                              allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
                             >
                               <Reports />
                             </ProtectedRoute>
@@ -198,7 +247,7 @@ function App() {
                           path="user-management"
                           element={
                             <ProtectedRoute
-                              allowedRoles={["Head_office", "ZSM", "ASM"]}
+                              allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
                             >
                               <UserManagement />
                             </ProtectedRoute>
@@ -218,7 +267,7 @@ function App() {
                           path="import-leads"
                           element={
                             <ProtectedRoute
-                              allowedRoles={["Head_office", "ZSM", "ASM"]}
+                              allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
                             >
                               <ImportLead />
                             </ProtectedRoute>
@@ -240,6 +289,21 @@ function App() {
                           }
                         />
                         <Route
+                          path="expense"
+                          element={
+                            <ProtectedRoute
+                              allowedRoles={[
+                                "Head_office",
+                                "ZSM",
+                                "ASM",
+                                "TEAM",
+                              ]}
+                            >
+                              <Expense />
+                            </ProtectedRoute>
+                          }
+                        />
+                         <Route
                           path="expense"
                           element={
                             <ProtectedRoute
@@ -330,6 +394,21 @@ function App() {
                           }
                         />
                         <Route
+                          path="visit-details"
+                          element={
+                            <ProtectedRoute
+                              allowedRoles={[
+                                "Head_office",
+                                "ZSM",
+                                "ASM",
+                                "TEAM",
+                              ]}
+                            >
+                              <VisitDetails />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
                           path="bank-at-pending"
                           element={
                             <ProtectedRoute
@@ -374,22 +453,7 @@ function App() {
                             </ProtectedRoute>
                           }
                         />
-                             <Route
-                          path="visitors"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <Visitor />
-                            </ProtectedRoute>
-                          }
-                        />
-                        
+
                         <Route
                           path="all-leads"
                           element={

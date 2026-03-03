@@ -129,9 +129,7 @@ const StatCard = ({ title, value, icon, color, subtext }) => (
   >
     <CardContent>
       <Stack direction="row" alignItems="center" spacing={2}>
-        <Avatar
-          sx={{ bgcolor: `${color}20`, color, width: 56, height: 56 }}
-        >
+        <Avatar sx={{ bgcolor: `${color}20`, color, width: 56, height: 56 }}>
           {icon}
         </Avatar>
         <Box>
@@ -203,7 +201,7 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole }) => {
     if (!user || !currentUserRole) return false;
     if (currentUserRole === "Head_office") return true;
     if (user._id === currentUser?._id) return false; // Can't change own role
-    
+
     const userRoleLevel = ROLE_CONFIG[user.role]?.level || 0;
     const currentRoleLevel = ROLE_CONFIG[currentUserRole]?.level || 0;
     return userRoleLevel > currentRoleLevel;
@@ -213,7 +211,7 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole }) => {
     if (!user || !currentUserRole) return false;
     if (currentUserRole === "Head_office") return true;
     if (user._id === currentUser?._id) return true; // Can change own status
-    
+
     const userRoleLevel = ROLE_CONFIG[user.role]?.level || 0;
     const currentRoleLevel = ROLE_CONFIG[currentUserRole]?.level || 0;
     return userRoleLevel > currentRoleLevel;
@@ -222,14 +220,18 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.firstName.trim()) newErrors.firstName = "First name is required";
+    if (!formData.firstName.trim())
+      newErrors.firstName = "First name is required";
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Invalid email format";
     }
-    if (formData.phoneNumber && !/^[0-9+\-\s]{10,}$/.test(formData.phoneNumber)) {
+    if (
+      formData.phoneNumber &&
+      !/^[0-9+\-\s]{10,}$/.test(formData.phoneNumber)
+    ) {
       newErrors.phoneNumber = "Invalid phone number";
     }
     if (!formData.role && canEditRole) newErrors.role = "Role is required";
@@ -261,7 +263,9 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole }) => {
       if (!response.success) {
         if (response.type === "PERMISSION_DENIED") {
           setErrors({
-            submit: response.message || "You don't have permission to update this user",
+            submit:
+              response.message ||
+              "You don't have permission to update this user",
           });
         } else {
           setErrors({
@@ -308,7 +312,11 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole }) => {
       PaperProps={{ sx: { borderRadius: 3 } }}
     >
       <DialogTitle sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
           <Typography variant="h6" fontWeight="bold">
             Edit User
           </Typography>
@@ -420,7 +428,9 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole }) => {
                     control={<Radio />}
                     label={
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <CheckCircle sx={{ color: STATUS_CONFIG.active.color }} />
+                        <CheckCircle
+                          sx={{ color: STATUS_CONFIG.active.color }}
+                        />
                         <Typography>Active</Typography>
                       </Stack>
                     }
@@ -495,7 +505,11 @@ const PasswordViewDialog = ({ open, onClose, user, fetchAPI }) => {
   };
 
   const handleCopyPassword = () => {
-    if (password && !password.includes("Unable") && !password.includes("Error")) {
+    if (
+      password &&
+      !password.includes("Unable") &&
+      !password.includes("Error")
+    ) {
       navigator.clipboard.writeText(password);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -512,7 +526,11 @@ const PasswordViewDialog = ({ open, onClose, user, fetchAPI }) => {
       PaperProps={{ sx: { borderRadius: 3 } }}
     >
       <DialogTitle sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
           <Typography variant="h6" fontWeight="bold">
             View Password
           </Typography>
@@ -551,7 +569,8 @@ const PasswordViewDialog = ({ open, onClose, user, fetchAPI }) => {
                   Security Notice
                 </Typography>
                 <Typography variant="body2">
-                  This password is only visible to Head Office. Please handle securely.
+                  This password is only visible to Head Office. Please handle
+                  securely.
                 </Typography>
               </Alert>
 
@@ -585,21 +604,22 @@ const PasswordViewDialog = ({ open, onClose, user, fetchAPI }) => {
                   >
                     {password}
                   </Typography>
-                  {!password.includes("Unable") && !password.includes("Error") && (
-                    <IconButton
-                      onClick={handleCopyPassword}
-                      size="small"
-                      sx={{
-                        position: "absolute",
-                        top: 12,
-                        right: 12,
-                        color: copied ? "success.main" : "primary.main",
-                        bgcolor: "background.paper",
-                      }}
-                    >
-                      <ContentCopy fontSize="small" />
-                    </IconButton>
-                  )}
+                  {!password.includes("Unable") &&
+                    !password.includes("Error") && (
+                      <IconButton
+                        onClick={handleCopyPassword}
+                        size="small"
+                        sx={{
+                          position: "absolute",
+                          top: 12,
+                          right: 12,
+                          color: copied ? "success.main" : "primary.main",
+                          bgcolor: "background.paper",
+                        }}
+                      >
+                        <ContentCopy fontSize="small" />
+                      </IconButton>
+                    )}
                 </Paper>
               )}
             </>
@@ -635,10 +655,10 @@ const MobileUserCard = ({
     if (!currentUserRole || !user) return false;
     if (user._id === currentUserId) return true;
     if (currentUserRole === "Head_office") return true;
-    
+
     const userRoleLevel = ROLE_CONFIG[user.role]?.level || 999;
     const currentRoleLevel = ROLE_CONFIG[currentUserRole]?.level || 0;
-    
+
     if (currentUserRole === "ZSM") {
       return userRoleLevel > currentRoleLevel;
     }
@@ -649,11 +669,13 @@ const MobileUserCard = ({
   }, [currentUserRole, user, currentUserId]);
 
   const canToggleStatus = canEdit;
-  const canAssign = user.role === "TEAM" && 
-    ["ZSM", "ASM", "Head_office"].includes(currentUserRole) && 
+  const canAssign =
+    user.role === "TEAM" &&
+    ["ZSM", "ASM", "Head_office"].includes(currentUserRole) &&
     !user.supervisor;
   const canViewPassword = currentUserRole === "Head_office";
-  const canDelete = currentUserRole === "Head_office" && user.role !== "Head_office";
+  const canDelete =
+    currentUserRole === "Head_office" && user.role !== "Head_office";
 
   return (
     <Card sx={{ mb: 2, borderRadius: 3, overflow: "hidden", boxShadow: 2 }}>
@@ -709,7 +731,12 @@ const MobileUserCard = ({
             )}
           </Stack>
 
-          <Stack direction="row" justifyContent="space-between" alignItems="center" pt={1}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            pt={1}
+          >
             <Stack direction="row" spacing={1}>
               {canEdit && (
                 <Tooltip title="Edit User">
@@ -751,9 +778,10 @@ const MobileUserCard = ({
                     disabled={statusLoading[user._id]}
                     sx={{
                       color: user.status === "active" ? "#f44336" : "#4caf50",
-                      bgcolor: user.status === "active" 
-                        ? "rgba(244, 67, 54, 0.1)" 
-                        : "rgba(76, 175, 80, 0.1)",
+                      bgcolor:
+                        user.status === "active"
+                          ? "rgba(244, 67, 54, 0.1)"
+                          : "rgba(76, 175, 80, 0.1)",
                     }}
                   >
                     {statusLoading[user._id] ? (
@@ -857,7 +885,7 @@ const UserManagement = () => {
 
   // Role-based permissions
   const userRole = currentUser?.role || "";
-  const canAddUser = ["Head_office", "ZSM", "ASM"].includes(userRole);
+  const canAddUser = ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole);
   const canViewPassword = userRole === "Head_office";
   const canDeleteUsers = userRole === "Head_office";
 
@@ -874,13 +902,13 @@ const UserManagement = () => {
 
     if (userRole === "ASM") {
       return allRoles.filter(
-        (role) => role.value === "all" || role.value === "TEAM"
+        (role) => role.value === "all" || role.value === "TEAM",
       );
     }
 
     if (userRole === "ZSM") {
       return allRoles.filter(
-        (role) => role.value === "all" || ["ASM", "TEAM"].includes(role.value)
+        (role) => role.value === "all" || ["ASM", "TEAM"].includes(role.value),
       );
     }
 
@@ -906,11 +934,14 @@ const UserManagement = () => {
       });
 
       if (searchTerm) params.append("search", searchTerm);
-      
+
       const data = await safeFetchAPI(`/user/getAllUsers?${params.toString()}`);
 
       if (data.type === "PERMISSION_DENIED") {
-        showSnackbar(data.error || "You don't have permission to view users", "warning");
+        showSnackbar(
+          data.error || "You don't have permission to view users",
+          "warning",
+        );
         setUsers([]);
         setFilteredUsers([]);
         return;
@@ -921,21 +952,25 @@ const UserManagement = () => {
 
         // Filter based on role hierarchy
         if (userRole === "Head_office") {
-          fetchedUsers = fetchedUsers.filter(user => user.role !== "Head_office");
+          fetchedUsers = fetchedUsers.filter(
+            (user) => user.role !== "Head_office",
+          );
         } else if (userRole === "ZSM") {
-          fetchedUsers = fetchedUsers.filter(user => 
-            ["ASM", "TEAM"].includes(user.role)
+          fetchedUsers = fetchedUsers.filter((user) =>
+            ["ASM", "TEAM"].includes(user.role),
           );
         } else if (userRole === "ASM") {
-          fetchedUsers = fetchedUsers.filter(user => user.role === "TEAM");
+          fetchedUsers = fetchedUsers.filter((user) => user.role === "TEAM");
         }
 
         setUsers(fetchedUsers);
 
         // Calculate statistics
         const total = fetchedUsers.length;
-        const active = fetchedUsers.filter(u => u.status === "active").length;
-        const inactive = fetchedUsers.filter(u => u.status === "inactive").length;
+        const active = fetchedUsers.filter((u) => u.status === "active").length;
+        const inactive = fetchedUsers.filter(
+          (u) => u.status === "inactive",
+        ).length;
 
         setStats({ total, active, inactive });
       }
@@ -951,40 +986,46 @@ const UserManagement = () => {
   const fetchManagers = useCallback(async () => {
     try {
       let allManagers = [];
-      
+
       if (userRole === "ASM") {
         // ASM can only assign to themselves
-        const params = new URLSearchParams({ 
-          page: "1", 
+        const params = new URLSearchParams({
+          page: "1",
           limit: "100",
-          _id: currentUser?._id 
+          _id: currentUser?._id,
         });
-        const data = await safeFetchAPI(`/user/getAllUsers?${params.toString()}`);
+        const data = await safeFetchAPI(
+          `/user/getAllUsers?${params.toString()}`,
+        );
         if (data.success) {
           allManagers = data.result?.users || [];
         }
       } else {
         // Fetch ZSM managers
-        const zsmParams = new URLSearchParams({ 
-          page: "1", 
+        const zsmParams = new URLSearchParams({
+          page: "1",
           limit: "100",
-          role: "ZSM"
+          role: "ZSM",
         });
-        const zsmData = await safeFetchAPI(`/user/getAllUsers?${zsmParams.toString()}`);
-        
+        const zsmData = await safeFetchAPI(
+          `/user/getAllUsers?${zsmParams.toString()}`,
+        );
+
         if (zsmData.success) {
           allManagers = [...(zsmData.result?.users || [])];
         }
 
         // Fetch ASM managers if needed
         if (userRole === "Head_office") {
-          const asmParams = new URLSearchParams({ 
-            page: "1", 
+          const asmParams = new URLSearchParams({
+            page: "1",
             limit: "100",
-            role: "ASM"
+            role: "ASM",
           });
-          const asmData = await safeFetchAPI(`/user/getAllUsers?${asmParams.toString()}`);
-          
+          const asmData = await safeFetchAPI(
+            `/user/getAllUsers?${asmParams.toString()}`,
+          );
+
           if (asmData.success) {
             allManagers = [...allManagers, ...(asmData.result?.users || [])];
           }
@@ -993,12 +1034,13 @@ const UserManagement = () => {
 
       // Filter active managers and remove duplicates
       const uniqueManagers = allManagers
-        .filter(manager => 
-          manager.status === "active" && 
-          manager._id !== currentUser?._id
+        .filter(
+          (manager) =>
+            manager.status === "active" && manager._id !== currentUser?._id,
         )
-        .filter((manager, index, self) => 
-          index === self.findIndex(m => m._id === manager._id)
+        .filter(
+          (manager, index, self) =>
+            index === self.findIndex((m) => m._id === manager._id),
         );
 
       setManagers(uniqueManagers);
@@ -1031,7 +1073,7 @@ const UserManagement = () => {
           user.firstName?.toLowerCase().includes(searchLower) ||
           user.lastName?.toLowerCase().includes(searchLower) ||
           user.email?.toLowerCase().includes(searchLower) ||
-          user.phoneNumber?.includes(searchTerm)
+          user.phoneNumber?.includes(searchTerm),
       );
     }
 
@@ -1051,10 +1093,10 @@ const UserManagement = () => {
     if (!user || !currentUser) return false;
     if (user._id === currentUser._id) return true;
     if (currentUser.role === "Head_office") return true;
-    
+
     const userRoleLevel = ROLE_CONFIG[user.role]?.level || 999;
     const currentRoleLevel = ROLE_CONFIG[currentUser.role]?.level || 0;
-    
+
     if (currentUser.role === "ZSM") {
       return userRoleLevel > currentRoleLevel;
     }
@@ -1075,7 +1117,7 @@ const UserManagement = () => {
 
   const handleSaveEditedUser = (updatedUser) => {
     setUsers((prev) =>
-      prev.map((user) => (user._id === updatedUser._id ? updatedUser : user))
+      prev.map((user) => (user._id === updatedUser._id ? updatedUser : user)),
     );
     showSnackbar("User updated successfully", "success");
   };
@@ -1108,7 +1150,10 @@ const UserManagement = () => {
       });
 
       if (response.type === "PERMISSION_DENIED") {
-        showSnackbar(response.error || "You don't have permission to delete this user", "error");
+        showSnackbar(
+          response.error || "You don't have permission to delete this user",
+          "error",
+        );
         return;
       }
 
@@ -1144,7 +1189,10 @@ const UserManagement = () => {
       });
 
       if (response.type === "PERMISSION_DENIED") {
-        showSnackbar(response.error || "You don't have permission to assign this user", "error");
+        showSnackbar(
+          response.error || "You don't have permission to assign this user",
+          "error",
+        );
         return;
       }
 
@@ -1154,8 +1202,8 @@ const UserManagement = () => {
           prev.map((user) =>
             user._id === userToAssign._id
               ? { ...user, supervisor: selectedManager }
-              : user
-          )
+              : user,
+          ),
         );
       } else {
         showSnackbar(response.message || "Failed to assign manager", "error");
@@ -1175,7 +1223,10 @@ const UserManagement = () => {
     if (!user?._id) return;
 
     if (!canEditUser(user)) {
-      showSnackbar("You don't have permission to change this user's status", "error");
+      showSnackbar(
+        "You don't have permission to change this user's status",
+        "error",
+      );
       return;
     }
 
@@ -1189,22 +1240,28 @@ const UserManagement = () => {
       });
 
       if (response.type === "PERMISSION_DENIED") {
-        showSnackbar(response.error || "You can only update users in your zone", "error");
+        showSnackbar(
+          response.error || "You can only update users in your zone",
+          "error",
+        );
         return;
       }
 
       if (response.success) {
         showSnackbar(
           `User ${newStatus === "active" ? "activated" : "deactivated"} successfully`,
-          "success"
+          "success",
         );
         setUsers((prev) =>
           prev.map((u) =>
-            u._id === user._id ? { ...u, status: newStatus } : u
-          )
+            u._id === user._id ? { ...u, status: newStatus } : u,
+          ),
         );
       } else {
-        showSnackbar(response.message || "Failed to update user status", "error");
+        showSnackbar(
+          response.message || "Failed to update user status",
+          "error",
+        );
       }
     } catch (error) {
       showSnackbar(error.message || "Failed to update user status", "error");
@@ -1237,8 +1294,8 @@ const UserManagement = () => {
               {userRole === "ASM"
                 ? "Manage your team members"
                 : userRole === "ZSM"
-                ? "Manage ASM and TEAM members in your zone"
-                : "Manage all users in the system"}
+                  ? "Manage ASM and TEAM members in your zone"
+                  : "Manage all users in the system"}
             </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
@@ -1365,7 +1422,11 @@ const UserManagement = () => {
               </Grid>
             </Grid>
 
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
               <Stack direction="row" spacing={2}>
                 <Chip
                   label={`${stats.active} Active`}
@@ -1390,7 +1451,9 @@ const UserManagement = () => {
                 onClick={handleClearFilters}
                 variant="text"
                 startIcon={<Clear />}
-                disabled={!searchTerm && roleFilter === "all" && statusFilter === "all"}
+                disabled={
+                  !searchTerm && roleFilter === "all" && statusFilter === "all"
+                }
                 size="small"
               >
                 Clear Filters
@@ -1409,8 +1472,17 @@ const UserManagement = () => {
               <CircularProgress />
             </Box>
           ) : filteredUsers.length === 0 ? (
-            <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3, boxShadow: 2 }}>
-              <Person sx={{ fontSize: 60, color: "text.secondary", mb: 2, opacity: 0.5 }} />
+            <Paper
+              sx={{ p: 4, textAlign: "center", borderRadius: 3, boxShadow: 2 }}
+            >
+              <Person
+                sx={{
+                  fontSize: 60,
+                  color: "text.secondary",
+                  mb: 2,
+                  opacity: 0.5,
+                }}
+              />
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 No users found
               </Typography>
@@ -1418,8 +1490,8 @@ const UserManagement = () => {
                 {searchTerm || roleFilter !== "all" || statusFilter !== "all"
                   ? "Try adjusting your filters"
                   : canAddUser
-                  ? "Add your first user to get started"
-                  : "No users available"}
+                    ? "Add your first user to get started"
+                    : "No users available"}
               </Typography>
               {canAddUser && (
                 <Button
@@ -1482,7 +1554,14 @@ const UserManagement = () => {
             </Box>
           ) : filteredUsers.length === 0 ? (
             <Box p={4} textAlign="center">
-              <Person sx={{ fontSize: 60, color: "text.secondary", mb: 2, opacity: 0.5 }} />
+              <Person
+                sx={{
+                  fontSize: 60,
+                  color: "text.secondary",
+                  mb: 2,
+                  opacity: 0.5,
+                }}
+              />
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 No users found
               </Typography>
@@ -1490,8 +1569,8 @@ const UserManagement = () => {
                 {searchTerm || roleFilter !== "all" || statusFilter !== "all"
                   ? "Try adjusting your filters"
                   : canAddUser
-                  ? "Add your first user to get started"
-                  : "No users available"}
+                    ? "Add your first user to get started"
+                    : "No users available"}
               </Typography>
               {canAddUser && (
                 <Button
@@ -1522,29 +1601,52 @@ const UserManagement = () => {
                   </TableHead>
                   <TableBody>
                     {filteredUsers
-                      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                      .slice(
+                        page * rowsPerPage,
+                        page * rowsPerPage + rowsPerPage,
+                      )
                       .map((user) => {
-                        const roleConfig = ROLE_CONFIG[user.role] || ROLE_CONFIG.TEAM;
-                        const statusConfig = STATUS_CONFIG[user.status] || STATUS_CONFIG.active;
+                        const roleConfig =
+                          ROLE_CONFIG[user.role] || ROLE_CONFIG.TEAM;
+                        const statusConfig =
+                          STATUS_CONFIG[user.status] || STATUS_CONFIG.active;
                         const canEdit = canEditUser(user);
-                        const canAssign = user.role === "TEAM" && 
-                          ["ZSM", "ASM", "Head_office"].includes(userRole) && 
+                        const canAssign =
+                          user.role === "TEAM" &&
+                          ["ZSM", "ASM", "Head_office"].includes(userRole) &&
                           !user.supervisor;
                         const canView = canViewPassword;
-                        const canDelete = canDeleteUsers && user.role !== "Head_office";
+                        const canDelete =
+                          canDeleteUsers && user.role !== "Head_office";
 
                         return (
                           <TableRow key={user._id} hover>
                             <TableCell>
-                              <Stack direction="row" alignItems="center" spacing={2}>
-                                <Avatar sx={{ bgcolor: roleConfig.color, width: 40, height: 40 }}>
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={2}
+                              >
+                                <Avatar
+                                  sx={{
+                                    bgcolor: roleConfig.color,
+                                    width: 40,
+                                    height: 40,
+                                  }}
+                                >
                                   {user.firstName?.[0]}
                                 </Avatar>
                                 <Box>
-                                  <Typography fontWeight={600} variant="subtitle2">
+                                  <Typography
+                                    fontWeight={600}
+                                    variant="subtitle2"
+                                  >
                                     {user.firstName} {user.lastName}
                                   </Typography>
-                                  <Typography variant="caption" color="text.secondary">
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
                                     ID: {user._id?.slice(-6)}
                                   </Typography>
                                 </Box>
@@ -1556,7 +1658,10 @@ const UserManagement = () => {
                                   {user.email}
                                 </Typography>
                                 {user.phoneNumber && (
-                                  <Typography variant="body2" color="text.secondary">
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                  >
                                     {user.phoneNumber}
                                   </Typography>
                                 )}
@@ -1575,7 +1680,11 @@ const UserManagement = () => {
                               />
                             </TableCell>
                             <TableCell>
-                              <Stack direction="row" alignItems="center" spacing={1}>
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                              >
                                 <Chip
                                   label={statusConfig.label}
                                   size="small"
@@ -1588,7 +1697,11 @@ const UserManagement = () => {
                                 />
                                 {canEdit && (
                                   <Tooltip
-                                    title={user.status === "active" ? "Deactivate" : "Activate"}
+                                    title={
+                                      user.status === "active"
+                                        ? "Deactivate"
+                                        : "Activate"
+                                    }
                                   >
                                     <IconButton
                                       size="small"
@@ -1598,9 +1711,15 @@ const UserManagement = () => {
                                       {statusLoading[user._id] ? (
                                         <CircularProgress size={20} />
                                       ) : user.status === "active" ? (
-                                        <Lock fontSize="small" sx={{ color: "#f44336" }} />
+                                        <Lock
+                                          fontSize="small"
+                                          sx={{ color: "#f44336" }}
+                                        />
                                       ) : (
-                                        <LockOpen fontSize="small" sx={{ color: "#4caf50" }} />
+                                        <LockOpen
+                                          fontSize="small"
+                                          sx={{ color: "#4caf50" }}
+                                        />
                                       )}
                                     </IconButton>
                                   </Tooltip>
@@ -1628,13 +1747,20 @@ const UserManagement = () => {
                                   Assign
                                 </Button>
                               ) : (
-                                <Typography variant="caption" color="text.disabled">
+                                <Typography
+                                  variant="caption"
+                                  color="text.disabled"
+                                >
                                   N/A
                                 </Typography>
                               )}
                             </TableCell>
                             <TableCell align="center">
-                              <Stack direction="row" spacing={1} justifyContent="center">
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                justifyContent="center"
+                              >
                                 {canView && (
                                   <Tooltip title="View Password">
                                     <IconButton
@@ -1749,7 +1875,8 @@ const UserManagement = () => {
               <Stack direction="row" alignItems="center" spacing={2}>
                 <Avatar
                   sx={{
-                    bgcolor: ROLE_CONFIG[userToDelete.role]?.color || PRIMARY_COLOR,
+                    bgcolor:
+                      ROLE_CONFIG[userToDelete.role]?.color || PRIMARY_COLOR,
                     width: 60,
                     height: 60,
                   }}
@@ -1761,7 +1888,8 @@ const UserManagement = () => {
                     {userToDelete.firstName} {userToDelete.lastName}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {userToDelete.email} • {ROLE_CONFIG[userToDelete.role]?.label}
+                    {userToDelete.email} •{" "}
+                    {ROLE_CONFIG[userToDelete.role]?.label}
                   </Typography>
                 </Box>
               </Stack>
@@ -1834,12 +1962,18 @@ const UserManagement = () => {
                   {managers.length > 0 ? (
                     managers.map((manager) => (
                       <MenuItem key={manager._id} value={manager._id}>
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          spacing={1.5}
+                        >
                           <Avatar
                             sx={{
                               width: 32,
                               height: 32,
-                              bgcolor: ROLE_CONFIG[manager.role]?.color || PRIMARY_COLOR,
+                              bgcolor:
+                                ROLE_CONFIG[manager.role]?.color ||
+                                PRIMARY_COLOR,
                             }}
                           >
                             {manager.firstName?.[0]}
@@ -1848,7 +1982,10 @@ const UserManagement = () => {
                             <Typography variant="body2" fontWeight={500}>
                               {manager.firstName} {manager.lastName}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               {ROLE_CONFIG[manager.role]?.label}
                             </Typography>
                           </Box>
@@ -1857,7 +1994,9 @@ const UserManagement = () => {
                     ))
                   ) : (
                     <MenuItem disabled>
-                      <Typography color="text.secondary">No managers available</Typography>
+                      <Typography color="text.secondary">
+                        No managers available
+                      </Typography>
                     </MenuItem>
                   )}
                 </Select>
@@ -1865,7 +2004,8 @@ const UserManagement = () => {
 
               {managers.length === 0 && (
                 <Alert severity="warning">
-                  No active managers found. Please ensure there are active ZSM or ASM users.
+                  No active managers found. Please ensure there are active ZSM
+                  or ASM users.
                 </Alert>
               )}
 
@@ -1892,7 +2032,9 @@ const UserManagement = () => {
           <Button
             onClick={handleAssignManager}
             variant="contained"
-            disabled={!selectedManager || assignLoading || managers.length === 0}
+            disabled={
+              !selectedManager || assignLoading || managers.length === 0
+            }
             sx={{ bgcolor: PRIMARY_COLOR }}
           >
             {assignLoading ? <CircularProgress size={24} /> : "Assign Manager"}
@@ -1911,7 +2053,7 @@ const UserManagement = () => {
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%" }}
+          sx={{ width: "100%", color: "#fff" }}
         >
           {snackbar.message}
         </Alert>

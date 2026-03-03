@@ -461,7 +461,7 @@ export default function LeadFunnelDashboard() {
 
         {/* Stats Overview Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} lg={3} sx={{ width: "270px" }}>
+          <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Total Leads"
               value={funnelData.totalLeads || 0}
@@ -471,7 +471,7 @@ export default function LeadFunnelDashboard() {
               trendDirection="up"
             />
           </Grid>
-          <Grid item xs={12} sm={6} lg={3} sx={{ width: "270px" }}>
+          <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Conversion Rate"
               value={`${stageProgression[0]?.rate || "0%"}`}
@@ -484,7 +484,7 @@ export default function LeadFunnelDashboard() {
               }
             />
           </Grid>
-          <Grid item xs={12} sm={6} lg={3} sx={{ width: "270px" }}>
+          <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Avg. Stage Time"
               value="3.2 days"
@@ -494,7 +494,7 @@ export default function LeadFunnelDashboard() {
               trendDirection="down"
             />
           </Grid>
-          <Grid item xs={12} sm={6} lg={3} sx={{ width: "270px" }}>
+          <Grid item xs={12} sm={6} lg={3}>
             <StatCard
               title="Missed Leads"
               value={
@@ -601,38 +601,11 @@ export default function LeadFunnelDashboard() {
               </Box>
             </Box>
           </Card>
-
-          {/* Quick Stats Card */}
-          <Card sx={{ borderRadius: 3, mt: 3, p: 3 , width:"400px" }}>
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Pipeline Health
-            </Typography>
-            <Stack spacing={2}>
-              <HealthMetric
-                label="Pipeline Velocity"
-                value="Good"
-                color="#4caf50"
-                icon={<PlayCircle />}
-              />
-              <HealthMetric
-                label="Stage Stickiness"
-                value="Medium"
-                color="#ff9800"
-                icon={<PauseCircle />}
-              />
-              <HealthMetric
-                label="Lead Quality"
-                value="High"
-                color="#4caf50"
-                icon={<TrendingUp />}
-              />
-            </Stack>
-          </Card>
         </Grid>
 
         {/* Right Column - Stage Details */}
         <Grid item xs={12} lg={8}>
-          <Card sx={{ borderRadius: 3, overflow: "hidden", height: "100%" , width:"725px" }}>
+          <Card sx={{ borderRadius: 3, overflow: "hidden", height: "100%" , width:"800px" }}>
             {/* Stage Header */}
             <Box
               sx={{
@@ -909,6 +882,7 @@ const StatCard = ({ title, value, icon, color, trend, trendDirection }) => {
       sx={{
         borderRadius: 3,
         height: "100%",
+        width:"286px",
         transition: "all 0.3s",
         "&:hover": {
           transform: "translateY(-4px)",
@@ -1018,6 +992,7 @@ const LeadCards = ({ leads, stageColor, onView }) => {
             sx={{
               borderRadius: 3,
               height: "100%",
+              width:"360px",
               transition: "all 0.3s",
               "&:hover": {
                 transform: "translateY(-4px)",

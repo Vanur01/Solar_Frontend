@@ -120,7 +120,7 @@ const LEAD_STATUS_OPTIONS = [
   "Registration",
   "Bank Loan Apply",
   "Document Submission",
-  "Bank at pending",
+  "Bank at Pending",
   "Disbursement",
   "Installation Completion",
   "Missed Leads",
@@ -173,7 +173,7 @@ const ROLE_PERMISSIONS = {
   },
   TEAM: {
     view: true,
-    edit: false,
+    edit: true,
     assign: false,
     delete: false,
     bulkActions: false,
@@ -198,7 +198,7 @@ const getStatusColor = (status) => {
       color: "#7b1fa2",
       icon: <Description />,
     },
-    "Bank at pending": { bg: "#fff3e0", color: "#f57c00", icon: <Pending /> },
+    "Bank at Pending": { bg: "#fff3e0", color: "#f57c00", icon: <Pending /> },
     Disbursement: { bg: "#fff8e1", color: "#ff8f00", icon: <Assignment /> },
     "Installation Completion": {
       bg: "#e8f5e9",
