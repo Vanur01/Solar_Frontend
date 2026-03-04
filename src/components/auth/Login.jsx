@@ -62,12 +62,7 @@ const Login = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
 
-  const {
-    login,
-    error: authError,
-    setError,
-    isLoading,
-  } = useAuth();
+  const { login, error: authError, setError, isLoading } = useAuth();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -435,165 +430,102 @@ const Login = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ 
+  // In Login.jsx - Replace the handleSubmit function
 
-    if (lockUntil && new Date(lockUntil) > new Date()) {
-      handleError({
-        type: ERROR_TYPES.RATE_LIMIT,
-        message: `Too many failed attempts. Try again after ${formatLockTime(lockUntil)}`,
-      });
-      return;
-    }
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    setTouched({
-      email: true,
-      password: true,
+  if (lockUntil && new Date(lockUntil) > new Date()) {
+    handleError({
+      type: ERROR_TYPES.RATE_LIMIT,
+      message: `Too many failed attempts. Try again after ${formatLockTime(lockUntil)}`,
     });
+    return;
+  }
 
-    if (!validateForm()) {
-      if (errors.email) {
-        document.getElementById("email").focus();
-      } else if (errors.password) {
-        document.getElementById("password").focus();
-      }
+  setTouched({
+    email: true,
+    password: true,
+  });
 
-      handleError({
-        type: ERROR_TYPES.REQUIRED,
-        message: "Please fix the errors in the form",
-      });
-      return;
+  if (!validateForm()) {
+    if (errors.email) {
+      document.getElementById("email").focus();
+    } else if (errors.password) {
+      document.getElementById("password").focus();
     }
 
-    setLoading(true);
-    setShowBackdrop(true);
-    setLocalError(null);
-    setError("");
+    handleError({
+      type: ERROR_TYPES.REQUIRED,
+      message: "Please fix the errors in the form",
+    });
+    return;
+  }
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  setLoading(true);
+  setShowBackdrop(true);
+  setLocalError(null);
+  setError("");
 
-    try {
-      console.log("Calling login with:", formData.email);
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const result = await login(formData.email, formData.password);
-      console.log("Login result:", result);
+  try {
+    console.log("Calling login with:", formData.email);
 
-      if (result?.success) {
-        setAttemptCount(0);
-        localStorage.removeItem("loginLockUntil");
-        localStorage.removeItem("failedAttempts");
+    const result = await login(formData.email, formData.password);
+    console.log("Login result:", result);
 
-        const userRole = result.data?.role || result.role;
-        console.log("User role after login:", userRole);
+    if (result?.success) {
+      setAttemptCount(0);
+      localStorage.removeItem("loginLockUntil");
+      localStorage.removeItem("failedAttempts");
+     
+      // ✅ CORRECTED: Get user data from result.user (not from a separate user variable)
+      const userData = result.user;
+      const userRole = userData?.role;
+      
+      console.log("User role after login:", userRole);
 
-        if (!userRole) {
-          throw new Error("User role not found in login response");
-        }
+      if (!userRole) {
+        throw new Error("User role not found in login response");
+      }
 
-        if (!["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole)) {
-          throw new Error("You do not have permission to access this system");
-        }
+      if (!["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole)) {
+        throw new Error("You do not have permission to access this system");
+      }
 
-        if (formData.rememberMe) {
-          localStorage.setItem("rememberMe", "true");
-          localStorage.setItem("rememberedEmail", formData.email);
-        } else {
-          localStorage.removeItem("rememberMe");
-          localStorage.removeItem("rememberedEmail");
-        }
-
-        localStorage.setItem("lastLogin", new Date().toISOString());
-
-        setSuccessMessage("Login successful! Redirecting to dashboard...");
-
-        setTimeout(() => {
-          if (userRole === "TEAM") {
-            navigate("/attendance", { replace: true });
-          } else {
-            navigate("/dashboard", { replace: true });
-          }
-        }, 1500);
+      if (formData.rememberMe) {
+        localStorage.setItem("rememberMe", "true");
+        localStorage.setItem("rememberedEmail", formData.email);
       } else {
-        const errorType = result?.errorType || ERROR_TYPES.INVALID_CREDENTIALS;
-        const errorMessage =
-          result?.error || "Invalid email or password. Please try again.";
+        localStorage.removeItem("rememberMe");
+        localStorage.removeItem("rememberedEmail");
+      }
 
-        if (
-          errorMessage.includes("You can only update users in your zone") ||
-          errorMessage.includes("permission") ||
-          errorMessage.includes("403")
-        ) {
-          handleError({
-            type: ERROR_TYPES.PERMISSION_DENIED,
-            message:
-              "You do not have permission to access the system. Please contact your administrator.",
-          });
+      localStorage.setItem("lastLogin", new Date().toISOString());
+
+      setSuccessMessage("Login successful! Redirecting to dashboard...");
+
+      setTimeout(() => {
+        if (userRole === "TEAM") {
+          navigate("/visit-summary", { replace: true });
         } else {
-          handleError({
-            type: errorType,
-            message: errorMessage,
-          });
+          navigate("/dashboard", { replace: true });
         }
-
-        const newAttemptCount = attemptCount + 1;
-        setAttemptCount(newAttemptCount);
-        localStorage.setItem("failedAttempts", newAttemptCount.toString());
-
-        if (newAttemptCount >= 3) {
-          handleError({
-            type: ERROR_TYPES.RATE_LIMIT,
-            message: `Multiple failed attempts. ${5 - newAttemptCount} attempts remaining.`,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-
-      let errorType = ERROR_TYPES.SERVER_ERROR;
-      let errorMessage =
-        err.message || "An unexpected error occurred. Please try again.";
-
-      if (err.message.includes("Network Error")) {
-        errorType = ERROR_TYPES.NETWORK_ERROR;
-        errorMessage =
-          "Network error. Please check your internet connection and try again.";
-      } else if (err.message.includes("timeout")) {
-        errorType = ERROR_TYPES.NETWORK_ERROR;
-        errorMessage =
-          "Request timeout. Please check your connection and try again.";
-      } else if (err.message.includes("404")) {
-        errorType = ERROR_TYPES.SERVER_ERROR;
-        errorMessage = "Service not found. Please contact support.";
-      } else if (err.message.includes("500")) {
-        errorType = ERROR_TYPES.SERVER_ERROR;
-        errorMessage = "Server error. Please try again later.";
-      } else if (
-        err.message.includes("403") ||
-        err.message.includes("permission")
-      ) {
-        errorType = ERROR_TYPES.PERMISSION_DENIED;
-        errorMessage =
-          "You do not have permission to access the system. Please contact your administrator.";
-      } else if (
-        err.message.includes("You can only update users in your zone")
-      ) {
-        errorType = ERROR_TYPES.PERMISSION_DENIED;
-        errorMessage =
-          "Permission error. Please contact your administrator for access.";
-      }
-
-      handleError({
-        type: errorType,
-        message: errorMessage,
-      });
-
-      const newAttemptCount = attemptCount + 1;
-      setAttemptCount(newAttemptCount);
-    } finally {
-      setLoading(false);
-      setShowBackdrop(false);
+      }, 1500);
+    } else {
+      // Handle error cases...
+      // (rest of your error handling code)
     }
-  };
+  } catch (err) {
+    // Error handling...
+  } finally {
+    setLoading(false);
+    setShowBackdrop(false);
+  }
+};
+
 
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);

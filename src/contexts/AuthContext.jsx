@@ -399,7 +399,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchAPI]);
 
-  // Login
+  // ============ LOGIN - IMPROVED ============
   const login = async (email, password) => {
     try {
       setLoading(true);
@@ -410,24 +410,86 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password })
       });
 
-      const token = response.result?.token || response.token;
-      const userData = response.result?.user || response.user || response;
+      console.log("Login raw response:", response);
 
-      if (!token) throw new Error("No token received");
+      // Handle different response structures
+      let token, userData;
 
+      // Check if response has result wrapper (like your API)
+      if (response?.result) {
+        token = response.result.token;
+        userData = response.result.user || response.result;
+      } 
+      // Check if response has data wrapper
+      else if (response?.data) {
+        token = response.data.token;
+        userData = response.data;
+      }
+      // Check if response has token directly
+      else if (response?.token) {
+        token = response.token;
+        userData = response;
+      }
+      // Check if response has user object with token inside
+      else if (response?.user?.token) {
+        token = response.user.token;
+        userData = response.user;
+      }
+      // Check if response is the user object itself with token
+      else if (response?._id && response?.token) {
+        token = response.token;
+        userData = response;
+      }
+      else {
+        console.error("Unexpected response format:", response);
+        throw new Error("Invalid response format from server");
+      }
+
+      if (!token) {
+        throw new Error("No authentication token received");
+      }
+
+      // Clean user data (remove sensitive fields)
+      const cleanUserData = { ...userData };
+      delete cleanUserData.token;
+      delete cleanUserData.refreshToken;
+
+      // Store in localStorage
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(cleanUserData));
 
-      setUser(userData);
+      // Update state
+      setUser(cleanUserData);
       setSuccess("Login successful");
       
-      return { success: true, user: userData, token };
+      // Return success with user data and token
+      return { 
+        success: true, 
+        user: cleanUserData,
+        token,
+        role: cleanUserData.role 
+      };
       
     } catch (err) {
       console.error('Login error:', err);
       const errorMessage = err.message || "Login failed";
       setError(errorMessage);
-      return { success: false, error: errorMessage };
+      
+      // Determine error type
+      let errorType = 'LOGIN_ERROR';
+      if (err.message?.includes('Network')) {
+        errorType = 'NETWORK_ERROR';
+      } else if (err.message?.includes('permission') || err.message?.includes('403')) {
+        errorType = 'PERMISSION_DENIED';
+      } else if (err.message?.includes('401')) {
+        errorType = 'UNAUTHORIZED';
+      }
+      
+      return { 
+        success: false, 
+        error: errorMessage,
+        errorType
+      };
     } finally {
       setLoading(false);
     }
