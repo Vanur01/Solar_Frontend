@@ -430,102 +430,100 @@ const Login = () => {
     }
   };
 
- 
   // In Login.jsx - Replace the handleSubmit function
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (lockUntil && new Date(lockUntil) > new Date()) {
-    handleError({
-      type: ERROR_TYPES.RATE_LIMIT,
-      message: `Too many failed attempts. Try again after ${formatLockTime(lockUntil)}`,
-    });
-    return;
-  }
-
-  setTouched({
-    email: true,
-    password: true,
-  });
-
-  if (!validateForm()) {
-    if (errors.email) {
-      document.getElementById("email").focus();
-    } else if (errors.password) {
-      document.getElementById("password").focus();
+    if (lockUntil && new Date(lockUntil) > new Date()) {
+      handleError({
+        type: ERROR_TYPES.RATE_LIMIT,
+        message: `Too many failed attempts. Try again after ${formatLockTime(lockUntil)}`,
+      });
+      return;
     }
 
-    handleError({
-      type: ERROR_TYPES.REQUIRED,
-      message: "Please fix the errors in the form",
+    setTouched({
+      email: true,
+      password: true,
     });
-    return;
-  }
 
-  setLoading(true);
-  setShowBackdrop(true);
-  setLocalError(null);
-  setError("");
-
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  try {
-    console.log("Calling login with:", formData.email);
-
-    const result = await login(formData.email, formData.password);
-    console.log("Login result:", result);
-
-    if (result?.success) {
-      setAttemptCount(0);
-      localStorage.removeItem("loginLockUntil");
-      localStorage.removeItem("failedAttempts");
-     
-      // ✅ CORRECTED: Get user data from result.user (not from a separate user variable)
-      const userData = result.user;
-      const userRole = userData?.role;
-      
-      console.log("User role after login:", userRole);
-
-      if (!userRole) {
-        throw new Error("User role not found in login response");
+    if (!validateForm()) {
+      if (errors.email) {
+        document.getElementById("email").focus();
+      } else if (errors.password) {
+        document.getElementById("password").focus();
       }
 
-      if (!["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole)) {
-        throw new Error("You do not have permission to access this system");
-      }
+      handleError({
+        type: ERROR_TYPES.REQUIRED,
+        message: "Please fix the errors in the form",
+      });
+      return;
+    }
 
-      if (formData.rememberMe) {
-        localStorage.setItem("rememberMe", "true");
-        localStorage.setItem("rememberedEmail", formData.email);
-      } else {
-        localStorage.removeItem("rememberMe");
-        localStorage.removeItem("rememberedEmail");
-      }
+    setLoading(true);
+    setShowBackdrop(true);
+    setLocalError(null);
+    setError("");
 
-      localStorage.setItem("lastLogin", new Date().toISOString());
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-      setSuccessMessage("Login successful! Redirecting to dashboard...");
+    try {
+      console.log("Calling login with:", formData.email);
 
-      setTimeout(() => {
-        if (userRole === "TEAM") {
-          navigate("/visit-summary", { replace: true });
-        } else {
-          navigate("/dashboard", { replace: true });
+      const result = await login(formData.email, formData.password);
+      console.log("Login result:", result);
+
+      if (result?.success) {
+        setAttemptCount(0);
+        localStorage.removeItem("loginLockUntil");
+        localStorage.removeItem("failedAttempts");
+
+        // ✅ CORRECTED: Get user data from result.user (not from a separate user variable)
+        const userData = result.user;
+        const userRole = userData?.role;
+
+        console.log("User role after login:", userRole);
+
+        if (!userRole) {
+          throw new Error("User role not found in login response");
         }
-      }, 1500);
-    } else {
-      // Handle error cases...
-      // (rest of your error handling code)
-    }
-  } catch (err) {
-    // Error handling...
-  } finally {
-    setLoading(false);
-    setShowBackdrop(false);
-  }
-};
 
+        if (!["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole)) {
+          throw new Error("You do not have permission to access this system");
+        }
+
+        if (formData.rememberMe) {
+          localStorage.setItem("rememberMe", "true");
+          localStorage.setItem("rememberedEmail", formData.email);
+        } else {
+          localStorage.removeItem("rememberMe");
+          localStorage.removeItem("rememberedEmail");
+        }
+
+        localStorage.setItem("lastLogin", new Date().toISOString());
+
+        setSuccessMessage("Login successful! Redirecting to dashboard...");
+
+        setTimeout(() => {
+          if (userRole === "TEAM") {
+            navigate("/visit-summary", { replace: true });
+          } else {
+            navigate("/dashboard", { replace: true });
+          }
+        }, 1500);
+      } else {
+        // Handle error cases...
+        // (rest of your error handling code)
+      }
+    } catch (err) {
+      // Error handling...
+    } finally {
+      setLoading(false);
+      setShowBackdrop(false);
+    }
+  };
 
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);
