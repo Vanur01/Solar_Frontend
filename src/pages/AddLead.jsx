@@ -1,3 +1,4 @@
+// pages/CreateLeadPage.jsx (Updated with Mobile View)
 import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Box,
@@ -28,6 +29,10 @@ import {
   Select,
   FormHelperText,
   Tooltip,
+  BottomNavigation,
+  BottomNavigationAction,
+  Badge,
+  Zoom,
 } from "@mui/material";
 import {
   ArrowBack,
@@ -36,7 +41,7 @@ import {
   Phone,
   LocationOn,
   Home,
-  Badge,
+  Badge as BadgeIcon,
   Map,
   PinDrop,
   Public,
@@ -49,16 +54,54 @@ import {
   Description,
   Warning,
   Info,
+  Dashboard,
+  Schedule,
+  People,
+  Refresh,
+  Close,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
-const primary = "#3a5ac8";
-const secondary = "#3a5ac8";
-const successColor = "#3a5ac8";
-const errorColor = "#f44336";
-const warningColor = "#3a5ac8";
-const infoColor = "#3a5ac8";
+const PRIMARY = "#4569ea";
+const SECONDARY = "#1a237e";
+const SUCCESS = "#4caf50";
+const ERROR = "#f44336";
+const WARNING = "#ff9800";
+
+// Role Configuration
+const ROLE_CONFIG = {
+  Head_office: {
+    label: "Head Office",
+    color: PRIMARY,
+    icon: <Person sx={{ fontSize: 16 }} />,
+  },
+  ZSM: {
+    label: "Zone Sales Manager",
+    color: PRIMARY,
+    icon: <Person sx={{ fontSize: 16 }} />,
+  },
+  ASM: {
+    label: "Area Sales Manager",
+    color: PRIMARY,
+    icon: <Person sx={{ fontSize: 16 }} />,
+  },
+  TEAM: {
+    label: "Team Member",
+    color: PRIMARY,
+    icon: <Person sx={{ fontSize: 16 }} />,
+  },
+};
+
+const getRoleConfig = (role) => {
+  return (
+    ROLE_CONFIG[role] || {
+      label: role || "User",
+      color: PRIMARY,
+      icon: <Person sx={{ fontSize: 16 }} />,
+    }
+  );
+};
 
 export default function CreateLeadPage() {
   const navigate = useNavigate();
@@ -99,10 +142,12 @@ export default function CreateLeadPage() {
     duration: 4000,
   });
 
+  // Get user role
+  const userRole = getUserRole();
+
   // Check if user has permission to create leads
   useEffect(() => {
     const checkPermission = () => {
-      const userRole = getUserRole();
       const allowedRoles = ["Head_office", "ASM", "ZSM", "TEAM"];
       
       if (!userRole || !allowedRoles.includes(userRole)) {
@@ -119,7 +164,7 @@ export default function CreateLeadPage() {
     };
     
     checkPermission();
-  }, [getUserRole, navigate]);
+  }, [userRole, navigate]);
 
   // Show snackbar helper
   const showSnackbar = useCallback((message, severity = "success", duration = 4000) => {
@@ -216,6 +261,8 @@ export default function CreateLeadPage() {
       state: "",
       postalCode: "",
       zone: "",
+      notes: "",
+      source: "Manual Entry",
     });
     setErrors({});
     setFormTouched(false);
@@ -233,7 +280,7 @@ export default function CreateLeadPage() {
     setLoading(true);
     
     try {
-      // Prepare payload - all other fields accepted as-is
+      // Prepare payload
       const payload = {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim() || null,
@@ -247,8 +294,10 @@ export default function CreateLeadPage() {
           postalCode: formData.postalCode.trim() || null,
           zones: formData.zone.trim() || null,
         },
+        notes: formData.notes.trim() || null,
+        source: formData.source,
         createdBy: user?._id || null,
-        assignedTo: user?._id || null, // Auto-assign to creator
+        assignedTo: user?._id || null,
         status: "New",
       };
       
@@ -337,28 +386,28 @@ export default function CreateLeadPage() {
         borderColor: alpha("#000", 0.12),
       },
       "&:hover fieldset": { 
-        borderColor: primary,
+        borderColor: PRIMARY,
       },
       "&.Mui-focused fieldset": { 
-        border: `2px solid ${primary}`,
-        boxShadow: `0 0 0 3px ${alpha(primary, 0.08)}`,
+        border: `2px solid ${PRIMARY}`,
+        boxShadow: `0 0 0 3px ${alpha(PRIMARY, 0.08)}`,
       },
       "&.Mui-error fieldset": {
-        borderColor: errorColor,
+        borderColor: ERROR,
       },
     },
     "& .MuiInputBase-input": {
-      fontSize: "0.95rem",
-      padding: "14px 16px",
+      fontSize: { xs: "0.9rem", sm: "0.95rem" },
+      padding: { xs: "12px 14px", sm: "14px 16px" },
     },
     "& .MuiInputLabel-root": {
-      fontSize: "0.9rem",
+      fontSize: { xs: "0.85rem", sm: "0.9rem" },
       "&.Mui-focused": {
-        color: primary,
+        color: PRIMARY,
       },
     },
     "& .MuiFormHelperText-root": {
-      fontSize: "0.8rem",
+      fontSize: { xs: "0.7rem", sm: "0.8rem" },
       marginLeft: 0,
     },
   };
@@ -366,11 +415,11 @@ export default function CreateLeadPage() {
   // Button styles
   const actionButtonStyle = {
     borderRadius: 2,
-    px: 4,
-    py: 1.25,
+    px: { xs: 2, sm: 4 },
+    py: { xs: 1, sm: 1.25 },
     fontWeight: 600,
-    fontSize: "0.95rem",
-    minWidth: 120,
+    fontSize: { xs: "0.85rem", sm: "0.95rem" },
+    minWidth: { xs: 100, sm: 120 },
     textTransform: "none",
     boxShadow: "none",
     transition: "all 0.2s ease",
@@ -394,33 +443,37 @@ export default function CreateLeadPage() {
       return { color: "text.disabled", icon: null };
     }
     
-    if (error) return { color: errorColor, icon: <Warning fontSize="small" /> };
-    if (value && !error) return { color: successColor, icon: <CheckCircle fontSize="small" /> };
+    if (error) return { color: ERROR, icon: <Warning fontSize="small" /> };
+    if (value && !error) return { color: SUCCESS, icon: <CheckCircle fontSize="small" /> };
     return { color: "text.disabled", icon: null };
   }, [formData, errors]);
 
   // If access is denied, show access denied message
   if (accessDenied) {
     return (
-      <Container maxWidth="sm" sx={{ mt: 10, minHeight: "80vh", display: "flex", alignItems: "center" }}>
-        <Card sx={{ p: 4, borderRadius: 3, boxShadow: 3, textAlign: "center", width: "100%" }}>
-          <ErrorIcon sx={{ fontSize: 64, color: errorColor, mb: 3, mx: "auto" }} />
-          <Typography variant="h5" fontWeight="bold" color="error" gutterBottom>
-            Access Restricted
-          </Typography>
-          <Typography variant="body1" color="text.secondary" paragraph sx={{ mb: 3 }}>
-            You don't have the necessary permissions to create leads.
-          </Typography>
-          <Button 
-            variant="contained" 
+      <Box
+        sx={{
+          p: 3,
+          textAlign: "center",
+          minHeight: "60vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Alert severity="error" sx={{ maxWidth: 500, borderRadius: 3 }}>
+          <AlertTitle>Access Denied</AlertTitle>
+          You don't have permission to create leads.
+          <Button
+            sx={{ mt: 2 }}
+            variant="contained"
             onClick={() => navigate("/dashboard")}
-            sx={{ borderRadius: 2, px: 4, bgcolor: primary, '&:hover': { bgcolor: '#2c489e' } }}
-            startIcon={<ArrowBack />}
+            style={{ backgroundColor: PRIMARY }}
           >
-            Return to Dashboard
+            Go to Dashboard
           </Button>
-        </Card>
-      </Container>
+        </Alert>
+      </Box>
     );
   }
 
@@ -431,11 +484,15 @@ export default function CreateLeadPage() {
         open={snackbar.open}
         autoHideDuration={snackbar.duration}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        anchorOrigin={{ 
+          vertical: isMobile ? "top" : "bottom", 
+          horizontal: isMobile ? "center" : "right" 
+        }}
       >
         <Alert 
           onClose={handleCloseSnackbar} 
           severity={snackbar.severity}
+          variant="filled"
           sx={{ 
             width: "100%",
             borderRadius: 2,
@@ -446,12 +503,6 @@ export default function CreateLeadPage() {
               alignItems: "center",
             },
           }}
-          iconMapping={{
-            success: <CheckCircle fontSize="inherit" />,
-            error: <ErrorIcon fontSize="inherit" />,
-            warning: <Warning fontSize="inherit" />,
-            info: <Info fontSize="inherit" />,
-          }}
         >
           {snackbar.message}
         </Alert>
@@ -459,61 +510,74 @@ export default function CreateLeadPage() {
 
       <Box sx={{ 
         minHeight: "100vh",
-        p: { xs: 2, sm: 3, md: 4 },
+        p: { xs: 1.5, sm: 2, md: 3 },
+        pb: { xs: 8, sm: 3 },
+        bgcolor: "#f8fafc",
       }}>
         <Container maxWidth="lg" disableGutters>
-          {/* Header Section */}
-          <Box sx={{ mb: 5 }}>
-            <Stack 
-              direction={{ xs: "column", sm: "row" }} 
-              alignItems={{ xs: "flex-start", sm: "center" }}
+          {/* Header with Gradient Background */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, sm: 3 },
+              mb: 3,
+              borderRadius: 3,
+              background: `linear-gradient(135deg, ${PRIMARY} 0%, ${SECONDARY} 100%)`,
+              color: "#fff",
+            }}
+          >
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
               justifyContent="space-between"
-              spacing={3}
+              alignItems={{ xs: "flex-start", sm: "center" }}
             >
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <Button 
+              <Box display="flex" alignItems="center" gap={2}>
+                <IconButton 
                   onClick={handleCancel}
-                  variant="text"
                   sx={{ 
-                    minWidth: "auto",
-                    p: 1,
-                    borderRadius: 2,
-                    bgcolor: alpha(primary, 0.08),
-                    "&:hover": { bgcolor: alpha(primary, 0.15) },
+                    color: "#fff",
+                    bgcolor: "rgba(255,255,255,0.2)",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
                   }}
                 >
-                  <ArrowBack sx={{ color: primary }} />
-                </Button>
+                  <ArrowBack />
+                </IconButton>
                 <Box>
-                  <Typography 
-                    variant={isMobile ? "h5" : "h4"} 
-                    fontWeight="bold" 
-                    color="text.primary"
+                  <Typography
+                    variant={isMobile ? "h6" : "h5"}
+                    fontWeight={700}
+                    gutterBottom
                   >
                     Create New Lead
                   </Typography>
-                  <Typography 
-                    variant="body2" 
-                    color="text.secondary"
-                    sx={{ mt: 0.5, display: "flex", alignItems: "center", gap: 1 }}
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      opacity: 0.9,
+                      fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                    }}
                   >
-                    <Add fontSize="small" />
-                    Fill in the lead details below. Fields marked with * are required.
+                    Fill in the lead details below • Role: {getRoleConfig(userRole).label}
                   </Typography>
                 </Box>
-              </Stack>
+              </Box>
               
               {formTouched && !loading && (
                 <Chip
                   label="Unsaved Changes"
-                  color="primary"
-                  variant="outlined"
+                  sx={{
+                    bgcolor: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    "& .MuiChip-icon": { color: "#fff" },
+                  }}
                   icon={<Warning />}
                   size="small"
                 />
               )}
             </Stack>
-          </Box>
+          </Paper>
 
           {/* Main Form */}
           <Paper 
@@ -522,8 +586,8 @@ export default function CreateLeadPage() {
             elevation={0} 
             sx={{ 
               borderRadius: 3,
-              p: { xs: 3, sm: 4, md: 5 },
-              bgcolor: "background.paper",
+              p: { xs: 2.5, sm: 4, md: 5 },
+              bgcolor: "#fff",
               border: "1px solid",
               borderColor: "divider",
               boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
@@ -533,9 +597,9 @@ export default function CreateLeadPage() {
             <Fade in={true} timeout={300}>
               <Box>
                 {/* Personal Information Section */}
-                <Box sx={{ mb: 5 }}>
-                  <Stack direction="row" alignItems="center" spacing={2} mb={4}>
-                    <Avatar sx={{ bgcolor: alpha(primary, 0.1), color: primary }}>
+                <Box sx={{ mb: 4 }}>
+                  <Stack direction="row" alignItems="center" spacing={2} mb={3}>
+                    <Avatar sx={{ bgcolor: alpha(PRIMARY, 0.1), color: PRIMARY }}>
                       <Person />
                     </Avatar>
                     <Box>
@@ -548,7 +612,7 @@ export default function CreateLeadPage() {
                     </Box>
                   </Stack>
                   
-                  <Grid container spacing={3}>
+                  <Grid container spacing={isMobile ? 2 : 3}>
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
@@ -564,11 +628,12 @@ export default function CreateLeadPage() {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Person fontSize="small" color={getFieldStatus("firstName").color} />
+                              <Person fontSize="small" sx={{ color: getFieldStatus("firstName").color }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     
@@ -579,16 +644,17 @@ export default function CreateLeadPage() {
                         label="Last Name"
                         value={formData.lastName}
                         onChange={handleChange}
-                        helperText="Optional - Enter lead's last name"
+                        helperText="Optional"
                         placeholder="Doe"
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Person fontSize="small" color="text.disabled" />
+                              <Person fontSize="small" sx={{ color: "text.disabled" }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     
@@ -600,16 +666,17 @@ export default function CreateLeadPage() {
                         type="email"
                         value={formData.email}
                         onChange={handleChange}
-                        helperText="Optional - Enter lead's email"
+                        helperText="Optional"
                         placeholder="john@example.com"
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Email fontSize="small" color="text.disabled" />
+                              <Email fontSize="small" sx={{ color: "text.disabled" }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     
@@ -628,11 +695,12 @@ export default function CreateLeadPage() {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Phone fontSize="small" color={getFieldStatus("phone").color} />
+                              <Phone fontSize="small" sx={{ color: getFieldStatus("phone").color }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                   </Grid>
@@ -641,9 +709,9 @@ export default function CreateLeadPage() {
                 <Divider sx={{ my: 4 }} />
 
                 {/* Address Information Section */}
-                <Box sx={{ mb: 5 }}>
-                  <Stack direction="row" alignItems="center" spacing={2} mb={4}>
-                    <Avatar sx={{ bgcolor: alpha(primary, 0.1), color: primary }}>
+                <Box sx={{ mb: 4 }}>
+                  <Stack direction="row" alignItems="center" spacing={2} mb={3}>
+                    <Avatar sx={{ bgcolor: alpha(PRIMARY, 0.1), color: PRIMARY }}>
                       <Place />
                     </Avatar>
                     <Box>
@@ -656,7 +724,7 @@ export default function CreateLeadPage() {
                     </Box>
                   </Stack>
                   
-                  <Grid container spacing={3}>
+                  <Grid container spacing={isMobile ? 2 : 3}>
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
@@ -665,15 +733,16 @@ export default function CreateLeadPage() {
                         value={formData.consumerNumber}
                         onChange={handleChange}
                         placeholder="CN12345"
-                        helperText="Optional - Unique consumer identifier"
+                        helperText="Optional"
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Badge fontSize="small" color="action" />
+                              <BadgeIcon fontSize="small" sx={{ color: "text.disabled" }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     
@@ -689,11 +758,12 @@ export default function CreateLeadPage() {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Home fontSize="small" color="action" />
+                              <Home fontSize="small" sx={{ color: "text.disabled" }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     
@@ -709,11 +779,12 @@ export default function CreateLeadPage() {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <LocationOn fontSize="small" color="action" />
+                              <LocationOn fontSize="small" sx={{ color: "text.disabled" }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     
@@ -729,11 +800,12 @@ export default function CreateLeadPage() {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Map fontSize="small" color="action" />
+                              <Map fontSize="small" sx={{ color: "text.disabled" }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     
@@ -749,11 +821,12 @@ export default function CreateLeadPage() {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <PinDrop fontSize="small" color="action" />
+                              <PinDrop fontSize="small" sx={{ color: "text.disabled" }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     
@@ -769,11 +842,36 @@ export default function CreateLeadPage() {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Public fontSize="small" color="action" />
+                              <Public fontSize="small" sx={{ color: "text.disabled" }} />
                             </InputAdornment>
                           ),
                         }}
                         sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
+                      />
+                    </Grid>
+
+                    {/* Notes Field */}
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        name="notes"
+                        label="Notes"
+                        value={formData.notes}
+                        onChange={handleChange}
+                        multiline
+                        rows={isMobile ? 2 : 3}
+                        placeholder="Add any additional notes about the lead..."
+                        helperText="Optional"
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start" sx={{ alignSelf: "flex-start", mt: 1 }}>
+                              <Description fontSize="small" sx={{ color: "text.disabled" }} />
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={textFieldStyle}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                   </Grid>
@@ -781,7 +879,7 @@ export default function CreateLeadPage() {
 
                 {/* Form Actions */}
                 <Box sx={{ 
-                  mt: 6, 
+                  mt: 4, 
                   pt: 4, 
                   borderTop: 1, 
                   borderColor: "divider",
@@ -794,32 +892,38 @@ export default function CreateLeadPage() {
                     variant="outlined"
                     onClick={handleCancel}
                     disabled={loading}
+                    fullWidth={isMobile}
                     sx={{
                       ...actionButtonStyle,
                       borderColor: "divider",
                       color: "text.secondary",
                       "&:hover": {
-                        borderColor: errorColor,
-                        color: errorColor,
+                        borderColor: ERROR,
+                        color: ERROR,
                       },
                     }}
                   >
                     Cancel
                   </Button>
 
-                  <Stack direction="row" spacing={2}>
+                  <Stack 
+                    direction={{ xs: "column", sm: "row" }} 
+                    spacing={2}
+                    width={{ xs: "100%", sm: "auto" }}
+                  >
                     <Button
                       type="button"
                       variant="outlined"
                       onClick={resetForm}
                       disabled={loading || !formTouched}
+                      fullWidth={isMobile}
                       sx={{
                         ...actionButtonStyle,
-                        borderColor: primary,
-                        color: primary,
+                        borderColor: PRIMARY,
+                        color: PRIMARY,
                         "&:hover": {
-                          borderColor: primary,
-                          bgcolor: alpha(primary, 0.04),
+                          borderColor: PRIMARY,
+                          bgcolor: alpha(PRIMARY, 0.04),
                         },
                       }}
                     >
@@ -830,6 +934,7 @@ export default function CreateLeadPage() {
                       type="submit"
                       variant="contained"
                       disabled={loading || submitted}
+                      fullWidth={isMobile}
                       startIcon={
                         loading ? (
                           <CircularProgress size={20} color="inherit" />
@@ -841,7 +946,8 @@ export default function CreateLeadPage() {
                       }
                       sx={{
                         ...actionButtonStyle,
-                        background: "#3a5ac8",
+                        bgcolor: PRIMARY,
+                        "&:hover": { bgcolor: SECONDARY },
                       }}
                     >
                       {loading ? "Creating..." : submitted ? "Lead Created!" : "Create Lead"}
@@ -855,13 +961,13 @@ export default function CreateLeadPage() {
           {/* Information Card */}
           <Card sx={{ 
             borderRadius: 3,
-            p: 3,
-            bgcolor: alpha(primary, 0.03),
+            p: { xs: 2, sm: 3 },
+            bgcolor: alpha(PRIMARY, 0.03),
             border: "1px solid",
-            borderColor: alpha(primary, 0.1),
+            borderColor: alpha(PRIMARY, 0.1),
           }}>
             <Stack direction="row" spacing={2} alignItems="flex-start">
-              <Info sx={{ color: primary, mt: 0.5 }} />
+              <Info sx={{ color: PRIMARY, mt: 0.5, fontSize: { xs: 18, sm: 20 } }} />
               <Box>
                 <Typography variant="subtitle1" fontWeight="bold" color="text.primary" gutterBottom>
                   Important Information
@@ -877,12 +983,6 @@ export default function CreateLeadPage() {
                     • <strong>Phone Number:</strong> Enter any valid phone number format.
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    • <strong>Email:</strong> Optional field, no email format validation.
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    • <strong>Address Fields:</strong> All address fields are completely optional.
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
                     • <strong>Auto-assignment:</strong> Leads are automatically assigned to you as the creator.
                   </Typography>
                 </Stack>
@@ -891,6 +991,49 @@ export default function CreateLeadPage() {
           </Card>
         </Container>
       </Box>
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            sx={{
+              height: 64,
+              "& .MuiBottomNavigationAction-root": {
+                color: "text.secondary",
+                "&.Mui-selected": { color: PRIMARY },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate("/dashboard")}
+            />
+            <BottomNavigationAction
+              label="Leads"
+              icon={<People />}
+              onClick={() => navigate("/all-leads")}
+            />
+            <BottomNavigationAction
+              label="Profile"
+              icon={<Person />}
+              onClick={() => navigate("/profile")}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </>
   );
 }

@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+// pages/DisbursementPage.jsx (Updated with Mobile View)
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Box,
   Typography,
@@ -40,16 +47,22 @@ import {
   FormHelperText,
   Menu,
   Skeleton,
-  List,
-  ListItem,
   ListItemIcon,
   ListItemText,
+  Badge,
+  SwipeableDrawer,
+  Collapse,
+  Fab,
+  Zoom,
+  Fade,
+  Slide,
+  BottomNavigation,
+  BottomNavigationAction,
   Tab,
   Tabs,
 } from "@mui/material";
 import {
   Search,
-  Download,
   Edit,
   Visibility,
   Close,
@@ -58,23 +71,14 @@ import {
   Refresh,
   Cancel,
   PendingActions,
-  Verified,
-  FileCopy,
   FolderOpen,
-  PictureAsPdf,
-  Image as ImageIcon,
-  InsertDriveFile,
-  Launch,
-  PictureAsPdfOutlined,
-  DescriptionOutlined,
+  Description,
   GetApp,
   AccountBalance,
   Badge as BadgeIcon,
   CloudUpload,
   Delete,
   CreditCard,
-  CloudDownload,
-  Add,
   ZoomIn,
   ZoomOut,
   RotateLeft,
@@ -88,43 +92,39 @@ import {
   LocationOn,
   Note,
   Warning,
-  FilterList,
   Tune,
   ArrowUpward,
   ArrowDownward,
-  Description,
   Save,
-  ArrowForward,
-  ArrowBack,
   MoreVert,
   TrendingUp,
-  Assignment,
-  Business,
   HowToReg,
-  LocalAtm,
-  Build,
-  Error as ErrorIcon,
-  Check,
-  Home,
   ReceiptLong,
-  AttachFile,
   AccessTime,
-  Security,
   SupervisorAccount,
   Groups,
   AdminPanelSettings,
   WorkspacePremium,
   AddPhotoAlternate,
-  GppMaybe,
-  Schedule,
-  ThumbUp,
-  ThumbDown,
-  Money,
-  AccountBalanceWallet,
+  DateRange,
+  FilterAlt,
+  Sort,
+  ViewList,
+  ViewModule,
+  Dashboard,
+  ExpandMore,
+  ExpandLess,
+  InsertDriveFile,
+  DescriptionOutlined,
+  Image as ImageIcon,
+  Payment,
   AttachMoney,
   CreditScore,
   TrendingFlat,
-  Payment,
+  GppMaybe,
+  ThumbUp,
+  ThumbDown,
+  FiberManualRecord,
   CurrencyRupee,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
@@ -138,13 +138,15 @@ import {
   isWithinInterval,
   startOfDay,
   endOfDay,
+  subWeeks,
+  subMonths,
 } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import AlertTitle from "@mui/material/AlertTitle";
 
 // ========== CONSTANTS & CONFIGURATION ==========
-const PRIMARY = "#3a5ac8"; // Changed from #ff6d00 to #3a5ac8
-const SECONDARY = "#1a237e";
+const PRIMARY_COLOR = "#4569ea";
+const SECONDARY_COLOR = "#1a237e";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 const DEFAULT_ITEMS_PER_PAGE = 10;
 const ALLOWED_ROLES = ["Head_office", "ZSM", "ASM", "TEAM"];
@@ -156,34 +158,45 @@ const ALLOWED_FILE_TYPES = [
   "application/pdf",
 ];
 
+// Period Options
+const PERIOD_OPTIONS = [
+  { value: "Today", label: "Today", icon: <CalendarToday /> },
+  { value: "This Week", label: "This Week", icon: <DateRange /> },
+  { value: "This Month", label: "This Month", icon: <DateRange /> },
+  { value: "All", label: "All Time", icon: <DateRange /> },
+];
+
 // Disbursement Status Configuration
 const DISBURSEMENT_STATUS_OPTIONS = ["pending", "completed", "cancelled"];
 
 const DISBURSEMENT_STATUS_CONFIG = {
   pending: {
-    label: "Pending",
-    bg: "#e3f2fd",
-    color: "#1976d2",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <PendingActions sx={{ fontSize: 16 }} />,
+    label: "Pending",
     description: "Disbursement is pending",
+    order: 1,
   },
   completed: {
-    label: "Completed",
-    bg: "#e8f5e9",
-    color: "#2e7d32",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <CheckCircle sx={{ fontSize: 16 }} />,
+    label: "Completed",
     description: "Disbursement completed successfully",
+    order: 2,
   },
   cancelled: {
-    label: "Cancelled",
-    bg: "#ffebee",
-    color: "#d32f2f",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Cancel sx={{ fontSize: 16 }} />,
+    label: "Cancelled",
     description: "Disbursement cancelled",
+    order: 3,
   },
 };
 
-// Lead Status Configuration for Disbursement Page
+// Lead Status Configuration
 const LEAD_STATUS_OPTIONS = [
   "Disbursement",
   "Installation Completion",
@@ -192,20 +205,20 @@ const LEAD_STATUS_OPTIONS = [
 
 const LEAD_STATUS_CONFIG = {
   Disbursement: {
-    bg: "#e3f2fd",
-    color: "#1976d2",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Payment sx={{ fontSize: 16 }} />,
     description: "Loan disbursement in progress",
   },
   "Installation Completion": {
-    bg: "#e8f5e9",
-    color: "#2e7d32",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <CheckCircle sx={{ fontSize: 16 }} />,
     description: "Installation completed",
   },
   "Missed Leads": {
-    bg: "#ffebee",
-    color: "#c62828",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Cancel sx={{ fontSize: 16 }} />,
     description: "Lead lost or not converted",
   },
@@ -234,22 +247,22 @@ const BANK_LIST = [
 const ROLE_CONFIG = {
   Head_office: {
     label: "Head Office",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <AdminPanelSettings sx={{ fontSize: 16 }} />,
   },
   ZSM: {
     label: "Zone Sales Manager",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <WorkspacePremium sx={{ fontSize: 16 }} />,
   },
   ASM: {
     label: "Area Sales Manager",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <SupervisorAccount sx={{ fontSize: 16 }} />,
   },
   TEAM: {
     label: "Team Member",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <Groups sx={{ fontSize: 16 }} />,
   },
 };
@@ -258,7 +271,7 @@ const ROLE_CONFIG = {
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
 const getUserPermissions = (userRole) => ({
-  canView: true,
+  canView: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canEdit: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canDelete: userRole === "Head_office",
   canManage: ["Head_office", "ZSM", "ASM"].includes(userRole),
@@ -267,16 +280,16 @@ const getUserPermissions = (userRole) => ({
   canUpdateStatus: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
 });
 
-const getDisbursementStatusColor = (status) => {
-  if (!status) return DISBURSEMENT_STATUS_CONFIG.pending;
-  const normalizedStatus = status.toLowerCase();
+const getDisbursementStatusConfig = (status) => {
+  const normalizedStatus = status?.toLowerCase();
   return (
     DISBURSEMENT_STATUS_CONFIG[normalizedStatus] || {
+      bg: alpha(PRIMARY_COLOR, 0.08),
+      color: PRIMARY_COLOR,
+      icon: <PendingActions sx={{ fontSize: 16 }} />,
       label: status || "Unknown",
-      bg: "#f5f5f5",
-      color: "#757575",
-      icon: <Warning sx={{ fontSize: 16 }} />,
-      description: "Status unknown",
+      description: "Unknown status",
+      order: 0,
     }
   );
 };
@@ -284,11 +297,11 @@ const getDisbursementStatusColor = (status) => {
 const getLeadStatusConfig = (status) => {
   return (
     LEAD_STATUS_CONFIG[status] || {
-      label: status || "Unknown",
-      bg: "#f5f5f5",
-      color: "#616161",
+      bg: alpha(PRIMARY_COLOR, 0.08),
+      color: PRIMARY_COLOR,
       icon: <Warning sx={{ fontSize: 16 }} />,
       description: "Unknown status",
+      label: status || "Unknown",
     }
   );
 };
@@ -297,7 +310,7 @@ const getRoleConfig = (role) => {
   return (
     ROLE_CONFIG[role] || {
       label: "Unknown",
-      color: "#3a5ac8",
+      color: PRIMARY_COLOR,
       icon: <Person sx={{ fontSize: 16 }} />,
     }
   );
@@ -317,36 +330,7 @@ const formatCurrency = (amount) => {
   if (numAmount >= 1000) {
     return `₹${(numAmount / 1000).toFixed(1)}K`;
   }
-  return `₹${Math.round(numAmount).toLocaleString("en-IN")}`;
-};
-
-const validateRequiredField = (value, fieldName) => {
-  if (!value?.toString().trim()) return `${fieldName} is required`;
-  return "";
-};
-
-const validateNumericField = (value, fieldName) => {
-  if (!value?.toString().trim()) return `${fieldName} is required`;
-  const numValue = parseFloat(value);
-  if (isNaN(numValue)) return `${fieldName} must be a valid number`;
-  if (numValue <= 0) return `${fieldName} must be greater than 0`;
-  return "";
-};
-
-const validateFile = (file) => {
-  if (!file) return "";
-  if (file.size > MAX_FILE_SIZE) return "File size should be less than 5MB";
-  if (!ALLOWED_FILE_TYPES.includes(file.type))
-    return "Only JPG, PNG and PDF files are allowed";
-  return "";
-};
-
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  return `₹${numAmount.toLocaleString("en-IN")}`;
 };
 
 const formatDate = (dateString, formatStr = "dd MMM yyyy, hh:mm a") => {
@@ -359,13 +343,891 @@ const formatDate = (dateString, formatStr = "dd MMM yyyy, hh:mm a") => {
   }
 };
 
-// ========== REUSABLE COMPONENTS ==========
+const getInitials = (firstName, lastName) => {
+  return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
+};
 
-// Image Viewer Modal Component
-const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
+// ========== MOBILE FILTER DRAWER ==========
+const MobileFilterDrawer = ({
+  open,
+  onClose,
+  period,
+  setPeriod,
+  disbursementStatusFilter,
+  setDisbursementStatusFilter,
+  leadStatusFilter,
+  setLeadStatusFilter,
+  bankFilter,
+  setBankFilter,
+  dateFilter,
+  setDateFilter,
+  handleClearFilters,
+  dateFilterError,
+  searchQuery,
+  setSearchQuery,
+  sortConfig,
+  setSortConfig,
+  activeFilterCount,
+}) => {
+  const [expandedSection, setExpandedSection] = useState("search");
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  return (
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      onOpen={() => {}}
+      disableSwipeToOpen={false}
+      PaperProps={{
+        sx: {
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          maxHeight: "90vh",
+          overflow: "hidden",
+        },
+      }}
+    >
+      <Box sx={{ position: "relative" }}>
+        {/* Drag Handle */}
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            bgcolor: "grey.300",
+            borderRadius: 2,
+            mx: "auto",
+            my: 1.5,
+          }}
+        />
+
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 3,
+            pb: 2,
+            borderBottom: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Box>
+            <Typography variant="h6" fontWeight="700" color={PRIMARY_COLOR}>
+              Filter Disbursements
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.1) }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Filter Content */}
+        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
+          <Stack spacing={2.5}>
+            {/* Search Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("search")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Search sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Search
+                  </Typography>
+                </Stack>
+                {expandedSection === "search" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "search"}>
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search by name, email, phone, transaction ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search
+                            sx={{ color: "text.secondary", fontSize: 20 }}
+                          />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery && (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearchQuery("")}
+                          >
+                            <Close fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Period Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("period")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <DateRange sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Time Period
+                  </Typography>
+                </Stack>
+                {expandedSection === "period" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "period"}>
+                <Box sx={{ p: 2 }}>
+                  <Grid container spacing={1}>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <Grid item xs={6} key={option.value}>
+                        <Button
+                          fullWidth
+                          variant={
+                            period === option.value ? "contained" : "outlined"
+                          }
+                          onClick={() => setPeriod(option.value)}
+                          startIcon={option.icon}
+                          size="small"
+                          sx={{
+                            bgcolor:
+                              period === option.value
+                                ? PRIMARY_COLOR
+                                : "transparent",
+                            color:
+                              period === option.value ? "#fff" : PRIMARY_COLOR,
+                            borderColor: PRIMARY_COLOR,
+                            "&:hover": {
+                              bgcolor:
+                                period === option.value
+                                  ? SECONDARY_COLOR
+                                  : alpha(PRIMARY_COLOR, 0.1),
+                            },
+                          }}
+                        >
+                          {option.label}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Disbursement Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("disbursementStatus")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Payment sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Disbursement Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "disbursementStatus" ? (
+                  <ExpandLess />
+                ) : (
+                  <ExpandMore />
+                )}
+              </Box>
+              <Collapse in={expandedSection === "disbursementStatus"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={disbursementStatusFilter}
+                      onChange={(e) =>
+                        setDisbursementStatusFilter(e.target.value)
+                      }
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {DISBURSEMENT_STATUS_OPTIONS.map((status) => {
+                        const config = getDisbursementStatusConfig(status);
+                        return (
+                          <MenuItem key={status} value={status}>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1}
+                            >
+                              {config.icon}
+                              <span>{config.label}</span>
+                            </Stack>
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Lead Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("leadStatus")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TrendingUp sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Lead Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "leadStatus" ? (
+                  <ExpandLess />
+                ) : (
+                  <ExpandMore />
+                )}
+              </Box>
+              <Collapse in={expandedSection === "leadStatus"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={leadStatusFilter}
+                      onChange={(e) => setLeadStatusFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {LEAD_STATUS_OPTIONS.map((status) => (
+                        <MenuItem key={status} value={status}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                          >
+                            {getLeadStatusConfig(status).icon}
+                            <span>{status}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Bank Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("bank")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <AccountBalance sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Bank
+                  </Typography>
+                </Stack>
+                {expandedSection === "bank" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "bank"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={bankFilter}
+                      onChange={(e) => setBankFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Banks</MenuItem>
+                      {BANK_LIST.map((bank) => (
+                        <MenuItem key={bank} value={bank}>
+                          {bank}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Date Range Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("date")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CalendarToday sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Custom Date Range
+                  </Typography>
+                </Stack>
+                {expandedSection === "date" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "date"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={2}>
+                    <DatePicker
+                      label="Start Date"
+                      value={dateFilter.startDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          startDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    <DatePicker
+                      label="End Date"
+                      value={dateFilter.endDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          endDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    {dateFilterError && (
+                      <Alert severity="error" sx={{ fontSize: "0.75rem" }}>
+                        {dateFilterError}
+                      </Alert>
+                    )}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Sort Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("sort")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Sort sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Sort By
+                  </Typography>
+                </Stack>
+                {expandedSection === "sort" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "sort"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={1}>
+                    {[
+                      { key: "firstName", label: "Name" },
+                      { key: "disbursementAmount", label: "Amount" },
+                      { key: "disbursementDate", label: "Disbursement Date" },
+                    ].map((option) => (
+                      <Button
+                        key={option.key}
+                        fullWidth
+                        variant={
+                          sortConfig.key === option.key
+                            ? "contained"
+                            : "outlined"
+                        }
+                        onClick={() =>
+                          setSortConfig((prev) => ({
+                            key: option.key,
+                            direction:
+                              prev.key === option.key &&
+                              prev.direction === "asc"
+                                ? "desc"
+                                : "asc",
+                          }))
+                        }
+                        endIcon={
+                          sortConfig.key === option.key &&
+                          (sortConfig.direction === "asc" ? (
+                            <ArrowUpward fontSize="small" />
+                          ) : (
+                            <ArrowDownward fontSize="small" />
+                          ))
+                        }
+                        sx={{
+                          justifyContent: "space-between",
+                          bgcolor:
+                            sortConfig.key === option.key
+                              ? PRIMARY_COLOR
+                              : "transparent",
+                          color:
+                            sortConfig.key === option.key
+                              ? "#fff"
+                              : PRIMARY_COLOR,
+                          borderColor: PRIMARY_COLOR,
+                        }}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+          </Stack>
+        </Box>
+
+        {/* Action Buttons */}
+        <Box
+          sx={{
+            p: 3,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            bgcolor: "#fff",
+          }}
+        >
+          <Stack direction="row" spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => {
+                handleClearFilters();
+                onClose();
+              }}
+              startIcon={<Clear />}
+              sx={{
+                borderColor: PRIMARY_COLOR,
+                color: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                },
+              }}
+            >
+              Clear All
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={onClose}
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: SECONDARY_COLOR,
+                },
+              }}
+            >
+              Apply Filters
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    </SwipeableDrawer>
+  );
+};
+
+// ========== MOBILE DISBURSEMENT CARD ==========
+const MobileDisbursementCard = ({
+  lead,
+  onView,
+  onStatusUpdate,
+  permissions,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const disbursementStatusConfig = getDisbursementStatusConfig(
+    lead.disbursementStatus,
+  );
+  const leadStatusConfig = getLeadStatusConfig(lead.status);
+  const initials = getInitials(lead.firstName, lead.lastName);
+
+  return (
+    <Paper
+      sx={{
+        mb: 1.5,
+        borderRadius: 3,
+        border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+        overflow: "hidden",
+      }}
+    >
+      <Box sx={{ p: 2 }}>
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            mb: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+            <Avatar
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                color: "#fff",
+                width: 48,
+                height: 48,
+                fontWeight: 600,
+              }}
+            >
+              {initials}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="subtitle1"
+                fontWeight="700"
+                color={PRIMARY_COLOR}
+              >
+                {lead.firstName} {lead.lastName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                ID: {lead._id?.slice(-8) || "N/A"}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              transform: expanded ? "rotate(180deg)" : "none",
+              transition: "transform 0.3s",
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+            }}
+          >
+            {expanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </Box>
+
+        {/* Quick Info */}
+        <Grid container spacing={1} sx={{ mb: 1.5 }}>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Phone sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {lead.phoneNumber || lead.phone || "No phone"}
+              </Typography>
+            </Stack>
+          </Grid>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Email sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {lead.email || "No email"}
+              </Typography>
+            </Stack>
+          </Grid>
+        </Grid>
+
+        {/* Amount Info */}
+        <Box sx={{ mb: 1.5 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ mb: 0.5 }}
+          >
+            <CurrencyRupee
+              sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
+            />
+            <Typography variant="body2" fontWeight={500}>
+              {formatCurrency(lead.disbursementAmount)}
+            </Typography>
+            {lead.disbursementDate && (
+              <>
+                <FiberManualRecord
+                  sx={{ fontSize: 4, color: "text.disabled" }}
+                />
+                <CalendarToday
+                  sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
+                />
+                <Typography variant="body2" fontWeight={500}>
+                  {formatDate(lead.disbursementDate, "dd MMM")}
+                </Typography>
+              </>
+            )}
+          </Stack>
+          {lead.bank && (
+            <Stack direction="row" spacing={0.5} alignItems="flex-start">
+              <AccountBalance
+                sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6), mt: 0.3 }}
+              />
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {lead.bank}
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+
+        {/* Status Chips */}
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Tooltip title={disbursementStatusConfig.description} arrow>
+            <Chip
+              label={disbursementStatusConfig.label}
+              icon={disbursementStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: disbursementStatusConfig.bg,
+                color: disbursementStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={leadStatusConfig.description} arrow>
+            <Chip
+              label={leadStatusConfig.label}
+              icon={leadStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: leadStatusConfig.bg,
+                color: leadStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+        </Box>
+
+        {/* Expanded Details */}
+        <Collapse in={expanded}>
+          <Box
+            sx={{
+              mt: 2,
+              pt: 2,
+              borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
+          >
+            {/* Additional Info */}
+            <Grid container spacing={2}>
+              {lead.disbursementTransactionId && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Transaction ID
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {lead.disbursementTransactionId}
+                  </Typography>
+                </Grid>
+              )}
+              {lead.branchName && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Branch
+                  </Typography>
+                  <Typography variant="body2">{lead.branchName}</Typography>
+                </Grid>
+              )}
+              {lead.disbursementNotes && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Notes
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {lead.disbursementNotes}
+                  </Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  Created
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(lead.createdAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(lead.updatedAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+            </Grid>
+
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="contained"
+                startIcon={<Visibility />}
+                onClick={() => onView(lead)}
+                sx={{
+                  bgcolor: PRIMARY_COLOR,
+                  "&:hover": { bgcolor: SECONDARY_COLOR },
+                }}
+              >
+                View
+              </Button>
+              {permissions.canUpdateStatus && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  startIcon={<TrendingUp />}
+                  onClick={() => onStatusUpdate(lead)}
+                  sx={{
+                    borderColor: PRIMARY_COLOR,
+                    color: PRIMARY_COLOR,
+                    "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.1) },
+                  }}
+                >
+                  Status
+                </Button>
+              )}
+            </Stack>
+          </Box>
+        </Collapse>
+      </Box>
+    </Paper>
+  );
+};
+
+// ========== IMAGE VIEWER MODAL ==========
+const ImageViewerModal = ({ open, onClose, imageUrl, title }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const handleZoomIn = useCallback(
     () => setZoom((prev) => Math.min(prev + 0.25, 3)),
@@ -380,7 +1242,7 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
     [],
   );
   const handleRotateLeft = useCallback(
-    () => setRotation((prev) => (prev - 90) % 360),
+    () => setRotation((prev) => (prev - 90 + 360) % 360),
     [],
   );
   const handleReset = useCallback(() => {
@@ -415,12 +1277,16 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
       onClose={handleClose}
       maxWidth={fullscreen ? false : "lg"}
       fullWidth
-      fullScreen={fullscreen}
-      PaperProps={fullscreen ? { style: { margin: 0, height: "100vh" } } : {}}
+      fullScreen={fullscreen || isMobile}
+      PaperProps={
+        fullscreen || isMobile ? { style: { margin: 0, height: "100vh" } } : {}
+      }
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
     >
       <DialogTitle
         sx={{
-          bgcolor: alpha(PRIMARY, 0.05),
+          bgcolor: alpha(PRIMARY_COLOR, 0.05),
           borderBottom: 1,
           borderColor: "divider",
           display: "flex",
@@ -430,15 +1296,25 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
           py: 1.5,
         }}
       >
-        <Typography variant="h6" fontWeight={600}>
+        <Typography
+          variant="h6"
+          fontWeight={600}
+          noWrap
+          sx={{ maxWidth: "70%" }}
+        >
           {title || "Document Viewer"}
         </Typography>
         <Box display="flex" gap={1}>
-          <Tooltip title={fullscreen ? "Exit Fullscreen" : "Fullscreen"}>
-            <IconButton onClick={() => setFullscreen(!fullscreen)} size="small">
-              {fullscreen ? <FullscreenExit /> : <Fullscreen />}
-            </IconButton>
-          </Tooltip>
+          {!isMobile && (
+            <Tooltip title={fullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+              <IconButton
+                onClick={() => setFullscreen(!fullscreen)}
+                size="small"
+              >
+                {fullscreen ? <FullscreenExit /> : <Fullscreen />}
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Download">
             <IconButton onClick={handleDownload} size="small">
               <GetApp />
@@ -457,8 +1333,8 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          bgcolor: fullscreen ? "#000" : "transparent",
-          minHeight: fullscreen ? "calc(100vh - 64px)" : 400,
+          bgcolor: fullscreen || isMobile ? "#000" : "transparent",
+          minHeight: fullscreen || isMobile ? "calc(100vh - 64px)" : 400,
         }}
       >
         {isImage ? (
@@ -467,8 +1343,13 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               position: "relative",
               overflow: "auto",
               maxWidth: "100%",
-              maxHeight: fullscreen ? "100vh" : "70vh",
-              p: fullscreen ? 0 : 2,
+              maxHeight: fullscreen || isMobile ? "100vh" : "70vh",
+              p: fullscreen || isMobile ? 0 : 2,
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
             <img
@@ -478,9 +1359,10 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
                 transform: `scale(${zoom}) rotate(${rotation}deg)`,
                 transition: "transform 0.3s ease",
                 maxWidth: "100%",
-                maxHeight: fullscreen ? "100vh" : "70vh",
+                maxHeight: fullscreen || isMobile ? "100vh" : "70vh",
                 display: "block",
                 margin: "0 auto",
+                objectFit: "contain",
               }}
             />
           </Box>
@@ -499,7 +1381,11 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               variant="contained"
               startIcon={<GetApp />}
               onClick={handleDownload}
-              sx={{ mt: 2 }}
+              sx={{
+                mt: 2,
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": { bgcolor: SECONDARY_COLOR },
+              }}
             >
               Download Document
             </Button>
@@ -515,6 +1401,7 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
             justifyContent: "center",
             gap: 1,
             py: 1.5,
+            flexWrap: "wrap",
           }}
         >
           <Tooltip title="Zoom In">
@@ -542,1030 +1429,1198 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               <Refresh />
             </IconButton>
           </Tooltip>
-          <Typography variant="caption" sx={{ ml: 2, color: "text.secondary" }}>
+          <Typography
+            variant="caption"
+            sx={{ ml: { sm: 2 }, color: "text.secondary" }}
+          >
             {Math.round(zoom * 100)}% • {rotation}°
           </Typography>
         </DialogActions>
       )}
     </Dialog>
   );
-});
+};
 
-ImageViewerModal.displayName = "ImageViewerModal";
+// ========== DOCUMENT CARD COMPONENT ==========
+const DocumentCard = ({ title, url, icon, filename, onView, onDownload }) => {
+  const handleView = useCallback(() => {
+    if (onView) onView(url, title);
+  }, [onView, url, title]);
 
-// Document Card Component
-const DocumentCard = React.memo(
-  ({ title, url, icon, filename, onView, onDownload }) => {
-    const handleView = useCallback(() => {
-      if (onView) onView(url, title);
-    }, [onView, url, title]);
+  const handleDownload = useCallback(() => {
+    if (onDownload) onDownload(url, filename);
+  }, [onDownload, url, filename]);
 
-    const handleDownload = useCallback(() => {
-      if (onDownload) onDownload(url, filename);
-    }, [onDownload, url, filename]);
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+        {icon}
+        <Typography variant="body2" fontWeight={600} noWrap>
+          {title}
+        </Typography>
+      </Box>
+      <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
+        <Button
+          fullWidth
+          size="small"
+          variant="outlined"
+          startIcon={<Visibility />}
+          onClick={handleView}
+          sx={{
+            borderColor: PRIMARY_COLOR,
+            color: PRIMARY_COLOR,
+            "&:hover": {
+              borderColor: PRIMARY_COLOR,
+              bgcolor: alpha(PRIMARY_COLOR, 0.05),
+            },
+          }}
+        >
+          View
+        </Button>
+        <Button
+          fullWidth
+          size="small"
+          variant="contained"
+          startIcon={<GetApp />}
+          onClick={handleDownload}
+          sx={{
+            bgcolor: PRIMARY_COLOR,
+            "&:hover": { bgcolor: SECONDARY_COLOR },
+          }}
+        >
+          Download
+        </Button>
+      </Stack>
+    </Card>
+  );
+};
 
-    return (
-      <Card
-        variant="outlined"
-        sx={{
-          p: 2,
-          borderRadius: 2,
-          height: "100%",
-          width: "350px",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-          {icon}
-          <Typography variant="body2" fontWeight={600} noWrap>
-            {title}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
-          <Button
-            fullWidth
-            size="small"
-            variant="outlined"
-            startIcon={<Visibility />}
-            onClick={handleView}
-          >
-            View
-          </Button>
-          <Button
-            fullWidth
-            size="small"
-            variant="contained"
-            startIcon={<GetApp />}
-            onClick={handleDownload}
-            sx={{ bgcolor: PRIMARY }}
-          >
-            Download
-          </Button>
-        </Stack>
-      </Card>
-    );
-  },
-);
+// ========== DISBURSEMENT STATUS UPDATE MODAL ==========
+const DisbursementStatusUpdateModal = ({
+  open,
+  onClose,
+  lead,
+  onStatusUpdate,
+  showSnackbar,
+  userRole,
+}) => {
+  const { fetchAPI, user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-DocumentCard.displayName = "DocumentCard";
+  const [loading, setLoading] = useState(false);
+  const [selectedDisbursementStatus, setSelectedDisbursementStatus] =
+    useState("");
+  const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
+  const [disbursementAmount, setDisbursementAmount] = useState("");
+  const [disbursementDate, setDisbursementDate] = useState(null);
+  const [notes, setNotes] = useState("");
+  const [errors, setErrors] = useState({});
 
-// ────────────────────────────────────────────────
-// Component
-// ────────────────────────────────────────────────
-const DisbursementStatusUpdateModal = React.memo(
-  ({ open, onClose, lead, onStatusUpdate, showSnackbar, userRole }) => {
-    const { fetchAPI, user } = useAuth();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  useEffect(() => {
+    if (open && lead) {
+      setSelectedDisbursementStatus(lead.disbursementStatus || "pending");
+      setSelectedLeadStatus(lead.status || "Disbursement");
+      setDisbursementAmount(lead.disbursementAmount?.toString() || "");
+      setDisbursementDate(
+        lead.disbursementDate ? parseISO(lead.disbursementDate) : null,
+      );
+      setNotes(lead.disbursementNotes || "");
+      setErrors({});
+    }
+  }, [open, lead]);
 
-    const [loading, setLoading] = useState(false);
-    const [selectedDisbursementStatus, setSelectedDisbursementStatus] =
-      useState("");
-    const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
-    const [disbursementAmount, setDisbursementAmount] = useState("");
-    const [disbursementDate, setDisbursementDate] = useState(null);
-    const [notes, setNotes] = useState("");
-    const [errors, setErrors] = useState({});
+  const handleSubmit = useCallback(async () => {
+    const newErrors = {};
 
-    useEffect(() => {
-      if (open && lead) {
-        setSelectedDisbursementStatus(lead.disbursementStatus || "pending");
-        setSelectedLeadStatus(lead.status || "Disbursement");
-        setDisbursementAmount(lead.disbursementAmount?.toString() || "");
-        setDisbursementDate(
-          lead.disbursementDate ? parseISO(lead.disbursementDate) : null,
-        );
-        setNotes(lead.disbursementNotes || "");
-        setErrors({});
+    if (!selectedDisbursementStatus) {
+      newErrors.disbursementStatus = "Please select disbursement status";
+    }
+
+    if (!selectedLeadStatus) {
+      newErrors.leadStatus = "Please select lead status";
+    }
+
+    if (selectedDisbursementStatus === "completed") {
+      if (!disbursementAmount.trim()) {
+        newErrors.disbursementAmount = "Disbursement amount is required";
+      } else {
+        const numAmount = parseFloat(disbursementAmount);
+        if (isNaN(numAmount) || numAmount <= 0) {
+          newErrors.disbursementAmount = "Enter a valid amount > 0";
+        }
       }
-    }, [open, lead]);
 
-    const handleSubmit = useCallback(async () => {
-      const newErrors = {};
-
-      if (!selectedDisbursementStatus) {
-        newErrors.disbursementStatus = "Please select disbursement status";
+      if (!disbursementDate) {
+        newErrors.disbursementDate = "Disbursement date is required";
       }
+    }
 
-      if (!selectedLeadStatus) {
-        newErrors.leadStatus = "Please select lead status";
-      }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    if (
+      selectedDisbursementStatus === lead?.disbursementStatus &&
+      selectedLeadStatus === lead?.status &&
+      notes === (lead?.disbursementNotes || "")
+    ) {
+      onClose();
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const updateData = {
+        disbursementStatus: selectedDisbursementStatus,
+        status: selectedLeadStatus,
+        disbursementNotes: notes.trim() || undefined,
+        updatedBy: user?._id,
+        updatedByRole: user?.role,
+        updatedAt: new Date().toISOString(),
+      };
 
       if (selectedDisbursementStatus === "completed") {
-        if (!disbursementAmount.trim()) {
-          newErrors.disbursementAmount = "Disbursement amount is required";
-        } else {
-          const numAmount = parseFloat(disbursementAmount);
-          if (isNaN(numAmount) || numAmount <= 0) {
-            newErrors.disbursementAmount = "Enter a valid amount > 0";
-          }
-        }
-
-        if (!disbursementDate) {
-          newErrors.disbursementDate = "Disbursement date is required";
-        }
+        updateData.disbursementAmount = parseFloat(disbursementAmount);
+        updateData.disbursementDate = format(disbursementDate, "yyyy-MM-dd");
       }
 
-      if (Object.keys(newErrors).length > 0) {
-        setErrors(newErrors);
-        return;
-      }
+      const response = await fetchAPI(`/lead/updateLead/${lead._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
 
-      // No change → just close
-      if (
-        selectedDisbursementStatus === lead?.disbursementStatus &&
-        selectedLeadStatus === lead?.status &&
-        notes === (lead?.disbursementNotes || "")
-      ) {
+      if (response.success) {
+        showSnackbar("Disbursement status updated successfully", "success");
+        onStatusUpdate(response.result);
         onClose();
-        return;
+      } else {
+        throw new Error(response.message || "Update failed");
       }
+    } catch (err) {
+      console.error("Disbursement update error:", err);
+      const msg = err.message || "Failed to update status";
+      setErrors({ submit: msg });
+      showSnackbar(msg, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    selectedDisbursementStatus,
+    selectedLeadStatus,
+    disbursementAmount,
+    disbursementDate,
+    notes,
+    lead,
+    user,
+    fetchAPI,
+    showSnackbar,
+    onStatusUpdate,
+    onClose,
+  ]);
 
-      setLoading(true);
+  const handleClose = useCallback(() => {
+    setSelectedDisbursementStatus("");
+    setSelectedLeadStatus("");
+    setDisbursementAmount("");
+    setDisbursementDate(null);
+    setNotes("");
+    setErrors({});
+    onClose();
+  }, [onClose]);
 
-      try {
-        const updateData = {
-          disbursementStatus: selectedDisbursementStatus,
-          status: selectedLeadStatus,
-          disbursementNotes: notes.trim() || undefined,
-          updatedBy: user?._id,
-          updatedByRole: user?.role,
-          updatedAt: new Date().toISOString(),
-        };
+  const getLeadStatusOptions = useMemo(() => {
+    switch (selectedDisbursementStatus) {
+      case "completed":
+        return ["Installation Completion"];
+      case "cancelled":
+        return ["Missed Leads"];
+      case "pending":
+        return ["Disbursement"];
+      default:
+        return ["Disbursement", "Installation Completion", "Missed Leads"];
+    }
+  }, [selectedDisbursementStatus]);
 
-        if (selectedDisbursementStatus === "completed") {
-          updateData.disbursementAmount = parseFloat(disbursementAmount);
-          updateData.disbursementDate = format(disbursementDate, "yyyy-MM-dd");
-        }
+  if (!lead) return null;
 
-        const response = await fetchAPI(`/lead/updateLead/${lead._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
-        });
-
-        if (response.success) {
-          showSnackbar("Disbursement status updated successfully", "success");
-          onStatusUpdate(response.result);
-          onClose();
-        } else {
-          throw new Error(response.message || "Update failed");
-        }
-      } catch (err) {
-        console.error("Disbursement update error:", err);
-        const msg = err.message || "Failed to update status";
-        setErrors({ submit: msg });
-        showSnackbar(msg, "error");
-      } finally {
-        setLoading(false);
-      }
-    }, [
-      selectedDisbursementStatus,
-      selectedLeadStatus,
-      disbursementAmount,
-      disbursementDate,
-      notes,
-      lead,
-      user,
-      fetchAPI,
-      showSnackbar,
-      onStatusUpdate,
-      onClose,
-    ]);
-
-    const handleClose = useCallback(() => {
-      setSelectedDisbursementStatus("");
-      setSelectedLeadStatus("");
-      setDisbursementAmount("");
-      setDisbursementDate(null);
-      setNotes("");
-      setErrors({});
-      onClose();
-    }, [onClose]);
-
-    const getLeadStatusOptions = useMemo(() => {
-      switch (selectedDisbursementStatus) {
-        case "completed":
-          return ["Installation Completion"];
-        case "cancelled":
-          return ["Missed Leads"];
-        case "pending":
-          return ["Disbursement"];
-        default:
-          return ["Disbursement", "Installation Completion", "Missed Leads"];
-      }
-    }, [selectedDisbursementStatus]);
-
-    if (!lead) return null;
-
-    return (
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3 } }}
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: alpha(PRIMARY_COLOR, 0.05),
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
       >
-        <DialogTitle sx={{ bgcolor: alpha(PRIMARY, 0.06), pb: 2 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Box
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box
+              sx={{
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                borderRadius: 2,
+                bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: PRIMARY_COLOR,
+              }}
+            >
+              <Payment sx={{ fontSize: { xs: 24, sm: 28 } }} />
+            </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                Update Disbursement Status
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
+                {lead.firstName} {lead.lastName}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={handleClose} size="small" disabled={loading}>
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <Stack spacing={3}>
+          {errors.submit && (
+            <Alert severity="error" sx={{ borderRadius: 2 }}>
+              {errors.submit}
+            </Alert>
+          )}
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <Box flex={1}>
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                Current Disbursement Status
+              </Typography>
+              <Chip
+                label={
+                  getDisbursementStatusConfig(lead.disbursementStatus).label
+                }
+                icon={getDisbursementStatusConfig(lead.disbursementStatus).icon}
+                size="small"
                 sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 2,
-                  bgcolor: alpha(PRIMARY, 0.12),
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: PRIMARY,
+                  bgcolor: getDisbursementStatusConfig(lead.disbursementStatus)
+                    .bg,
+                  color: getDisbursementStatusConfig(lead.disbursementStatus)
+                    .color,
+                  fontWeight: 600,
                 }}
-              >
-                <Payment sx={{ fontSize: 28 }} />
-              </Box>
-
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  Update Disbursement Status
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {lead?.firstName} {lead?.lastName}
-                </Typography>
-                <Chip
-                  label={getRoleConfig(userRole).label}
-                  icon={getRoleConfig(userRole).icon}
-                  size="small"
-                  sx={{
-                    mt: 1,
-                    bgcolor: alpha(getRoleConfig(userRole).color, 0.12),
-                    color: getRoleConfig(userRole).color,
-                    fontWeight: 600,
-                  }}
-                />
-              </Box>
-            </Box>
-
-            <IconButton onClick={handleClose} size="medium">
-              <Close />
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-
-        <DialogContent sx={{ py: 3 }}>
-          <Stack spacing={3}>
-            {errors.submit && (
-              <Alert severity="error" sx={{ borderRadius: 2 }}>
-                {errors.submit}
-              </Alert>
-            )}
-
-            {/* Current statuses */}
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <Box flex={1}>
-                <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                  Current Disbursement Status
-                </Typography>
-                <Chip
-                  label={
-                    getDisbursementStatusColor(lead.disbursementStatus).label
-                  }
-                  icon={
-                    getDisbursementStatusColor(lead.disbursementStatus).icon
-                  }
-                  sx={{
-                    bgcolor: getDisbursementStatusColor(lead.disbursementStatus)
-                      .bg,
-                    color: getDisbursementStatusColor(lead.disbursementStatus)
-                      .color,
-                  }}
-                />
-              </Box>
-
-              <Box flex={1}>
-                <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                  Current Lead Status
-                </Typography>
-                <Chip
-                  label={lead.status}
-                  icon={getLeadStatusConfig(lead.status).icon}
-                  sx={{
-                    bgcolor: getLeadStatusConfig(lead.status).bg,
-                    color: getLeadStatusConfig(lead.status).color,
-                  }}
-                />
-              </Box>
-            </Stack>
-
-            {/* New Disbursement Status */}
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                New Disbursement Status *
-              </Typography>
-              <FormControl
-                fullWidth
-                size="small"
-                error={!!errors.disbursementStatus}
-              >
-                <Select
-                  value={selectedDisbursementStatus}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedDisbursementStatus(val);
-                    // Auto-sync lead status
-                    if (val === "completed")
-                      setSelectedLeadStatus("Installation Completion");
-                    else if (val === "cancelled")
-                      setSelectedLeadStatus("Missed Leads");
-                    else if (val === "pending")
-                      setSelectedLeadStatus("Disbursement");
-                  }}
-                >
-                  <MenuItem value="" disabled>
-                    Select status
-                  </MenuItem>
-                  {DISBURSEMENT_STATUS_OPTIONS.map((status) => {
-                    const cfg = getDisbursementStatusColor(status);
-                    return (
-                      <MenuItem key={status} value={status}>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={1.5}
-                        >
-                          {cfg.icon}
-                          <Box>
-                            <Typography variant="body2">{cfg.label}</Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {cfg.description}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </MenuItem>
-                    );
-                  })}
-                </Select>
-                {errors.disbursementStatus && (
-                  <FormHelperText>{errors.disbursementStatus}</FormHelperText>
-                )}
-              </FormControl>
-            </Box>
-
-            {/* Lead Status */}
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                Lead Status *
-              </Typography>
-              <FormControl fullWidth size="small" error={!!errors.leadStatus}>
-                <Select
-                  value={selectedLeadStatus}
-                  onChange={(e) => setSelectedLeadStatus(e.target.value)}
-                  disabled={!selectedDisbursementStatus}
-                >
-                  <MenuItem value="" disabled>
-                    Select status
-                  </MenuItem>
-                  {getLeadStatusOptions.map((status) => {
-                    const cfg = getLeadStatusConfig(status);
-                    return (
-                      <MenuItem key={status} value={status}>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={1.5}
-                        >
-                          {cfg.icon}
-                          <Box>
-                            <Typography variant="body2">{status}</Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {cfg.description}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </MenuItem>
-                    );
-                  })}
-                </Select>
-                {errors.leadStatus && (
-                  <FormHelperText>{errors.leadStatus}</FormHelperText>
-                )}
-              </FormControl>
-            </Box>
-
-            {/* Completed fields */}
-            {selectedDisbursementStatus === "completed" && (
-              <Stack spacing={2}>
-                <TextField
-                  label="Disbursement Amount *"
-                  value={disbursementAmount}
-                  onChange={(e) => setDisbursementAmount(e.target.value)}
-                  fullWidth
-                  size="small"
-                  type="number"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <CurrencyRupee fontSize="small" />
-                      </InputAdornment>
-                    ),
-                  }}
-                  error={!!errors.disbursementAmount}
-                  helperText={errors.disbursementAmount}
-                />
-
-                <DatePicker
-                  label="Disbursement Date *"
-                  value={disbursementDate}
-                  onChange={setDisbursementDate}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      size: "small",
-                      error: !!errors.disbursementDate,
-                      helperText: errors.disbursementDate,
-                    },
-                  }}
-                />
-              </Stack>
-            )}
-
-            {/* Notes */}
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                Notes
-              </Typography>
-              <TextField
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                fullWidth
-                multiline
-                rows={3}
-                placeholder="Add any remarks or internal notes..."
-                size="small"
               />
             </Box>
 
-            {selectedDisbursementStatus && (
-              <Alert severity="info" sx={{ borderRadius: 2 }}>
-                {selectedDisbursementStatus === "completed"
-                  ? "Lead will move to → Installation Completion"
-                  : selectedDisbursementStatus === "cancelled"
-                    ? "Lead will move to → Missed Leads"
-                    : "Lead remains in → Disbursement stage"}
-              </Alert>
-            )}
-          </Stack>
-        </DialogContent>
-
-        <DialogActions
-          sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}
-        >
-          <Button onClick={handleClose} variant="outlined" size="large">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            size="large"
-            disabled={
-              loading ||
-              !selectedDisbursementStatus ||
-              !selectedLeadStatus ||
-              (selectedDisbursementStatus === lead?.disbursementStatus &&
-                selectedLeadStatus === lead?.status &&
-                notes.trim() === (lead?.disbursementNotes || ""))
-            }
-            startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-            sx={{ px: 4 }}
-          >
-            {loading ? "Updating..." : "Update Status"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  },
-);
-
-DisbursementStatusUpdateModal.displayName = "DisbursementStatusUpdateModal";
-
-// View Lead Modal with Tabs
-const ViewLeadModal = React.memo(
-  ({ open, onClose, lead, userRole, showSnackbar, handleViewDocument }) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const [activeTab, setActiveTab] = useState(0);
-    const [loadingDetails, setLoadingDetails] = useState(false);
-    const [leadDetails, setLeadDetails] = useState(null);
-
-    const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
-
-    useEffect(() => {
-      if (open && lead?._id && !leadDetails) {
-        setLoadingDetails(true);
-        setTimeout(() => {
-          setLeadDetails(lead);
-          setLoadingDetails(false);
-        }, 100);
-      }
-    }, [open, lead?._id]);
-
-    const handleTabChange = (event, newValue) => {
-      setActiveTab(newValue);
-    };
-
-    const handleDownload = (url, filename) => {
-      if (!url) {
-        showSnackbar("No document available to download", "error");
-        return;
-      }
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename || "document";
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    };
-
-    if (!lead) return null;
-
-    const displayData = leadDetails || lead;
-
-    const tabs = [
-      {
-        label: "Disbursement",
-        icon: <Payment />,
-        content: (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ boxShadow: "none", width: "100%" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      marginBottom: "20px",
-                      color: PRIMARY,
-                    }}
-                  >
-                    <Payment /> Disbursement Information
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Disbursement Amount
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600}>
-                        {formatCurrency(displayData.disbursementAmount)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Disbursement Date
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(displayData.disbursementDate)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Transaction ID
-                      </Typography>
-                      <Typography variant="body1">
-                        {displayData.disbursementTransactionId ||
-                          "Not specified"}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Bank
-                      </Typography>
-                      <Typography variant="body1">
-                        {displayData.bank || "Not specified"}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ boxShadow: "none" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      marginBottom: "20px",
-                      color: PRIMARY,
-                    }}
-                  >
-                    <GppMaybe /> Status Information
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Disbursement Status
-                      </Typography>
-                      <Chip
-                        label={
-                          getDisbursementStatusColor(
-                            displayData.disbursementStatus,
-                          ).label
-                        }
-                        icon={
-                          getDisbursementStatusColor(
-                            displayData.disbursementStatus,
-                          ).icon
-                        }
-                        size="small"
-                        sx={{
-                          bgcolor: getDisbursementStatusColor(
-                            displayData.disbursementStatus,
-                          ).bg,
-                          color: getDisbursementStatusColor(
-                            displayData.disbursementStatus,
-                          ).color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Lead Status
-                      </Typography>
-                      <Chip
-                        label={displayData.status || "Unknown"}
-                        icon={getLeadStatusConfig(displayData.status).icon}
-                        size="small"
-                        sx={{
-                          bgcolor: getLeadStatusConfig(displayData.status).bg,
-                          color: getLeadStatusConfig(displayData.status).color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Last Updated
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(displayData.updatedAt)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        ),
-      },
-      {
-        label: "Customer",
-        icon: <Person />,
-        content: (
-          <Card sx={{ boxShadow: "none", width: "100%" }}>
-            <CardContent>
-              <Typography
-                variant="h6"
-                gutterBottom
+            <Box flex={1}>
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                Current Lead Status
+              </Typography>
+              <Chip
+                label={lead.status || "Unknown"}
+                icon={getLeadStatusConfig(lead.status).icon}
+                size="small"
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  marginBottom: "20px",
-                  color: PRIMARY,
+                  bgcolor: getLeadStatusConfig(lead.status).bg,
+                  color: getLeadStatusConfig(lead.status).color,
+                  fontWeight: 600,
                 }}
-              >
-                <Person /> Customer Information
-              </Typography>
-              <Stack spacing={2}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Full Name
-                  </Typography>
-                  <Typography variant="body1" fontWeight={600}>
-                    {displayData.firstName} {displayData.lastName}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Email
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.email || "Not set"}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Phone
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.phoneNumber || displayData.phone || "Not set"}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Address
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.address || "Not set"}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    City
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.city || "Not set"}
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        ),
-      },
-      {
-        label: "Notes",
-        icon: <Note />,
-        content: (
-          <Card sx={{ boxShadow: "none", width: "100%" }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Disbursement Notes
-              </Typography>
-              {displayData.disbursementNotes ? (
-                <Paper
-                  sx={{
-                    p: 3,
-                    bgcolor: "grey.50",
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "grey.300",
-                  }}
-                >
-                  <Typography
-                    variant="body1"
-                    style={{ whiteSpace: "pre-wrap" }}
-                  >
-                    {displayData.disbursementNotes}
-                  </Typography>
-                </Paper>
-              ) : (
-                <Box sx={{ textAlign: "center", py: 8 }}>
-                  <Note sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    No Notes Available
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    No notes have been added for this disbursement.
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        ),
-      },
-    ];
+              />
+            </Box>
+          </Stack>
 
-    return (
-      <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="lg"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3, maxHeight: "90vh" } }}
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              New Disbursement Status *
+            </Typography>
+            <FormControl
+              fullWidth
+              size="small"
+              error={!!errors.disbursementStatus}
+            >
+              <Select
+                value={selectedDisbursementStatus}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedDisbursementStatus(val);
+                  if (val === "completed")
+                    setSelectedLeadStatus("Installation Completion");
+                  else if (val === "cancelled")
+                    setSelectedLeadStatus("Missed Leads");
+                  else if (val === "pending")
+                    setSelectedLeadStatus("Disbursement");
+                }}
+                disabled={loading}
+              >
+                <MenuItem value="" disabled>
+                  Select status
+                </MenuItem>
+                {DISBURSEMENT_STATUS_OPTIONS.map((status) => {
+                  const cfg = getDisbursementStatusConfig(status);
+                  return (
+                    <MenuItem key={status} value={status}>
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
+                        {cfg.icon}
+                        <Box>
+                          <Typography variant="body2">{cfg.label}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {cfg.description}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+              {errors.disbursementStatus && (
+                <FormHelperText>{errors.disbursementStatus}</FormHelperText>
+              )}
+            </FormControl>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Lead Status *
+            </Typography>
+            <FormControl fullWidth size="small" error={!!errors.leadStatus}>
+              <Select
+                value={selectedLeadStatus}
+                onChange={(e) => setSelectedLeadStatus(e.target.value)}
+                disabled={!selectedDisbursementStatus || loading}
+              >
+                <MenuItem value="" disabled>
+                  Select status
+                </MenuItem>
+                {getLeadStatusOptions.map((status) => {
+                  const cfg = getLeadStatusConfig(status);
+                  return (
+                    <MenuItem key={status} value={status}>
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
+                        {cfg.icon}
+                        <Box>
+                          <Typography variant="body2">{status}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {cfg.description}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+              {errors.leadStatus && (
+                <FormHelperText>{errors.leadStatus}</FormHelperText>
+              )}
+            </FormControl>
+          </Box>
+
+          {selectedDisbursementStatus === "completed" && (
+            <Stack spacing={2}>
+              <TextField
+                label="Disbursement Amount *"
+                value={disbursementAmount}
+                onChange={(e) => setDisbursementAmount(e.target.value)}
+                fullWidth
+                size="small"
+                type="number"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <CurrencyRupee fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+                error={!!errors.disbursementAmount}
+                helperText={errors.disbursementAmount}
+                disabled={loading}
+              />
+
+              <DatePicker
+                label="Disbursement Date *"
+                value={disbursementDate}
+                onChange={setDisbursementDate}
+                disabled={loading}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    size: "small",
+                    error: !!errors.disbursementDate,
+                    helperText: errors.disbursementDate,
+                  },
+                }}
+              />
+            </Stack>
+          )}
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Notes
+            </Typography>
+            <TextField
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              fullWidth
+              multiline
+              rows={isMobile ? 2 : 3}
+              placeholder="Add any remarks or internal notes..."
+              size="small"
+              disabled={loading}
+            />
+          </Box>
+
+          {selectedDisbursementStatus && (
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              {selectedDisbursementStatus === "completed"
+                ? "Lead will move to → Installation Completion"
+                : selectedDisbursementStatus === "cancelled"
+                  ? "Lead will move to → Missed Leads"
+                  : "Lead remains in → Disbursement stage"}
+            </Alert>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
       >
-        <DialogTitle
+        <Button
+          onClick={handleClose}
+          variant="outlined"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={loading}
           sx={{
-            bgcolor: PRIMARY,
-            color: "white",
-            pb: 2,
+            borderColor: PRIMARY_COLOR,
+            color: PRIMARY_COLOR,
+            "&:hover": {
+              borderColor: PRIMARY_COLOR,
+              bgcolor: alpha(PRIMARY_COLOR, 0.05),
+            },
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={
+            loading ||
+            !selectedDisbursementStatus ||
+            !selectedLeadStatus ||
+            (selectedDisbursementStatus === lead?.disbursementStatus &&
+              selectedLeadStatus === lead?.status &&
+              notes.trim() === (lead?.disbursementNotes || ""))
+          }
+          startIcon={
+            loading ? (
+              <CircularProgress size={20} sx={{ color: "#fff" }} />
+            ) : (
+              <Save />
+            )
+          }
+          sx={{
+            bgcolor: PRIMARY_COLOR,
+            px: 4,
+            "&:hover": { bgcolor: SECONDARY_COLOR },
+            "&.Mui-disabled": {
+              bgcolor: "#ccc",
+            },
+          }}
+        >
+          {loading ? "Updating..." : "Update Status"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ========== VIEW LEAD MODAL ==========
+const ViewLeadModal = ({
+  open,
+  onClose,
+  lead,
+  userRole,
+  showSnackbar,
+  handleViewDocument,
+}) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [activeTab, setActiveTab] = useState(0);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [leadDetails, setLeadDetails] = useState(null);
+
+  const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
+
+  useEffect(() => {
+    if (open && lead?._id) {
+      setLeadDetails(lead);
+    }
+  }, [open, lead]);
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const handleDownload = (url, filename) => {
+    if (!url) {
+      showSnackbar("No document available to download", "error");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename || "document";
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (!lead) return null;
+
+  const displayData = leadDetails || lead;
+
+  const tabs = [
+    {
+      label: "Disbursement",
+      icon: <Payment />,
+      content: (
+        <Stack spacing={2.5}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+              border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
           >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: "white", color: PRIMARY }}>
-                {displayData.firstName?.[0] || "D"}
-              </Avatar>
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  {displayData.firstName} {displayData.lastName}
+            <Typography
+              variant="subtitle2"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY_COLOR,
+                fontWeight: 600,
+              }}
+            >
+              <Payment sx={{ fontSize: 20 }} /> Disbursement Information
+            </Typography>
+            <Stack spacing={2}>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Disbursement Amount
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                  Disbursement Details •{" "}
+                <Typography variant="body2" fontWeight={600}>
                   {formatCurrency(displayData.disbursementAmount)}
                 </Typography>
               </Box>
-            </Box>
-            <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
-              <Close />
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={activeTab}
-              onChange={handleTabChange}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{
-                "& .MuiTab-root": {
-                  minHeight: 64,
-                  py: 1.5,
-                },
-              }}
-            >
-              {tabs.map((tab, index) => (
-                <Tab
-                  key={index}
-                  icon={tab.icon}
-                  label={tab.label}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    fontSize: "0.875rem",
-                  }}
-                />
-              ))}
-            </Tabs>
-          </Box>
-
-          <Box sx={{ p: 3, maxHeight: "60vh", overflow: "auto" }}>
-            {loadingDetails ? (
-              <Box
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                minHeight={200}
-              >
-                <CircularProgress sx={{ color: PRIMARY }} />
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Disbursement Date
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(displayData.disbursementDate)}
+                </Typography>
               </Box>
-            ) : (
-              tabs[activeTab].content
-            )}
-          </Box>
-        </DialogContent>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Transaction ID
+                </Typography>
+                <Typography variant="body2">
+                  {displayData.disbursementTransactionId || "Not specified"}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Bank
+                </Typography>
+                <Typography variant="body2">
+                  {displayData.bank || "Not specified"}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
 
-        <DialogActions
-          sx={{ p: 3, pt: 0, borderTop: 1, borderColor: "divider" }}
-        >
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            width="100%"
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+              border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
           >
-            <Chip
-              label={userRoleConfig.label}
-              icon={userRoleConfig.icon}
-              size="small"
+            <Typography
+              variant="subtitle2"
               sx={{
-                bgcolor: `${userRoleConfig.color}15`,
-                color: userRoleConfig.color,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY_COLOR,
                 fontWeight: 600,
               }}
-            />
-            <Button
-              onClick={onClose}
-              variant="contained"
-              sx={{ borderRadius: 2, mt: 2 }}
             >
-              Close
-            </Button>
+              <GppMaybe sx={{ fontSize: 20 }} /> Status Information
+            </Typography>
+            <Stack spacing={2}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Disbursement Status
+                </Typography>
+                <Chip
+                  label={
+                    getDisbursementStatusConfig(displayData.disbursementStatus)
+                      .label
+                  }
+                  icon={
+                    getDisbursementStatusConfig(displayData.disbursementStatus)
+                      .icon
+                  }
+                  size="small"
+                  sx={{
+                    bgcolor: getDisbursementStatusConfig(
+                      displayData.disbursementStatus,
+                    ).bg,
+                    color: getDisbursementStatusConfig(
+                      displayData.disbursementStatus,
+                    ).color,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Lead Status
+                </Typography>
+                <Chip
+                  label={displayData.status || "Unknown"}
+                  icon={getLeadStatusConfig(displayData.status).icon}
+                  size="small"
+                  sx={{
+                    bgcolor: getLeadStatusConfig(displayData.status).bg,
+                    color: getLeadStatusConfig(displayData.status).color,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(displayData.updatedAt)}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Stack>
+      ),
+    },
+    {
+      label: "Customer",
+      icon: <Person />,
+      content: (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            bgcolor: alpha(PRIMARY_COLOR, 0.02),
+            border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: 2.5,
+              color: PRIMARY_COLOR,
+              fontWeight: 600,
+            }}
+          >
+            <Person sx={{ fontSize: 20 }} /> Customer Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Full Name
+              </Typography>
+              <Typography variant="body2" fontWeight={600}>
+                {displayData.firstName} {displayData.lastName}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Email
+              </Typography>
+              <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
+                {displayData.email || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Phone
+              </Typography>
+              <Typography variant="body2">
+                {displayData.phoneNumber || displayData.phone || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Address
+              </Typography>
+              <Typography variant="body2">
+                {displayData.address || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                City
+              </Typography>
+              <Typography variant="body2">
+                {displayData.city || "Not set"}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      ),
+    },
+    {
+      label: "Notes",
+      icon: <Note />,
+      content: (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            bgcolor: alpha(PRIMARY_COLOR, 0.02),
+            border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: 2.5,
+              color: PRIMARY_COLOR,
+              fontWeight: 600,
+            }}
+          >
+            <Note sx={{ fontSize: 20 }} /> Disbursement Notes
+          </Typography>
+          {displayData.disbursementNotes ? (
+            <Typography
+              variant="body2"
+              sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+            >
+              {displayData.disbursementNotes}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No notes available
+            </Typography>
+          )}
+        </Paper>
+      ),
+    },
+  ];
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          maxHeight: isMobile ? "100%" : "90vh",
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: PRIMARY_COLOR,
+          color: "white",
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar
+              sx={{
+                bgcolor: "white",
+                color: PRIMARY_COLOR,
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                fontWeight: 600,
+              }}
+            >
+              {getInitials(displayData.firstName, displayData.lastName)}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                {displayData.firstName} {displayData.lastName}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  opacity: 0.9,
+                  fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                }}
+              >
+                Disbursement Details •{" "}
+                {formatCurrency(displayData.disbursementAmount)}
+              </Typography>
+            </Box>
           </Box>
-        </DialogActions>
-      </Dialog>
-    );
-  },
+          <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent sx={{ p: 0 }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              "& .MuiTab-root": {
+                minHeight: { xs: 48, sm: 56 },
+                py: 1,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              },
+            }}
+          >
+            {tabs.map((tab, index) => (
+              <Tab
+                key={index}
+                icon={React.cloneElement(tab.icon, {
+                  sx: { fontSize: { xs: 18, sm: 20 } },
+                })}
+                label={tab.label}
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              />
+            ))}
+          </Tabs>
+        </Box>
+
+        <Box
+          sx={{
+            p: { xs: 2, sm: 3 },
+            maxHeight: { xs: "calc(100vh - 180px)", sm: "60vh" },
+            overflow: "auto",
+          }}
+        >
+          {loadingDetails ? (
+            <Box
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              minHeight={200}
+            >
+              <CircularProgress sx={{ color: PRIMARY_COLOR }} />
+            </Box>
+          ) : (
+            tabs[activeTab].content
+          )}
+        </Box>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+        >
+          <Chip
+            label={userRoleConfig.label}
+            icon={userRoleConfig.icon}
+            size="small"
+            sx={{
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+              color: PRIMARY_COLOR,
+              fontWeight: 600,
+              height: { xs: 24, sm: 28 },
+              fontSize: { xs: "0.65rem", sm: "0.75rem" },
+            }}
+          />
+          <Button
+            onClick={onClose}
+            variant="contained"
+            size={isMobile ? "small" : "medium"}
+            sx={{
+              borderRadius: 2,
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
+            }}
+          >
+            Close
+          </Button>
+        </Box>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ========== LOADING SKELETON ==========
+const LoadingSkeleton = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4].map((item) => (
+          <Grid item xs={6} sm={6} md={3} key={item}>
+            <Skeleton
+              variant="rectangular"
+              height={isMobile ? 90 : 120}
+              sx={{ borderRadius: 3 }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      {isMobile && (
+        <Skeleton
+          variant="rectangular"
+          height={56}
+          sx={{ borderRadius: 2, mb: 2 }}
+        />
+      )}
+      <Skeleton
+        variant="rectangular"
+        height={isMobile ? 500 : 400}
+        sx={{ borderRadius: 3, mb: 2 }}
+      />
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+    </Box>
+  );
+};
+
+// ========== EMPTY STATE ==========
+const EmptyState = ({ onClearFilters, hasFilters }) => (
+  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
+    <Box
+      sx={{
+        width: 120,
+        height: 120,
+        borderRadius: "50%",
+        bgcolor: alpha(PRIMARY_COLOR, 0.1),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        mx: "auto",
+        mb: 3,
+      }}
+    >
+      <Payment sx={{ fontSize: 48, color: PRIMARY_COLOR }} />
+    </Box>
+    <Typography variant="h6" fontWeight={600} gutterBottom>
+      No disbursements found
+    </Typography>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+    >
+      {hasFilters
+        ? "No disbursements match your current filters. Try adjusting your search criteria."
+        : "No disbursements have been processed yet."}
+    </Typography>
+    {hasFilters && (
+      <Button
+        variant="contained"
+        onClick={onClearFilters}
+        startIcon={<Clear />}
+        sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
+      >
+        Clear All Filters
+      </Button>
+    )}
+  </Box>
 );
 
-ViewLeadModal.displayName = "ViewLeadModal";
-
-// Loading Skeletons
-const LoadingSkeleton = () => (
-  <Box sx={{ p: 3 }}>
-    <Grid container spacing={2} sx={{ mb: 3 }}>
-      {[1, 2, 3, 4].map((item) => (
-        <Grid item xs={6} sm={3} key={item}>
-          <Skeleton
-            variant="rectangular"
-            height={120}
-            sx={{ borderRadius: 2 }}
-          />
-        </Grid>
-      ))}
-    </Grid>
-    <Skeleton
-      variant="rectangular"
-      height={400}
-      sx={{ borderRadius: 2, mb: 2 }}
-    />
-    <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
-  </Box>
+// ========== SUMMARY CARD ==========
+const SummaryCard = ({ card, index }) => (
+  <Fade in={true} timeout={500 + index * 100}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: 3,
+        border: `1px solid ${alpha(card.color, 0.1)}`,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        transition: "transform 0.2s",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+        },
+      }}
+    >
+      <Stack spacing={1}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box
+            sx={{
+              width: { xs: 32, sm: 40, md: 48 },
+              height: { xs: 32, sm: 40, md: 48 },
+              borderRadius: { xs: 1.5, sm: 2 },
+              bgcolor: alpha(card.color, 0.1),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: card.color,
+            }}
+          >
+            {React.cloneElement(card.icon, {
+              sx: { fontSize: { xs: 16, sm: 20, md: 24 } },
+            })}
+          </Box>
+          <Typography
+            variant="h4"
+            fontWeight={700}
+            sx={{
+              color: card.color,
+              fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
+            }}
+          >
+            {card.value}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            fontWeight={600}
+            sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+          >
+            {card.label}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontSize: { xs: "0.6rem", sm: "0.7rem" } }}
+          >
+            {card.subText}
+          </Typography>
+        </Box>
+      </Stack>
+    </Paper>
+  </Fade>
 );
 
 // ========== MAIN COMPONENT ==========
 export default function DisbursementPage() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { fetchAPI, user } = useAuth();
-  const userRole = user?.role;
+  const { fetchAPI, user, getUserRole } = useAuth();
+  const userRole = getUserRole();
   const userPermissions = useMemo(
     () => getUserPermissions(userRole),
     [userRole],
@@ -1603,6 +2658,7 @@ export default function DisbursementPage() {
   const [leadStatusFilter, setLeadStatusFilter] = useState("All");
   const [bankFilter, setBankFilter] = useState("All");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState({
     startDate: null,
     endDate: null,
@@ -1612,7 +2668,9 @@ export default function DisbursementPage() {
   // Sorting & Pagination
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+  const [rowsPerPage, setRowsPerPage] = useState(
+    isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE,
+  );
 
   // Modal States
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -1620,6 +2678,11 @@ export default function DisbursementPage() {
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
+  const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
+  const [selectedActionLead, setSelectedActionLead] = useState(null);
+
+  // Refs
+  const containerRef = useRef(null);
 
   // Snackbar Handler
   const showSnackbar = useCallback((message, severity = "success") => {
@@ -1639,13 +2702,11 @@ export default function DisbursementPage() {
         params.append("startDate", format(today, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Week") {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgo = subWeeks(today, 1);
         params.append("startDate", format(weekAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Month") {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const monthAgo = subMonths(today, 1);
         params.append("startDate", format(monthAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       }
@@ -1653,32 +2714,54 @@ export default function DisbursementPage() {
       // Add status filter to only get disbursement leads
       params.append("status", "Disbursement");
 
-      // Try the specific endpoint first
-      let response;
-      try {
-        response = await fetchAPI(
-          `/lead/disbursementSummary?${params.toString()}`,
-        );
-
-        if (response?.success) {
-          const data = response.result || {};
-          processLeadsData(data.disbursements || data || []);
-          return;
-        }
-      } catch (endpointError) {
-        console.log("Specific endpoint failed, trying alternative...");
-      }
-
-      // Fallback to generic endpoint
-      response = await fetchAPI(`/lead/getLeads?${params.toString()}`);
+      const response = await fetchAPI(
+        `/lead/disbursementSummary?${params.toString()}`,
+      );
 
       if (response?.success) {
-        const allLeads = response.result || [];
-        // Filter leads with status "Disbursement"
-        const disbursementLeads = allLeads.filter(
-          (lead) => lead.status === "Disbursement",
+        const data = response.result || {};
+        const rawLeads = data.disbursements || data.leads || [];
+
+        let filteredLeads = rawLeads;
+        if (userRole === "TEAM" && user?._id) {
+          filteredLeads = rawLeads.filter(
+            (lead) =>
+              lead.assignedTo === user._id ||
+              lead.assignedManager === user._id ||
+              lead.assignedUser === user._id ||
+              lead.assignedUser?._id === user._id ||
+              lead.createdBy === user._id,
+          );
+        }
+
+        const totalLeads = filteredLeads.length;
+        const pendingLeads = filteredLeads.filter(
+          (lead) => lead.disbursementStatus?.toLowerCase() === "pending",
+        ).length;
+        const completedLeads = filteredLeads.filter(
+          (lead) => lead.disbursementStatus?.toLowerCase() === "completed",
+        ).length;
+        const cancelledLeads = filteredLeads.filter(
+          (lead) => lead.disbursementStatus?.toLowerCase() === "cancelled",
+        ).length;
+        const totalDisbursementAmount = filteredLeads.reduce(
+          (sum, lead) => sum + (parseFloat(lead.disbursementAmount) || 0),
+          0,
         );
-        processLeadsData(disbursementLeads);
+        const avgDisbursementAmount =
+          totalLeads > 0 ? totalDisbursementAmount / totalLeads : 0;
+
+        setDisbursementData({
+          leads: filteredLeads,
+          summary: {
+            totalLeads,
+            pendingLeads,
+            completedLeads,
+            cancelledLeads,
+            totalDisbursementAmount,
+            avgDisbursementAmount,
+          },
+        });
       } else {
         throw new Error(
           response?.message || "Failed to fetch disbursement data",
@@ -1688,73 +2771,27 @@ export default function DisbursementPage() {
       console.error("Error fetching disbursement data:", err);
       setError(err.message || "Network error. Please try again.");
       showSnackbar(err.message || "Failed to fetch disbursement data", "error");
+      setDisbursementData({
+        leads: [],
+        summary: {
+          totalLeads: 0,
+          pendingLeads: 0,
+          completedLeads: 0,
+          cancelledLeads: 0,
+          totalDisbursementAmount: 0,
+          avgDisbursementAmount: 0,
+        },
+      });
     } finally {
       setLoading(false);
     }
-  }, [period, fetchAPI, showSnackbar]);
-
-  // Helper function to process leads data
-  const processLeadsData = useCallback(
-    (rawLeads) => {
-      if (!Array.isArray(rawLeads)) {
-        rawLeads = [];
-      }
-
-      // Filter by user role if TEAM - FIXED LOGIC
-      let filteredLeads = [...rawLeads];
-
-      if (userRole === "TEAM" && user?._id) {
-        filteredLeads = rawLeads.filter((lead) => {
-          // Check if lead is assigned to this user or created by this user
-          const isAssigned =
-            lead.assignedTo === user._id ||
-            lead.assignedManager === user._id ||
-            lead.assignedUser === user._id ||
-            lead.assignedUser?._id === user._id ||
-            lead.createdBy === user._id;
-
-          return isAssigned;
-        });
-      }
-
-      const totalLeads = filteredLeads.length;
-      const pendingLeads = filteredLeads.filter(
-        (lead) => lead.disbursementStatus?.toLowerCase() === "pending",
-      ).length;
-      const completedLeads = filteredLeads.filter(
-        (lead) => lead.disbursementStatus?.toLowerCase() === "completed",
-      ).length;
-      const cancelledLeads = filteredLeads.filter(
-        (lead) => lead.disbursementStatus?.toLowerCase() === "cancelled",
-      ).length;
-      const totalDisbursementAmount = filteredLeads.reduce(
-        (sum, lead) => sum + (parseFloat(lead.disbursementAmount) || 0),
-        0,
-      );
-      const avgDisbursementAmount =
-        totalLeads > 0 ? totalDisbursementAmount / totalLeads : 0;
-
-      setDisbursementData({
-        leads: filteredLeads,
-        summary: {
-          totalLeads,
-          pendingLeads,
-          completedLeads,
-          cancelledLeads,
-          totalDisbursementAmount,
-          avgDisbursementAmount,
-        },
-      });
-    },
-    [userRole, user?._id],
-  );
+  }, [period, fetchAPI, userRole, user, showSnackbar]);
 
   // Apply Filters
   const applyFilters = useCallback(() => {
     try {
       let filtered = [...disbursementData.leads];
 
-      // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(
@@ -1770,24 +2807,20 @@ export default function DisbursementPage() {
         );
       }
 
-      // Disbursement Status filter
       if (disbursementStatusFilter !== "All") {
         filtered = filtered.filter(
           (lead) => lead.disbursementStatus === disbursementStatusFilter,
         );
       }
 
-      // Lead Status filter
       if (leadStatusFilter !== "All") {
         filtered = filtered.filter((lead) => lead.status === leadStatusFilter);
       }
 
-      // Bank filter
       if (bankFilter !== "All") {
         filtered = filtered.filter((lead) => lead.bank === bankFilter);
       }
 
-      // Date filter
       if (
         dateFilter.startDate &&
         isValid(dateFilter.startDate) &&
@@ -1812,7 +2845,6 @@ export default function DisbursementPage() {
         });
       }
 
-      // Sorting
       if (sortConfig.key) {
         filtered.sort((a, b) => {
           let aVal = a[sortConfig.key];
@@ -1873,6 +2905,74 @@ export default function DisbursementPage() {
     }
   }, [dateFilter.startDate, dateFilter.endDate]);
 
+  useEffect(() => {
+    setRowsPerPage(isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE);
+  }, [isMobile]);
+
+  // Memoized Computed Values
+  const filteredLeads = useMemo(() => applyFilters(), [applyFilters]);
+
+  const paginatedLeads = useMemo(() => {
+    const start = page * rowsPerPage;
+    return filteredLeads.slice(start, start + rowsPerPage);
+  }, [filteredLeads, page, rowsPerPage]);
+
+  const totalPages = useMemo(
+    () => Math.ceil(filteredLeads.length / rowsPerPage),
+    [filteredLeads.length, rowsPerPage],
+  );
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (disbursementStatusFilter !== "All") count++;
+    if (leadStatusFilter !== "All") count++;
+    if (bankFilter !== "All") count++;
+    if (dateFilter.startDate) count++;
+    if (dateFilter.endDate) count++;
+    return count;
+  }, [
+    searchQuery,
+    disbursementStatusFilter,
+    leadStatusFilter,
+    bankFilter,
+    dateFilter,
+  ]);
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Total Disbursements",
+        value: disbursementData.summary.totalLeads,
+        color: PRIMARY_COLOR,
+        icon: <Payment />,
+        subText: "All disbursement leads",
+      },
+      {
+        label: "Pending",
+        value: disbursementData.summary.pendingLeads,
+        color: PRIMARY_COLOR,
+        icon: <PendingActions />,
+        subText: "Pending disbursement",
+      },
+      {
+        label: "Completed",
+        value: disbursementData.summary.completedLeads,
+        color: PRIMARY_COLOR,
+        icon: <CheckCircle />,
+        subText: "Disbursement completed",
+      },
+      {
+        label: "Cancelled",
+        value: disbursementData.summary.cancelledLeads,
+        color: PRIMARY_COLOR,
+        icon: <Cancel />,
+        subText: "Disbursement cancelled",
+      },
+    ],
+    [disbursementData.summary],
+  );
+
   // Handlers
   const handleSort = useCallback((key) => {
     setSortConfig((prev) => ({
@@ -1925,6 +3025,41 @@ export default function DisbursementPage() {
     [fetchDisbursementData, showSnackbar],
   );
 
+  const handleActionMenuOpen = useCallback((event, lead) => {
+    setActionMenuAnchor(event.currentTarget);
+    setSelectedActionLead(lead);
+  }, []);
+
+  const handleActionMenuClose = useCallback(() => {
+    setActionMenuAnchor(null);
+    setSelectedActionLead(null);
+  }, []);
+
+  const handleActionSelect = useCallback(
+    (action) => {
+      if (!selectedActionLead) return;
+
+      switch (action) {
+        case "view":
+          handleViewClick(selectedActionLead);
+          break;
+        case "update_status":
+          handleStatusUpdateClick(selectedActionLead);
+          break;
+        default:
+          break;
+      }
+
+      handleActionMenuClose();
+    },
+    [
+      selectedActionLead,
+      handleViewClick,
+      handleStatusUpdateClick,
+      handleActionMenuClose,
+    ],
+  );
+
   const handleViewDocument = useCallback(
     (documentUrl, documentName = "Document") => {
       if (!documentUrl) {
@@ -1953,52 +3088,17 @@ export default function DisbursementPage() {
     if (showFilterPanel) setShowFilterPanel(false);
   }, [showFilterPanel]);
 
-  // Memoized Computed Values
-  const filteredLeads = useMemo(() => applyFilters(), [applyFilters]);
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
-  const paginatedLeads = useMemo(() => {
-    const start = page * rowsPerPage;
-    return filteredLeads.slice(start, start + rowsPerPage);
-  }, [filteredLeads, page, rowsPerPage]);
-
-  const totalPages = useMemo(
-    () => Math.ceil(filteredLeads.length / rowsPerPage),
-    [filteredLeads.length, rowsPerPage],
-  );
-
-  const summaryCards = useMemo(
-    () => [
-      {
-        label: "Total Disbursements",
-        value: disbursementData.summary.totalLeads,
-        color: PRIMARY,
-        icon: <Payment />,
-        subText: "All disbursement leads",
-      },
-      {
-        label: "Pending",
-        value: disbursementData.summary.pendingLeads,
-        color: "#3a5ac8",
-        icon: <PendingActions />,
-        subText: "Pending disbursement",
-      },
-      {
-        label: "Completed",
-        value: disbursementData.summary.completedLeads,
-        color: "#3a5ac8",
-        icon: <CheckCircle />,
-        subText: "Disbursement completed",
-      },
-      {
-        label: "Cancelled",
-        value: disbursementData.summary.cancelledLeads,
-        color: "#3a5ac8",
-        icon: <Cancel />,
-        subText: "Disbursement cancelled",
-      },
-    ],
-    [disbursementData.summary],
-  );
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   // Access Check
   if (!hasAccess(userRole)) {
@@ -2013,7 +3113,7 @@ export default function DisbursementPage() {
           justifyContent: "center",
         }}
       >
-        <Alert severity="error" sx={{ maxWidth: 500 }}>
+        <Alert severity="error" sx={{ maxWidth: 500, borderRadius: 3 }}>
           <AlertTitle>Access Denied</AlertTitle>
           You don't have permission to access this page.
           <Button
@@ -2037,11 +3137,13 @@ export default function DisbursementPage() {
       <Box sx={{ p: 3, maxWidth: 600, mx: "auto" }}>
         <Alert
           severity="error"
+          sx={{ borderRadius: 3 }}
           action={
             <Button
               color="inherit"
               size="small"
               onClick={fetchDisbursementData}
+              sx={{ color: PRIMARY_COLOR }}
             >
               Retry
             </Button>
@@ -2082,288 +3184,372 @@ export default function DisbursementPage() {
         userRole={userRole}
       />
 
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        open={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+        period={period}
+        setPeriod={setPeriod}
+        disbursementStatusFilter={disbursementStatusFilter}
+        setDisbursementStatusFilter={setDisbursementStatusFilter}
+        leadStatusFilter={leadStatusFilter}
+        setLeadStatusFilter={setLeadStatusFilter}
+        bankFilter={bankFilter}
+        setBankFilter={setBankFilter}
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        handleClearFilters={handleClearFilters}
+        dateFilterError={dateFilterError}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortConfig={sortConfig}
+        setSortConfig={setSortConfig}
+        activeFilterCount={activeFilterCount}
+      />
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
       >
         <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", color: "#fff" }}
+          sx={{ width: "100%", borderRadius: 2, color: "#fff" }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
 
+      {/* Action Menu */}
+      <Menu
+        anchorEl={actionMenuAnchor}
+        open={Boolean(actionMenuAnchor)}
+        onClose={handleActionMenuClose}
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            minWidth: 200,
+          },
+        }}
+      >
+        <MenuItem onClick={() => handleActionSelect("view")}>
+          <ListItemIcon>
+            <Visibility fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>View Details</ListItemText>
+        </MenuItem>
+        {userPermissions.canUpdateStatus && (
+          <MenuItem onClick={() => handleActionSelect("update_status")}>
+            <ListItemIcon>
+              <TrendingUp fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Update Status</ListItemText>
+          </MenuItem>
+        )}
+      </Menu>
+
       {/* Main Content */}
-      <Box sx={{ p: { xs: 2, sm: 3 }, minHeight: "100vh" }}>
-        {/* Header */}
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          sx={{ mb: 4 }}
-          justifyContent="space-between"
-          alignItems={{ xs: "stretch", sm: "center" }}
+      <Box
+        ref={containerRef}
+        sx={{
+          p: { xs: 1.5, sm: 2, md: 3 },
+          minHeight: "100vh",
+          pb: { xs: 8, sm: 3 },
+          bgcolor: "#f8fafc",
+        }}
+      >
+        {/* Header with Gradient Background */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            mb: 3,
+            borderRadius: 3,
+            background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${SECONDARY_COLOR} 100%)`,
+            color: "#fff",
+          }}
         >
-          <Box>
-            <Typography variant="h5" fontWeight={700} gutterBottom>
-              Disbursement Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Track and manage all loan disbursements and their status
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={fetchDisbursementData}
-              disabled={loading}
-            >
-              Refresh
-            </Button>
-            <Chip
-              label={getRoleConfig(userRole).label}
-              icon={getRoleConfig(userRole).icon}
-              size="medium"
-              sx={{
-                bgcolor: `${getRoleConfig(userRole).color}15`,
-                color: getRoleConfig(userRole).color,
-                fontWeight: 600,
-              }}
-            />
-          </Box>
-        </Stack>
-
-        {/* Summary Cards */}
-        <Grid container spacing={2} sx={{ mb: 4 }}>
-          {summaryCards.map((card, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
-              <Card
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+          >
+            <Box>
+              <Typography
+                variant={isMobile ? "h6" : "h5"}
+                fontWeight={700}
+                gutterBottom
+              >
+                Disbursement Management
+              </Typography>
+              <Typography
+                variant="body2"
                 sx={{
-                  borderRadius: 3,
-                  overflow: "visible",
-                  position: "relative",
-                  width: "277px",
-                  border: `1px solid ${alpha(card.color, 0.1)}`,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                  opacity: 0.9,
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
                 }}
               >
-                <CardContent sx={{ p: 2 }}>
-                  <Stack spacing={1}>
-                    <Box
+                Track and manage all loan disbursements and their status
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", gap: 1 }}>
+              {isMobile && (
+                <Button
+                  variant="contained"
+                  startIcon={<FilterAlt />}
+                  onClick={() => setMobileFilterOpen(true)}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                    position: "relative",
+                  }}
+                >
+                  Filter
+                  {activeFilterCount > 0 && (
+                    <Badge
+                      badgeContent={activeFilterCount}
+                      color="error"
                       sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        position: "absolute",
+                        top: -8,
+                        right: -8,
+                        "& .MuiBadge-badge": {
+                          fontSize: "0.6rem",
+                          minWidth: 16,
+                          height: 16,
+                        },
                       }}
-                    >
-                      <Box
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 2,
-                          bgcolor: `${card.color}15`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: card.color,
-                        }}
-                      >
-                        {card.icon}
-                      </Box>
-                      <Typography
-                        variant="h6"
-                        fontWeight={700}
-                        sx={{ color: card.color }}
-                      >
-                        {card.value}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        {card.label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {card.subText}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
+                    />
+                  )}
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                startIcon={<Refresh />}
+                onClick={fetchDisbursementData}
+                disabled={loading}
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                }}
+              >
+                Refresh
+              </Button>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Summary Cards */}
+        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+          {summaryCards.map((card, index) => (
+            <Grid item xs={6} sm={6} md={3} key={card.label}>
+              <SummaryCard card={card} index={index} />
             </Grid>
           ))}
         </Grid>
 
-        {/* Filters Card */}
-        <Card sx={{ borderRadius: 3, mb: 4, overflow: "visible" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Stack spacing={3}>
-              {/* Top Filters Row */}
+        {/* Mobile Search Bar */}
+        {isMobile && (
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by name, email, phone, transaction ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery("")}>
+                      <Close />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+        )}
+
+        {/* Desktop Search and Filters */}
+        {!isMobile && (
+          <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+            <Stack spacing={2.5}>
               <Stack
                 direction={{ xs: "column", md: "row" }}
                 spacing={2}
-                justifyContent="space-between"
                 alignItems={{ xs: "stretch", md: "center" }}
               >
-                <Box sx={{ width: { xs: "100%", md: 300 } }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search by name, email, phone, transaction ID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery && (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            <Close />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search by name, email, phone, transaction ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ color: "text.secondary" }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <Close />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ maxWidth: 400 }}
+                />
 
-                <Stack direction="row" spacing={2} flexWrap="wrap">
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Period</InputLabel>
-                    <Select
-                      value={period}
-                      label="Period"
-                      onChange={(e) => setPeriod(e.target.value)}
-                    >
-                      <MenuItem value="Today">Today</MenuItem>
-                      <MenuItem value="This Week">This Week</MenuItem>
-                      <MenuItem value="This Month">This Month</MenuItem>
-                      <MenuItem value="All">All Time</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Disbursement Status</InputLabel>
-                    <Select
-                      value={disbursementStatusFilter}
-                      label="Disbursement Status"
-                      onChange={(e) =>
-                        setDisbursementStatusFilter(e.target.value)
-                      }
-                    >
-                      <MenuItem value="All">All Status</MenuItem>
-                      {DISBURSEMENT_STATUS_OPTIONS.map((status) => {
-                        const config = getDisbursementStatusColor(status);
-                        return (
-                          <MenuItem key={status} value={status}>
-                            <Stack
-                              direction="row"
-                              alignItems="center"
-                              spacing={1.5}
-                            >
-                              {config.icon}
-                              <Typography variant="body2">
-                                {config.label}
-                              </Typography>
-                            </Stack>
-                          </MenuItem>
-                        );
-                      })}
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<Tune />}
-                    onClick={() => setShowFilterPanel(!showFilterPanel)}
-                    size="small"
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Period</InputLabel>
+                  <Select
+                    value={period}
+                    label="Period"
+                    onChange={(e) => setPeriod(e.target.value)}
                   >
-                    {showFilterPanel ? "Hide Filters" : "More Filters"}
-                  </Button>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {option.icon}
+                          <span>{option.label}</span>
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<Clear />}
-                    onClick={handleClearFilters}
-                    size="small"
-                    disabled={
-                      !searchQuery &&
-                      disbursementStatusFilter === "All" &&
-                      leadStatusFilter === "All" &&
-                      bankFilter === "All" &&
-                      !dateFilter.startDate &&
-                      !dateFilter.endDate
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Disbursement Status</InputLabel>
+                  <Select
+                    value={disbursementStatusFilter}
+                    label="Disbursement Status"
+                    onChange={(e) =>
+                      setDisbursementStatusFilter(e.target.value)
                     }
                   >
-                    Clear
-                  </Button>
-                </Stack>
-              </Stack>
+                    <MenuItem value="All">All Status</MenuItem>
+                    {DISBURSEMENT_STATUS_OPTIONS.map((status) => {
+                      const config = getDisbursementStatusConfig(status);
+                      return (
+                        <MenuItem key={status} value={status}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                          >
+                            {config.icon}
+                            <span>{config.label}</span>
+                          </Stack>
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
 
-              {/* Expanded Filter Panel */}
-              {showFilterPanel && (
-                <Box
+                <Button
+                  variant="outlined"
+                  startIcon={<Tune />}
+                  onClick={() => setShowFilterPanel(!showFilterPanel)}
                   sx={{
-                    p: 3,
-                    bgcolor: "grey.50",
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
+                    borderColor: PRIMARY_COLOR,
+                    color: PRIMARY_COLOR,
+                    "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.05) },
                   }}
                 >
-                  <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Advanced Filters
-                  </Typography>
+                  {showFilterPanel ? "Hide Filters" : "More Filters"}
+                </Button>
+
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="text"
+                    startIcon={<Clear />}
+                    onClick={handleClearFilters}
+                    sx={{ color: "error.main" }}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </Stack>
+
+              <Collapse in={showFilterPanel}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 3,
+                    borderRadius: 2,
+                    borderColor: alpha(PRIMARY_COLOR, 0.2),
+                    bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  }}
+                >
                   <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Lead Status
+                      </Typography>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Lead Status</InputLabel>
                         <Select
                           value={leadStatusFilter}
-                          label="Lead Status"
                           onChange={(e) => setLeadStatusFilter(e.target.value)}
+                          displayEmpty
                         >
-                          <MenuItem value="All">All Status</MenuItem>
-                          {LEAD_STATUS_OPTIONS.map((status) => {
-                            const config = getLeadStatusConfig(status);
-                            return (
-                              <MenuItem key={status} value={status}>
-                                <Stack
-                                  direction="row"
-                                  alignItems="center"
-                                  spacing={1.5}
-                                >
-                                  {config.icon}
-                                  <Typography variant="body2">
-                                    {status}
-                                  </Typography>
-                                </Stack>
-                              </MenuItem>
-                            );
-                          })}
+                          <MenuItem value="All">All Statuses</MenuItem>
+                          {LEAD_STATUS_OPTIONS.map((status) => (
+                            <MenuItem key={status} value={status}>
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                              >
+                                {getLeadStatusConfig(status).icon}
+                                <span>{status}</span>
+                              </Stack>
+                            </MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Bank
+                      </Typography>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Bank</InputLabel>
                         <Select
                           value={bankFilter}
-                          label="Bank"
                           onChange={(e) => setBankFilter(e.target.value)}
+                          displayEmpty
                         >
                           <MenuItem value="All">All Banks</MenuItem>
                           {BANK_LIST.map((bank) => (
@@ -2375,14 +3561,20 @@ export default function DisbursementPage() {
                       </FormControl>
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Start Date
+                      </Typography>
                       <DatePicker
-                        label="From Date"
                         value={dateFilter.startDate}
-                        onChange={(date) =>
+                        onChange={(newValue) =>
                           setDateFilter((prev) => ({
                             ...prev,
-                            startDate: date,
+                            startDate: newValue,
                           }))
                         }
                         slotProps={{
@@ -2390,161 +3582,319 @@ export default function DisbursementPage() {
                             fullWidth: true,
                             size: "small",
                             error: !!dateFilterError,
-                            helperText: dateFilterError || " ",
                           },
                         }}
                       />
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        End Date
+                      </Typography>
                       <DatePicker
-                        label="To Date"
                         value={dateFilter.endDate}
-                        onChange={(date) =>
-                          setDateFilter((prev) => ({ ...prev, endDate: date }))
+                        onChange={(newValue) =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            endDate: newValue,
+                          }))
                         }
                         slotProps={{
                           textField: {
                             fullWidth: true,
                             size: "small",
                             error: !!dateFilterError,
-                            helperText: dateFilterError || " ",
                           },
                         }}
                       />
                     </Grid>
                   </Grid>
+
+                  {dateFilterError && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      {dateFilterError}
+                    </Alert>
+                  )}
+                </Paper>
+              </Collapse>
+
+              {activeFilterCount > 0 && (
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 1, display: "block" }}
+                  >
+                    Active Filters:
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {searchQuery && (
+                      <Chip
+                        label={`Search: ${searchQuery}`}
+                        size="small"
+                        onDelete={() => setSearchQuery("")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {disbursementStatusFilter !== "All" && (
+                      <Chip
+                        label={`Disb Status: ${getDisbursementStatusConfig(disbursementStatusFilter).label}`}
+                        size="small"
+                        onDelete={() => setDisbursementStatusFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {leadStatusFilter !== "All" && (
+                      <Chip
+                        label={`Lead Status: ${leadStatusFilter}`}
+                        size="small"
+                        onDelete={() => setLeadStatusFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {bankFilter !== "All" && (
+                      <Chip
+                        label={`Bank: ${bankFilter}`}
+                        size="small"
+                        onDelete={() => setBankFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {dateFilter.startDate && (
+                      <Chip
+                        label={`From: ${format(dateFilter.startDate, "dd MMM yyyy")}`}
+                        size="small"
+                        onDelete={() =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            startDate: null,
+                          }))
+                        }
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {dateFilter.endDate && (
+                      <Chip
+                        label={`To: ${format(dateFilter.endDate, "dd MMM yyyy")}`}
+                        size="small"
+                        onDelete={() =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            endDate: null,
+                          }))
+                        }
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                  </Stack>
                 </Box>
               )}
             </Stack>
-          </CardContent>
-        </Card>
+          </Paper>
+        )}
 
-        {/* Data Table */}
-        <Card sx={{ borderRadius: 3, overflow: "hidden" }}>
-          <Box sx={{ overflowX: "auto" }}>
-            <TableContainer>
-              <Table>
+        {/* Main Content */}
+        <Paper elevation={0} sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <Box
+            sx={{
+              p: { xs: 2, sm: 3 },
+              borderBottom: 1,
+              borderColor: "divider",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 2,
+              bgcolor: "#fff",
+            }}
+          >
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+            >
+              Disbursements
+              <Chip
+                label={`${filteredLeads.length} total`}
+                size="small"
+                sx={{
+                  ml: 1,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                  color: PRIMARY_COLOR,
+                }}
+              />
+            </Typography>
+
+            {!isMobile && (
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Typography variant="body2" color="text.secondary">
+                  Rows per page:
+                </Typography>
+                <Select
+                  size="small"
+                  value={rowsPerPage}
+                  onChange={handleChangeRowsPerPage}
+                  sx={{ minWidth: 80 }}
+                >
+                  {ITEMS_PER_PAGE_OPTIONS.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Stack>
+            )}
+          </Box>
+
+          {!isMobile ? (
+            <TableContainer
+              sx={{ maxHeight: "70vh", overflow: "auto", position: "relative" }}
+            >
+              {loading && disbursementData.leads.length > 0 && (
+                <LinearProgress
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    "& .MuiLinearProgress-bar": {
+                      bgcolor: PRIMARY_COLOR,
+                    },
+                  }}
+                />
+              )}
+
+              <Table stickyHeader size="medium">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: alpha(PRIMARY, 0.05) }}>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Customer
-                      </Typography>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Customer
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
                       <Button
-                        fullWidth
                         size="small"
                         onClick={() => handleSort("disbursementAmount")}
-                        startIcon={
+                        endIcon={
                           sortConfig.key === "disbursementAmount" ? (
                             sortConfig.direction === "asc" ? (
-                              <ArrowUpward />
+                              <ArrowUpward fontSize="small" />
                             ) : (
-                              <ArrowDownward />
+                              <ArrowDownward fontSize="small" />
                             )
                           ) : null
                         }
                         sx={{
                           justifyContent: "flex-start",
                           fontWeight: 600,
-                          textTransform: "none",
-                          color: "text.primary",
+                          color: "inherit",
+                          "&:hover": {
+                            bgcolor: "transparent",
+                          },
                         }}
                       >
                         Amount
                       </Button>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Disbursement Status
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Disbursement Status
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Lead Status
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Lead Status
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
                       <Button
-                        fullWidth
                         size="small"
                         onClick={() => handleSort("disbursementDate")}
-                        startIcon={
+                        endIcon={
                           sortConfig.key === "disbursementDate" ? (
                             sortConfig.direction === "asc" ? (
-                              <ArrowUpward />
+                              <ArrowUpward fontSize="small" />
                             ) : (
-                              <ArrowDownward />
+                              <ArrowDownward fontSize="small" />
                             )
                           ) : null
                         }
                         sx={{
                           justifyContent: "flex-start",
                           fontWeight: 600,
-                          textTransform: "none",
-                          color: "text.primary",
+                          color: "inherit",
+                          "&:hover": {
+                            bgcolor: "transparent",
+                          },
                         }}
                       >
                         Disbursement Date
                       </Button>
                     </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Actions
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
 
                 <TableBody>
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, index) => (
-                      <TableRow key={index}>
-                        {Array.from({ length: 7 }).map((_, cellIndex) => (
-                          <TableCell key={cellIndex}>
-                            <Skeleton variant="text" height={40} />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : paginatedLeads.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                        <Box sx={{ textAlign: "center" }}>
-                          <Payment
-                            sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
-                          />
-                          <Typography
-                            variant="h6"
-                            color="text.secondary"
-                            gutterBottom
-                          >
-                            No Disbursement Leads Found
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {filteredLeads.length === 0
-                              ? "No disbursement leads in the system"
-                              : "No leads match the current filters"}
-                          </Typography>
-                          {filteredLeads.length === 0 &&
-                            userPermissions.canManage && (
-                              <Button
-                                variant="contained"
-                                sx={{ mt: 2 }}
-                                onClick={() => navigate("/leads/create")}
-                              >
-                                Create New Lead
-                              </Button>
-                            )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
+                  {paginatedLeads.length > 0 ? (
                     paginatedLeads.map((lead) => {
                       const disbursementStatusConfig =
-                        getDisbursementStatusColor(lead.disbursementStatus);
+                        getDisbursementStatusConfig(lead.disbursementStatus);
                       const leadStatusConfig = getLeadStatusConfig(lead.status);
 
                       return (
@@ -2552,28 +3902,29 @@ export default function DisbursementPage() {
                           key={lead._id}
                           hover
                           sx={{
-                            "&:hover": { bgcolor: alpha(PRIMARY, 0.02) },
+                            "&:hover": {
+                              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                            },
                           }}
                         >
                           <TableCell>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 2,
-                              }}
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1}
                             >
                               <Avatar
                                 sx={{
-                                  bgcolor: alpha(PRIMARY, 0.1),
-                                  color: PRIMARY,
-                                  fontWeight: 600,
+                                  width: 32,
+                                  height: 32,
+                                  bgcolor: PRIMARY_COLOR,
+                                  fontSize: "0.875rem",
                                 }}
                               >
-                                {lead.firstName?.[0] || "C"}
+                                {getInitials(lead.firstName, lead.lastName)}
                               </Avatar>
                               <Box>
-                                <Typography variant="body1" fontWeight={600}>
+                                <Typography variant="body2" fontWeight={500}>
                                   {lead.firstName} {lead.lastName}
                                 </Typography>
                                 <Typography
@@ -2583,14 +3934,14 @@ export default function DisbursementPage() {
                                   {lead.phoneNumber || lead.phone || "No phone"}
                                 </Typography>
                               </Box>
-                            </Box>
+                            </Stack>
                           </TableCell>
 
                           <TableCell>
                             <Typography
-                              variant="body1"
+                              variant="body2"
                               fontWeight={600}
-                              color="#2e7d32"
+                              sx={{ color: "#2e7d32" }}
                             >
                               {formatCurrency(lead.disbursementAmount)}
                             </Typography>
@@ -2605,30 +3956,38 @@ export default function DisbursementPage() {
                           </TableCell>
 
                           <TableCell>
-                            <Chip
-                              label={disbursementStatusConfig.label}
-                              icon={disbursementStatusConfig.icon}
-                              size="small"
-                              sx={{
-                                bgcolor: disbursementStatusConfig.bg,
-                                color: disbursementStatusConfig.color,
-                                fontWeight: 600,
-                                minWidth: 100,
-                              }}
-                            />
+                            <Tooltip
+                              title={disbursementStatusConfig.description}
+                              arrow
+                            >
+                              <Chip
+                                label={disbursementStatusConfig.label}
+                                icon={disbursementStatusConfig.icon}
+                                size="small"
+                                sx={{
+                                  bgcolor: disbursementStatusConfig.bg,
+                                  color: disbursementStatusConfig.color,
+                                  fontWeight: 600,
+                                  minWidth: 80,
+                                }}
+                              />
+                            </Tooltip>
                           </TableCell>
 
                           <TableCell>
-                            <Chip
-                              label={lead.status}
-                              icon={leadStatusConfig.icon}
-                              size="small"
-                              sx={{
-                                bgcolor: leadStatusConfig.bg,
-                                color: leadStatusConfig.color,
-                                fontWeight: 600,
-                              }}
-                            />
+                            <Tooltip title={leadStatusConfig.description} arrow>
+                              <Chip
+                                label={lead.status || "Unknown"}
+                                icon={leadStatusConfig.icon}
+                                size="small"
+                                sx={{
+                                  bgcolor: leadStatusConfig.bg,
+                                  color: leadStatusConfig.color,
+                                  fontWeight: 600,
+                                  minWidth: 80,
+                                }}
+                              />
+                            </Tooltip>
                           </TableCell>
 
                           <TableCell>
@@ -2648,30 +4007,38 @@ export default function DisbursementPage() {
                             </Box>
                           </TableCell>
 
-                          <TableCell align="center">
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              justifyContent="center"
-                            >
-                              <Tooltip title="View Details">
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              <Tooltip title="View Details" arrow>
                                 <IconButton
                                   size="small"
                                   onClick={() => handleViewClick(lead)}
-                                  sx={{ color: PRIMARY }}
+                                  sx={{
+                                    bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                                    color: PRIMARY_COLOR,
+                                    "&:hover": {
+                                      bgcolor: alpha(PRIMARY_COLOR, 0.2),
+                                    },
+                                  }}
                                 >
                                   <Visibility fontSize="small" />
                                 </IconButton>
                               </Tooltip>
 
                               {userPermissions.canUpdateStatus && (
-                                <Tooltip title="Update Disbursement Status">
+                                <Tooltip title="Update Status" arrow>
                                   <IconButton
                                     size="small"
                                     onClick={() =>
                                       handleStatusUpdateClick(lead)
                                     }
-                                    sx={{ color: PRIMARY }}
+                                    sx={{
+                                      bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                                      color: PRIMARY_COLOR,
+                                      "&:hover": {
+                                        bgcolor: alpha(PRIMARY_COLOR, 0.2),
+                                      },
+                                    }}
                                   >
                                     <TrendingUp fontSize="small" />
                                   </IconButton>
@@ -2682,88 +4049,188 @@ export default function DisbursementPage() {
                         </TableRow>
                       );
                     })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        <EmptyState
+                          onClearFilters={handleClearFilters}
+                          hasFilters={activeFilterCount > 0}
+                        />
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
             </TableContainer>
-          </Box>
+          ) : (
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+              {loading && disbursementData.leads.length > 0 && (
+                <LinearProgress
+                  sx={{
+                    mb: 2,
+                    borderRadius: 2,
+                    "& .MuiLinearProgress-bar": {
+                      bgcolor: PRIMARY_COLOR,
+                    },
+                  }}
+                />
+              )}
+              {paginatedLeads.length > 0 ? (
+                paginatedLeads.map((lead) => (
+                  <MobileDisbursementCard
+                    key={lead._id}
+                    lead={lead}
+                    onView={handleViewClick}
+                    onStatusUpdate={handleStatusUpdateClick}
+                    permissions={userPermissions}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  onClearFilters={handleClearFilters}
+                  hasFilters={activeFilterCount > 0}
+                />
+              )}
+            </Box>
+          )}
 
-          {/* Pagination */}
-          {paginatedLeads.length > 0 && (
+          {filteredLeads.length > 0 && (
             <Box
               sx={{
-                p: 2,
+                p: { xs: 2, sm: 3 },
                 borderTop: 1,
                 borderColor: "divider",
                 display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
                 justifyContent: "space-between",
                 alignItems: "center",
-                flexWrap: "wrap",
                 gap: 2,
+                bgcolor: "#fff",
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Showing {page * rowsPerPage + 1} to{" "}
-                  {Math.min((page + 1) * rowsPerPage, filteredLeads.length)} of{" "}
-                  {filteredLeads.length} leads
-                </Typography>
-                <FormControl size="small" sx={{ minWidth: 100 }}>
-                  <Select
-                    value={rowsPerPage}
-                    onChange={(e) => {
-                      setRowsPerPage(parseInt(e.target.value, 10));
-                      setPage(0);
-                    }}
-                  >
-                    {ITEMS_PER_PAGE_OPTIONS.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option} per page
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-
+              <Typography variant="body2">
+                Showing {page * rowsPerPage + 1} to{" "}
+                {Math.min((page + 1) * rowsPerPage, filteredLeads.length)} of{" "}
+                {filteredLeads.length}
+              </Typography>
               <Pagination
                 count={totalPages}
                 page={page + 1}
-                onChange={(e, newPage) => setPage(newPage - 1)}
+                onChange={handleChangePage}
                 color="primary"
-                showFirstButton
-                showLastButton
-                siblingCount={1}
-                boundaryCount={1}
+                size={isMobile ? "small" : "medium"}
                 sx={{
                   "& .MuiPaginationItem-root": {
                     borderRadius: 2,
+                    "&.Mui-selected": {
+                      bgcolor: PRIMARY_COLOR,
+                      color: "#fff",
+                    },
                   },
                 }}
               />
             </Box>
           )}
-        </Card>
+        </Paper>
 
-        {/* Loading Overlay */}
-        {loading && (
-          <Box
+        {/* Footer */}
+        <Box
+          sx={{
+            mt: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Last updated: {format(new Date(), "dd MMM yyyy, hh:mm a")}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {disbursementData.summary.totalLeads} total disbursements • Total:{" "}
+            {formatCurrency(disbursementData.summary.totalDisbursementAmount)}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Mobile FAB */}
+      {isMobile && (
+        <Zoom in={true}>
+          <Fab
+            color="primary"
+            aria-label="filter"
+            onClick={() => setMobileFilterOpen(true)}
             sx={{
               position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              bgcolor: "rgba(255, 255, 255, 0.7)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10,
+              bottom: 80,
+              right: 16,
+              zIndex: 1000,
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
+              boxShadow: `0 4px 12px ${alpha(PRIMARY_COLOR, 0.3)}`,
             }}
           >
-            <CircularProgress sx={{ color: PRIMARY }} />
-          </Box>
-        )}
-      </Box>
+            <Badge
+              badgeContent={activeFilterCount}
+              color="error"
+              max={9}
+              sx={{
+                "& .MuiBadge-badge": {
+                  fontSize: "0.6rem",
+                  minWidth: 16,
+                  height: 16,
+                },
+              }}
+            >
+              <FilterAlt />
+            </Badge>
+          </Fab>
+        </Zoom>
+      )}
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            sx={{
+              height: 64,
+              "& .MuiBottomNavigationAction-root": {
+                color: "text.secondary",
+                "&.Mui-selected": { color: PRIMARY_COLOR },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate("/dashboard")}
+            />
+            <BottomNavigationAction
+              label="Disbursements"
+              icon={<Payment />}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
+            <BottomNavigationAction
+              label="Profile"
+              icon={<Person />}
+              onClick={() => navigate("/profile")}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </LocalizationProvider>
   );
 }

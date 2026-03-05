@@ -11,11 +11,11 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  SwipeableDrawer,
+  SwipeableDrawer,Avatar,
   useTheme,
   useMediaQuery,
-  Avatar,
-  Chip,
+  Collapse,
+  Badge,
 } from "@mui/material";
 import {
   Dashboard,
@@ -41,6 +41,12 @@ import {
   Logout,
   ChevronLeft,
   ChevronRight,
+  ExpandLess,
+  ExpandMore,
+  Home,
+  Analytics,
+  Settings,
+  Help,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
@@ -59,7 +65,7 @@ const BORDER_COLOR = "rgba(255, 255, 255, 0.25)";
 const SIDEBAR_WIDTH = 280;
 const COLLAPSED_WIDTH = 70;
 
-const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
+const Sidebar = ({ open, toggleDrawer, onClose, isMobile, isTablet }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,6 +74,8 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
     const saved = localStorage.getItem("sidebarCollapsed");
     return saved ? JSON.parse(saved) : false;
   });
+
+  const [expandedItems, setExpandedItems] = useState({});
 
   // Mock user data (replace with actual auth context)
   const user = {
@@ -78,8 +86,10 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
 
   // Save collapsed state
   useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", JSON.stringify(isCollapsed));
-  }, [isCollapsed]);
+    if (!isMobile && !isTablet) {
+      localStorage.setItem("sidebarCollapsed", JSON.stringify(isCollapsed));
+    }
+  }, [isCollapsed, isMobile, isTablet]);
 
   // Role-based configurations
   const roleConfig = useMemo(() => {
@@ -114,121 +124,155 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
     );
   }, [user]);
 
-  const menuItems = [
+  // Menu items with categories for better organization
+  const menuCategories = useMemo(() => [
     {
-      text: "Dashboard",
-      icon: <Dashboard />,
-      path: "/dashboard",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+      title: "Main",
+      items: [
+        {
+          text: "Dashboard",
+          icon: <Dashboard />,
+          path: "/dashboard",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+      ],
     },
     {
-      text: "Total Visits",
-      icon: <Groups />,
-      path: "/total-visits",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+      title: "Leads & Visits",
+      items: [
+        {
+          text: "Total Visits",
+          icon: <Groups />,
+          path: "/total-visits",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          badge: 12,
+        },
+        {
+          text: "Registration",
+          icon: <PersonAdd />,
+          path: "/registration",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "All Leads",
+          icon: <FilterAlt />,
+          path: "/all-leads",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          badge: 5,
+        },
+        {
+          text: "Lead Funnel",
+          icon: <AccountTree />,
+          path: "/lead-funnel",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "Missed Leads",
+          icon: <Warning />,
+          path: "/missed-leads",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "Import Leads",
+          icon: <CloudUpload />,
+          path: "/import-leads",
+          roles: ["Head_office", "ZSM"],
+        },
+      ],
     },
     {
-      text: "Registration",
-      icon: <PersonAdd />,
-      path: "/registration",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+      title: "Financial",
+      items: [
+        {
+          text: "Bank Loan",
+          icon: <AccountBalance />,
+          path: "/bank-loan-apply",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "Loan Pending",
+          icon: <PendingActions />,
+          path: "/bank-at-pending",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "Disbursement",
+          icon: <ReceiptLong />,
+          path: "/disbursement",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "Expense",
+          icon: <Paid />,
+          path: "/expense",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+      ],
     },
     {
-      text: "Bank Loan",
-      icon: <AccountBalance />,
-      path: "/bank-loan-apply",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+      title: "Operations",
+      items: [
+        {
+          text: "Document",
+          icon: <Description />,
+          path: "/document-submission",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "Installation",
+          icon: <TaskAlt />,
+          path: "/installation-completion",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "Attendance",
+          icon: <CalendarMonth />,
+          path: "/attendance",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+        {
+          text: "Location Visit",
+          icon: <LocationOnIcon />,
+          path: "/visit-summary",
+          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+        },
+      ],
     },
     {
-      text: "Document",
-      icon: <Description />,
-      path: "/document-submission",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+      title: "Management",
+      items: [
+        {
+          text: "Users",
+          icon: <AdminPanelSettings />,
+          path: "/user-management",
+          roles: ["Head_office", "ZSM", "ASM"],
+        },
+        {
+          text: "Reports",
+          icon: <Insights />,
+          path: "/reports",
+          roles: ["Head_office", "ZSM", "ASM"],
+        },
+      ],
     },
-    {
-      text: "Loan Pending",
-      icon: <PendingActions />,
-      path: "/bank-at-pending",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "Disbursement",
-      icon: <ReceiptLong />,
-      path: "/disbursement",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "Installation",
-      icon: <TaskAlt />,
-      path: "/installation-completion",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "Missed Leads",
-      icon: <Warning />,
-      path: "/missed-leads",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "Import Leads",
-      icon: <CloudUpload />,
-      path: "/import-leads",
-      roles: ["Head_office", "ZSM"],
-    },
-    {
-      text: "Attendance",
-      icon: <CalendarMonth />,
-      path: "/attendance",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "Location Visit",
-      icon: <LocationOnIcon />,
-      path: "/visit-summary",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "All Leads",
-      icon: <FilterAlt />,
-      path: "/all-leads",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "Lead Funnel",
-      icon: <AccountTree />,
-      path: "/lead-funnel",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "Expense",
-      icon: <Paid />,
-      path: "/expense",
-      roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-    },
-    {
-      text: "Users",
-      icon: <AdminPanelSettings />,
-      path: "/user-management",
-      roles: ["Head_office", "ZSM", "ASM"],
-    },
-    {
-      text: "Reports",
-      icon: <Insights />,
-      path: "/reports",
-      roles: ["Head_office", "ZSM", "ASM"],
-    },
-  ];
+    
+  ], []);
 
   // Filter items based on user role
-  const filteredMenuItems = menuItems.filter((item) =>
-    item.roles.includes(user?.role),
-  );
+  const filteredCategories = useMemo(() => {
+    return menuCategories
+      .map(category => ({
+        ...category,
+        items: category.items.filter(item => item.roles.includes(user?.role))
+      }))
+      .filter(category => category.items.length > 0);
+  }, [menuCategories, user?.role]);
 
   const isActive = (path) => location.pathname === path;
 
   const handleNavigate = (path) => {
     navigate(path);
-    if (isMobile) {
+    if (isMobile || isTablet) {
       onClose();
     }
   };
@@ -236,6 +280,13 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
   const handleLogout = () => {
     // Add logout logic here
     navigate("/login");
+  };
+
+  const toggleExpand = (categoryTitle) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [categoryTitle]: !prev[categoryTitle]
+    }));
   };
 
   const getUserInitials = () => {
@@ -249,74 +300,119 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
   };
 
   // Render menu item
-  const renderMenuItem = (item) => {
+  const renderMenuItem = (item, isInGroup = false) => {
     const active = isActive(item.path);
     const bgColor = active ? ACTIVE_BG : "transparent";
     const hoverBgColor = HOVER_BG;
 
-    if (!isCollapsed || isMobile) {
-      return (
-        <ListItemButton
-          key={item.path}
-          onClick={() => handleNavigate(item.path)}
-          sx={{
-            pl: 2,
-            borderRadius: "8px",
-            mx: 1,
-            my: 0.5,
-            bgcolor: bgColor,
-            color: TEXT_COLOR,
-            "&:hover": {
-              bgcolor: hoverBgColor,
-              transform: "translateX(4px)",
-            },
-            py: 1.2,
-            minHeight: 48,
-            transition: "all 0.2s ease",
+    const buttonContent = (
+      <ListItemButton
+        onClick={() => handleNavigate(item.path)}
+        sx={{
+          pl: isInGroup ? 4 : 2,
+          borderRadius: "8px",
+          mx: 1,
+          my: 0.3,
+          bgcolor: bgColor,
+          color: TEXT_COLOR,
+          "&:hover": {
+            bgcolor: hoverBgColor,
+            transform: !isMobile && !isCollapsed ? "translateX(4px)" : "none",
+          },
+          py: 1,
+          minHeight: 40,
+          transition: "all 0.2s ease",
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 40, color: TEXT_COLOR }}>
+          {item.badge ? (
+            <Badge badgeContent={item.badge} color="error" variant="dot">
+              {item.icon}
+            </Badge>
+          ) : (
+            item.icon
+          )}
+        </ListItemIcon>
+        <ListItemText
+          primary={item.text}
+          primaryTypographyProps={{
+            fontSize: isMobile ? "0.95rem" : "0.9rem",
+            fontWeight: active ? 600 : 400,
           }}
-        >
-          <ListItemIcon sx={{ minWidth: 40, color: TEXT_COLOR }}>
-            {item.icon}
-          </ListItemIcon>
-          <ListItemText
-            primary={item.text}
-            primaryTypographyProps={{
-              fontSize: "0.9rem",
-              fontWeight: active ? 600 : 400,
+        />
+        {item.badge && !isCollapsed && (
+          <Box
+            sx={{
+              bgcolor: "error.main",
+              color: "white",
+              borderRadius: "12px",
+              px: 1,
+              py: 0.25,
+              fontSize: "0.7rem",
+              fontWeight: "bold",
+              ml: 1,
             }}
-          />
-        </ListItemButton>
+          >
+            {item.badge}
+          </Box>
+        )}
+      </ListItemButton>
+    );
+
+    if (isCollapsed && !isMobile && !isTablet) {
+      return (
+        <Tooltip key={item.path} title={item.text} placement="right" arrow>
+          {buttonContent}
+        </Tooltip>
       );
     }
 
+    return buttonContent;
+  };
+
+  // Render category
+  const renderCategory = (category) => {
+    const isExpanded = expandedItems[category.title] !== false;
+    const hasActiveItem = category.items.some(item => isActive(item.path));
+
+    if (isCollapsed && !isMobile && !isTablet) {
+      return category.items.map(item => renderMenuItem(item));
+    }
+
     return (
-      <Tooltip key={item.path} title={item.text} placement="right" arrow>
+      <Box key={category.title} sx={{ mb: 1 }}>
         <ListItemButton
-          onClick={() => handleNavigate(item.path)}
+          onClick={() => toggleExpand(category.title)}
           sx={{
-            justifyContent: "center",
+            px: 2,
+            py: 0.5,
             borderRadius: "8px",
-            mx: 0.5,
-            my: 0.5,
-            bgcolor: bgColor,
+            mx: 1,
             "&:hover": {
-              bgcolor: hoverBgColor,
+              bgcolor: HOVER_BG,
             },
-            p: 1.5,
-            minHeight: 48,
           }}
         >
-          <ListItemIcon
-            sx={{
-              justifyContent: "center",
-              minWidth: "auto",
-              color: TEXT_COLOR,
+          <ListItemText
+            primary={category.title}
+            primaryTypographyProps={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.7)",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
             }}
-          >
-            {item.icon}
-          </ListItemIcon>
+          />
+          {category.items.length > 0 && (
+            isExpanded ? <ExpandLess sx={{ color: "rgba(255,255,255,0.7)", fontSize: 18 }} /> 
+                     : <ExpandMore sx={{ color: "rgba(255,255,255,0.7)", fontSize: 18 }} />
+          )}
         </ListItemButton>
-      </Tooltip>
+        
+        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+          {category.items.map(item => renderMenuItem(item, true))}
+        </Collapse>
+      </Box>
     );
   };
 
@@ -330,7 +426,8 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
         bgcolor: PRIMARY_COLOR,
         width: isCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH,
         transition: "all 0.3s ease",
-        background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${PRIMARY_DARK} 100%)`,
+        background: `linear-gradient(180deg, ${PRIMARY_COLOR} 0%, ${PRIMARY_DARK} 100%)`,
+        boxShadow: "2px 0 8px rgba(0,0,0,0.1)",
       }}
     >
       {/* Logo Section */}
@@ -383,7 +480,7 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
           flex: 1,
           overflowY: "auto",
           py: 2,
-          px: isCollapsed ? 1 : 2,
+          px: isCollapsed ? 1 : 1.5,
           "&::-webkit-scrollbar": {
             width: "4px",
           },
@@ -391,9 +488,12 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
             background: "rgba(255,255,255,0.2)",
             borderRadius: "4px",
           },
+          "&::-webkit-scrollbar-track": {
+            background: "transparent",
+          },
         }}
       >
-        <List>{filteredMenuItems.map((item) => renderMenuItem(item))}</List>
+        {filteredCategories.map(category => renderCategory(category))}
       </Box>
 
       {/* Footer */}
@@ -403,28 +503,30 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
           borderTop: `1px solid ${BORDER_COLOR}`,
         }}
       >
-        {/* Collapse Toggle */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            mb: isCollapsed ? 1 : 2,
-          }}
-        >
-          <IconButton
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            size="small"
+        {/* Collapse Toggle - Only for desktop/tablet */}
+        {!isMobile && !isTablet && (
+          <Box
             sx={{
-              color: TEXT_COLOR,
-              bgcolor: "rgba(255,255,255,0.1)",
-              "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
-              width: 36,
-              height: 36,
+              display: "flex",
+              justifyContent: "center",
+              mb: isCollapsed ? 1 : 2,
             }}
           >
-            {isCollapsed ? <ChevronRight /> : <ChevronLeft />}
-          </IconButton>
-        </Box>
+            <IconButton
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              size="small"
+              sx={{
+                color: TEXT_COLOR,
+                bgcolor: "rgba(255,255,255,0.1)",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
+                width: 36,
+                height: 36,
+              }}
+            >
+              {isCollapsed ? <ChevronRight /> : <ChevronLeft />}
+            </IconButton>
+          </Box>
+        )}
 
         {/* Version and Logout */}
         <Box
@@ -466,7 +568,7 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
     </Box>
   );
 
-  // Mobile Sidebar content
+  // Mobile Sidebar content (Optimized for touch)
   const MobileSidebarContent = (
     <Box
       sx={{
@@ -474,18 +576,18 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
         display: "flex",
         flexDirection: "column",
         bgcolor: PRIMARY_COLOR,
-        width: 280,
-        background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${PRIMARY_DARK} 100%)`,
+        width: 300,
+        background: `linear-gradient(180deg, ${PRIMARY_COLOR} 0%, ${PRIMARY_DARK} 100%)`,
       }}
     >
-      {/* Mobile Header */}
+      {/* Mobile Header with User Info */}
       <Box
         sx={{
-          p: 3,
+          p: 2,
           borderBottom: `1px solid ${BORDER_COLOR}`,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
           <Box
             sx={{
               width: 48,
@@ -516,13 +618,13 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
         </Box>
       </Box>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - Scrollable */}
       <Box
         sx={{
           flex: 1,
           overflowY: "auto",
           py: 2,
-          px: 2,
+          px: 1.5,
           "&::-webkit-scrollbar": {
             width: "4px",
           },
@@ -532,7 +634,74 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
           },
         }}
       >
-        <List>{filteredMenuItems.map((item) => renderMenuItem(item))}</List>
+        {filteredCategories.map((category) => (
+          <Box key={category.title} sx={{ mb: 2 }}>
+            <Typography
+              sx={{
+                px: 2,
+                py: 1,
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                color: "rgba(255,255,255,0.7)",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              {category.title}
+            </Typography>
+            {category.items.map((item) => (
+              <ListItemButton
+                key={item.path}
+                onClick={() => handleNavigate(item.path)}
+                sx={{
+                  pl: 2,
+                  borderRadius: "8px",
+                  mx: 1,
+                  my: 0.5,
+                  bgcolor: isActive(item.path) ? ACTIVE_BG : "transparent",
+                  color: TEXT_COLOR,
+                  "&:hover": {
+                    bgcolor: HOVER_BG,
+                  },
+                  py: 1.5,
+                  minHeight: 48,
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 40, color: TEXT_COLOR }}>
+                  {item.badge ? (
+                    <Badge badgeContent={item.badge} color="error">
+                      {item.icon}
+                    </Badge>
+                  ) : (
+                    item.icon
+                  )}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{
+                    fontSize: "0.95rem",
+                    fontWeight: isActive(item.path) ? 600 : 400,
+                  }}
+                />
+                {item.badge && (
+                  <Box
+                    sx={{
+                      bgcolor: "error.main",
+                      color: "white",
+                      borderRadius: "12px",
+                      px: 1,
+                      py: 0.25,
+                      fontSize: "0.7rem",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {item.badge}
+                  </Box>
+                )}
+              </ListItemButton>
+            ))}
+          </Box>
+        ))}
       </Box>
 
       {/* Mobile Footer */}
@@ -540,37 +709,40 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
         sx={{
           p: 2,
           borderTop: `1px solid ${BORDER_COLOR}`,
-          textAlign: "center",
         }}
       >
-        <Typography
-          variant="caption"
-          sx={{ color: "rgba(255,255,255,0.7)", display: "block", mb: 1 }}
-        >
-          © 2025 Sunergytech • v2.2.0
-        </Typography>
-        <IconButton
-          onClick={handleLogout}
-          sx={{
-            color: TEXT_COLOR,
-            bgcolor: "rgba(255,255,255,0.1)",
-            "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
-          }}
-        >
-          <Logout />
-        </IconButton>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography
+            variant="caption"
+            sx={{ color: "rgba(255,255,255,0.7)" }}
+          >
+            © 2025 Sunergytech
+          </Typography>
+          <IconButton
+            onClick={handleLogout}
+            sx={{
+              color: TEXT_COLOR,
+              bgcolor: "rgba(255,255,255,0.1)",
+              "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
+              width: 40,
+              height: 40,
+            }}
+          >
+            <Logout />
+          </IconButton>
+        </Box>
       </Box>
     </Box>
   );
 
   return (
     <>
-      {/* Desktop Sidebar */}
+      {/* Desktop/Tablet Sidebar */}
       {!isMobile && (
         <Drawer
           variant="permanent"
           sx={{
-            display: { xs: "none", md: "block" },
+            display: { xs: "none", sm: "block" },
             width: isCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH,
             flexShrink: 0,
             "& .MuiDrawer-paper": {
@@ -580,6 +752,7 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
               transition: "all 0.3s ease",
               backgroundColor: "transparent",
               border: "none",
+              boxShadow: "none",
             },
           }}
         >
@@ -599,10 +772,11 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile }) => {
           ModalProps={{ keepMounted: true }}
           sx={{
             "& .MuiDrawer-paper": {
-              width: 280,
-              maxWidth: "90vw",
+              width: 300,
+              maxWidth: "85vw",
               backgroundColor: "transparent",
               border: "none",
+              boxShadow: "4px 0 20px rgba(0,0,0,0.2)",
             },
           }}
         >

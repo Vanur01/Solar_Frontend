@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+// pages/InstallationPage.jsx (Bug-Free Version)
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Box,
   Typography,
@@ -35,13 +42,27 @@ import {
   useTheme,
   useMediaQuery,
   Paper,
+  Divider,
   LinearProgress,
   FormHelperText,
+  Menu,
   Skeleton,
+  ListItemIcon,
+  ListItemText,
+  Badge,
+  SwipeableDrawer,
+  Collapse,
+  Fab,
+  Zoom,
+  Fade,
+  Slide,
+  BottomNavigation,
+  BottomNavigationAction,
+  Tab,
+  Tabs,
 } from "@mui/material";
 import {
   Search,
-  Download,
   Edit,
   Visibility,
   Close,
@@ -50,58 +71,63 @@ import {
   Refresh,
   Cancel,
   PendingActions,
-  FileCopy,
   FolderOpen,
-  PictureAsPdf,
-  Image as ImageIcon,
-  InsertDriveFile,
-  Launch,
-  PictureAsPdfOutlined,
-  DescriptionOutlined,
+  Description,
   GetApp,
+  AccountBalance,
   Badge as BadgeIcon,
   CloudUpload,
   Delete,
   CreditCard,
-  CloudDownload,
-  Add,
+  ZoomIn,
+  ZoomOut,
+  RotateLeft,
+  RotateRight,
+  Fullscreen,
+  FullscreenExit,
   Person,
+  CalendarToday,
   Email,
   Phone,
   LocationOn,
   Note,
   Warning,
-  FilterList,
   Tune,
   ArrowUpward,
   ArrowDownward,
-  Description,
   Save,
   MoreVert,
   TrendingUp,
-  Assignment,
-  LocalAtm,
-  Build,
-  Error as ErrorIcon,
-  Check,
-  Home,
+  HowToReg,
   ReceiptLong,
-  AttachFile,
-  Security,
+  AccessTime,
   SupervisorAccount,
   Groups,
   AdminPanelSettings,
   WorkspacePremium,
   AddPhotoAlternate,
-  GppMaybe,
-  Schedule,
-  AccessTime,
-  CalendarToday,
+  DateRange,
+  FilterAlt,
+  Sort,
+  ViewList,
+  ViewModule,
+  Dashboard,
+  ExpandMore,
+  ExpandLess,
+  InsertDriveFile,
+  DescriptionOutlined,
+  Image as ImageIcon,
+  Build,
+  LocalAtm,
+  Payments,
   VerifiedUser,
   TaskAlt,
-  Payments,
+  Schedule,
+  GppMaybe,
+  FiberManualRecord,
+  Security,
+  Error as ErrorIcon,
 } from "@mui/icons-material";
-
 import { useAuth } from "../contexts/AuthContext";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -113,104 +139,117 @@ import {
   isWithinInterval,
   startOfDay,
   endOfDay,
+  subWeeks,
+  subMonths,
 } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import AlertTitle from "@mui/material/AlertTitle";
 
 // ========== CONSTANTS & CONFIGURATION ==========
-const PRIMARY = "#3a5ac8";
-const SECONDARY = "#1a237e";
+const PRIMARY_COLOR = "#4569ea";
+const SECONDARY_COLOR = "#1a237e";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 const DEFAULT_ITEMS_PER_PAGE = 10;
 const ALLOWED_ROLES = ["Head_office", "ZSM", "ASM", "TEAM"];
 
+// Period Options
+const PERIOD_OPTIONS = [
+  { value: "Today", label: "Today", icon: <CalendarToday /> },
+  { value: "This Week", label: "This Week", icon: <DateRange /> },
+  { value: "This Month", label: "This Month", icon: <DateRange /> },
+  { value: "All", label: "All Time", icon: <DateRange /> },
+];
+
 // Installation Status Configuration
 const INSTALLATION_STATUS_OPTIONS = [
   "pending",
-  "Installation In Progress",
-  "Installation Completed",
-  "Sent for JEE Verification",
-  "JEE Verified",
-  "Meter Charge",
-  "final-payment",
+  "installation_progress",
+  "installation_completed",
+  "sent_for_jee_verification",
+  "jee_verified",
+  "meter_charge",
+  "final_payment",
 ];
 
 const INSTALLATION_STATUS_CONFIG = {
   pending: {
-    label: "Scheduled",
-    bg: "#e3f2fd",
-    color: "#1976d2",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Schedule sx={{ fontSize: 16 }} />,
+    label: "Scheduled",
     description: "Installation is scheduled",
+    order: 1,
     progress: 10,
   },
-
   installation_in_progress: {
-    label: "Installation In Progress",
-    bg: "#fffde7",
-    color: "#f9a825",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Build sx={{ fontSize: 16 }} />,
+    label: "In Progress",
     description: "Installation work is ongoing",
+    order: 2,
     progress: 40,
   },
-
   installation_completed: {
-    label: "Installation Completed",
-    bg: "#e8f5e9",
-    color: "#2e7d32",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <CheckCircle sx={{ fontSize: 16 }} />,
+    label: "Completed",
     description: "Installation completed successfully",
+    order: 3,
     progress: 60,
   },
-
   sent_for_jee_verification: {
-    label: "Sent for JEE Verification",
-    bg: "#ede7f6",
-    color: "#5e35b1",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <VerifiedUser sx={{ fontSize: 16 }} />,
+    label: "JEE Verification",
     description: "Project sent to JEE for verification",
+    order: 4,
     progress: 80,
   },
-
   jee_verified: {
-    label: "JEE Verified",
-    bg: "#e0f2f1",
-    color: "#00695c",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <TaskAlt sx={{ fontSize: 16 }} />,
+    label: "JEE Verified",
     description: "Verified and approved by JEE",
-    progress: 100,
+    order: 5,
+    progress: 90,
   },
-  "meter-charge": {
-    label: "Meter Charge",
-    bg: "#fff3e0",
-    color: "#ef6c00",
+  meter_charge: {
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <LocalAtm sx={{ fontSize: 16 }} />,
+    label: "Meter Charge",
     description: "Meter charging in progress",
-    progress: 85,
+    order: 6,
+    progress: 95,
   },
-
-  "final-payment": {
-    label: "Final Payment",
-    bg: "#e8f5e9",
-    color: "#2e7d32",
+  final_payment: {
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Payments sx={{ fontSize: 16 }} />,
+    label: "Final Payment",
     description: "Final payment completed",
+    order: 7,
     progress: 100,
   },
 };
 
-// Lead Status Configuration for Installation Page
+// Lead Status Configuration
 const LEAD_STATUS_OPTIONS = ["Installation Completion", "Missed Leads"];
 
 const LEAD_STATUS_CONFIG = {
   "Installation Completion": {
-    bg: "#e8f5e9",
-    color: "#2e7d32",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <CheckCircle sx={{ fontSize: 16 }} />,
     description: "Installation completed successfully",
   },
   "Missed Leads": {
-    bg: "#ffebee",
-    color: "#c62828",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Cancel sx={{ fontSize: 16 }} />,
     description: "Lead lost or not converted",
   },
@@ -220,22 +259,22 @@ const LEAD_STATUS_CONFIG = {
 const ROLE_CONFIG = {
   Head_office: {
     label: "Head Office",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <AdminPanelSettings sx={{ fontSize: 16 }} />,
   },
   ZSM: {
     label: "Zone Sales Manager",
-    color: "#9c27b0",
+    color: PRIMARY_COLOR,
     icon: <WorkspacePremium sx={{ fontSize: 16 }} />,
   },
   ASM: {
     label: "Area Sales Manager",
-    color: "#00bcd4",
+    color: PRIMARY_COLOR,
     icon: <SupervisorAccount sx={{ fontSize: 16 }} />,
   },
   TEAM: {
     label: "Team Member",
-    color: "#4caf50",
+    color: PRIMARY_COLOR,
     icon: <Groups sx={{ fontSize: 16 }} />,
   },
 };
@@ -244,7 +283,7 @@ const ROLE_CONFIG = {
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
 const getUserPermissions = (userRole) => ({
-  canView: true,
+  canView: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canEdit: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canDelete: userRole === "Head_office",
   canManage: ["Head_office", "ZSM", "ASM"].includes(userRole),
@@ -253,16 +292,16 @@ const getUserPermissions = (userRole) => ({
   canUpdateStatus: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
 });
 
-const getInstallationStatusColor = (status) => {
-  if (!status) return INSTALLATION_STATUS_CONFIG.pending;
-  const normalizedStatus = status.toLowerCase();
+const getInstallationStatusConfig = (status) => {
+  const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '_');
   return (
     INSTALLATION_STATUS_CONFIG[normalizedStatus] || {
+      bg: alpha(PRIMARY_COLOR, 0.08),
+      color: PRIMARY_COLOR,
+      icon: <Schedule sx={{ fontSize: 16 }} />,
       label: status || "Unknown",
-      bg: "#f5f5f5",
-      color: "#757575",
-      icon: <Warning sx={{ fontSize: 16 }} />,
-      description: "Status unknown",
+      description: "Unknown status",
+      order: 0,
       progress: 0,
     }
   );
@@ -271,11 +310,11 @@ const getInstallationStatusColor = (status) => {
 const getLeadStatusConfig = (status) => {
   return (
     LEAD_STATUS_CONFIG[status] || {
-      label: status || "Unknown",
-      bg: "#f5f5f5",
-      color: "#616161",
+      bg: alpha(PRIMARY_COLOR, 0.08),
+      color: PRIMARY_COLOR,
       icon: <Warning sx={{ fontSize: 16 }} />,
       description: "Unknown status",
+      label: status || "Unknown",
     }
   );
 };
@@ -284,7 +323,7 @@ const getRoleConfig = (role) => {
   return (
     ROLE_CONFIG[role] || {
       label: "Unknown",
-      color: "#757575",
+      color: PRIMARY_COLOR,
       icon: <Person sx={{ fontSize: 16 }} />,
     }
   );
@@ -300,869 +339,1851 @@ const formatDate = (dateString, formatStr = "dd MMM yyyy, hh:mm a") => {
   }
 };
 
-// ========== REUSABLE COMPONENTS ==========
+const getInitials = (firstName, lastName) => {
+  return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
+};
 
-// Installation Status Update Modal
-const InstallationStatusUpdateModal = React.memo(
-  ({ open, onClose, lead, onStatusUpdate, showSnackbar, userRole }) => {
-    const { fetchAPI, user } = useAuth();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+// ========== MOBILE FILTER DRAWER ==========
+const MobileFilterDrawer = ({
+  open,
+  onClose,
+  period,
+  setPeriod,
+  installationStatusFilter,
+  setInstallationStatusFilter,
+  leadStatusFilter,
+  setLeadStatusFilter,
+  dateFilter,
+  setDateFilter,
+  handleClearFilters,
+  dateFilterError,
+  searchQuery,
+  setSearchQuery,
+  sortConfig,
+  setSortConfig,
+  viewMode,
+  setViewMode,
+  activeFilterCount,
+}) => {
+  const [expandedSection, setExpandedSection] = useState("search");
 
-    const [loading, setLoading] = useState(false);
-    const [selectedInstallationStatus, setSelectedInstallationStatus] =
-      useState("");
-    const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
-    const [installationDate, setInstallationDate] = useState(null);
-    const [installationNotes, setInstallationNotes] = useState("");
-    const [errors, setErrors] = useState({});
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
 
-    const installationStatusConfig = useMemo(
-      () => getInstallationStatusColor(lead?.installationStatus),
-      [lead?.installationStatus],
-    );
+  return (
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      onOpen={() => {}}
+      disableSwipeToOpen={false}
+      PaperProps={{
+        sx: {
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          maxHeight: "90vh",
+          overflow: "hidden",
+        },
+      }}
+    >
+      <Box sx={{ position: "relative" }}>
+        {/* Drag Handle */}
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            bgcolor: "grey.300",
+            borderRadius: 2,
+            mx: "auto",
+            my: 1.5,
+          }}
+        />
 
-    const leadStatusConfig = useMemo(
-      () => getLeadStatusConfig(lead?.status),
-      [lead?.status],
-    );
-
-    useEffect(() => {
-      if (open && lead) {
-        setSelectedInstallationStatus(lead.installationStatus || "");
-        setSelectedLeadStatus(lead.status || "Installation Completion");
-        setInstallationDate(
-          lead.installationDate ? parseISO(lead.installationDate) : null,
-        );
-        setInstallationNotes(lead.installationNotes || "");
-        setErrors({});
-      }
-    }, [open, lead]);
-
-    const handleSubmit = useCallback(async () => {
-      const errors = {};
-
-      if (!selectedInstallationStatus) {
-        errors.installationStatus = "Please select installation status";
-      }
-
-      if (!selectedLeadStatus) {
-        errors.leadStatus = "Please select lead status";
-      }
-
-      if (Object.keys(errors).length > 0) {
-        setErrors(errors);
-        return;
-      }
-
-      if (
-        selectedInstallationStatus === lead?.installationStatus &&
-        selectedLeadStatus === lead?.status &&
-        installationDate ===
-          (lead.installationDate ? parseISO(lead.installationDate) : null) &&
-        installationNotes === (lead.installationNotes || "")
-      ) {
-        onClose();
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const updateData = {
-          installationStatus: selectedInstallationStatus,
-          status: selectedLeadStatus,
-          installationNotes: installationNotes,
-          installationDate: installationDate,
-          updatedBy: user?._id,
-          updatedByRole: user?.role,
-          updatedAt: new Date().toISOString(),
-        };
-
-        const response = await fetchAPI(`/lead/updateLead/${lead._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
-        });
-
-        if (response.success) {
-          showSnackbar("Installation status updated successfully", "success");
-          onStatusUpdate(response.result);
-          onClose();
-        } else {
-          throw new Error(response.message || "Failed to update status");
-        }
-      } catch (error) {
-        console.error("Error updating installation status:", error);
-        setErrors({ submit: error.message });
-        showSnackbar(error.message || "Failed to update status", "error");
-      } finally {
-        setLoading(false);
-      }
-    }, [
-      selectedInstallationStatus,
-      selectedLeadStatus,
-      installationNotes,
-      installationDate,
-      lead,
-      user,
-      fetchAPI,
-      showSnackbar,
-      onStatusUpdate,
-      onClose,
-    ]);
-
-    const handleClose = useCallback(() => {
-      setSelectedInstallationStatus("");
-      setSelectedLeadStatus("");
-      setInstallationDate(null);
-      setInstallationNotes("");
-      setErrors({});
-      onClose();
-    }, [onClose]);
-
-    const getLeadStatusOptions = useMemo(() => {
-      switch (selectedInstallationStatus) {
-        case "final-payment":
-          return ["Installation Completion"];
-        default:
-          return LEAD_STATUS_OPTIONS;
-      }
-    }, [selectedInstallationStatus]);
-
-    if (!lead) return null;
-
-    return (
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3 } }}
-      >
-        <DialogTitle sx={{ bgcolor: alpha(PRIMARY, 0.05), pb: 2 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 3,
+            pb: 2,
+            borderBottom: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Box>
+            <Typography variant="h6" fontWeight="700" color={PRIMARY_COLOR}>
+              Filter Installations
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.1) }}
           >
-            <Box display="flex" alignItems="center" gap={2}>
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Filter Content */}
+        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
+          <Stack spacing={2.5}>
+            {/* Search Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
               <Box
                 sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 2,
-                  bgcolor: `${PRIMARY}15`,
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
                   display: "flex",
+                  justifyContent: "space-between",
                   alignItems: "center",
-                  justifyContent: "center",
-                  color: PRIMARY,
+                  cursor: "pointer",
                 }}
+                onClick={() => toggleSection("search")}
               >
-                <Build sx={{ fontSize: 28 }} />
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Search sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Search
+                  </Typography>
+                </Stack>
+                {expandedSection === "search" ? <ExpandLess /> : <ExpandMore />}
               </Box>
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  Update Installation Status
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {lead?.firstName} {lead?.lastName}
-                </Typography>
-                <Chip
-                  label={getRoleConfig(userRole).label}
-                  icon={getRoleConfig(userRole).icon}
-                  size="small"
-                  sx={{
-                    bgcolor: `${getRoleConfig(userRole).color}15`,
-                    color: getRoleConfig(userRole).color,
-                    fontWeight: 600,
-                    mt: 1,
-                  }}
-                />
+              <Collapse in={expandedSection === "search"}>
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search by name, email, phone..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search
+                            sx={{ color: "text.secondary", fontSize: 20 }}
+                          />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery && (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearchQuery("")}
+                          >
+                            <Close fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Period Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("period")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <DateRange sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Time Period
+                  </Typography>
+                </Stack>
+                {expandedSection === "period" ? <ExpandLess /> : <ExpandMore />}
               </Box>
-            </Box>
-            <IconButton onClick={handleClose} size="medium">
-              <Close />
-            </IconButton>
+              <Collapse in={expandedSection === "period"}>
+                <Box sx={{ p: 2 }}>
+                  <Grid container spacing={1}>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <Grid item xs={6} key={option.value}>
+                        <Button
+                          fullWidth
+                          variant={
+                            period === option.value ? "contained" : "outlined"
+                          }
+                          onClick={() => setPeriod(option.value)}
+                          startIcon={option.icon}
+                          size="small"
+                          sx={{
+                            bgcolor:
+                              period === option.value
+                                ? PRIMARY_COLOR
+                                : "transparent",
+                            color:
+                              period === option.value ? "#fff" : PRIMARY_COLOR,
+                            borderColor: PRIMARY_COLOR,
+                            "&:hover": {
+                              bgcolor:
+                                period === option.value
+                                  ? SECONDARY_COLOR
+                                  : alpha(PRIMARY_COLOR, 0.1),
+                            },
+                          }}
+                        >
+                          {option.label}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Installation Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("installationStatus")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Build sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Installation Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "installationStatus" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "installationStatus"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={installationStatusFilter}
+                      onChange={(e) => setInstallationStatusFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {INSTALLATION_STATUS_OPTIONS.map((status) => {
+                        const config = getInstallationStatusConfig(status);
+                        return (
+                          <MenuItem key={status} value={status}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              {config.icon}
+                              <span>{config.label}</span>
+                            </Stack>
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Lead Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("leadStatus")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TrendingUp sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Lead Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "leadStatus" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "leadStatus"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={leadStatusFilter}
+                      onChange={(e) => setLeadStatusFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {LEAD_STATUS_OPTIONS.map((status) => (
+                        <MenuItem key={status} value={status}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                          >
+                            {getLeadStatusConfig(status).icon}
+                            <span>{status}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Date Range Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("date")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CalendarToday sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Custom Date Range
+                  </Typography>
+                </Stack>
+                {expandedSection === "date" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "date"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={2}>
+                    <DatePicker
+                      label="Start Date"
+                      value={dateFilter.startDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          startDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    <DatePicker
+                      label="End Date"
+                      value={dateFilter.endDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          endDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    {dateFilterError && (
+                      <Alert severity="error" sx={{ fontSize: "0.75rem" }}>
+                        {dateFilterError}
+                      </Alert>
+                    )}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Sort Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("sort")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Sort sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Sort By
+                  </Typography>
+                </Stack>
+                {expandedSection === "sort" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "sort"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={1}>
+                    {[
+                      { key: "firstName", label: "Name" },
+                      { key: "installationDate", label: "Installation Date" },
+                      { key: "installationStatus", label: "Status" },
+                    ].map((option) => (
+                      <Button
+                        key={option.key}
+                        fullWidth
+                        variant={
+                          sortConfig.key === option.key
+                            ? "contained"
+                            : "outlined"
+                        }
+                        onClick={() =>
+                          setSortConfig((prev) => ({
+                            key: option.key,
+                            direction:
+                              prev.key === option.key &&
+                              prev.direction === "asc"
+                                ? "desc"
+                                : "asc",
+                          }))
+                        }
+                        endIcon={
+                          sortConfig.key === option.key &&
+                          (sortConfig.direction === "asc" ? (
+                            <ArrowUpward fontSize="small" />
+                          ) : (
+                            <ArrowDownward fontSize="small" />
+                          ))
+                        }
+                        sx={{
+                          justifyContent: "space-between",
+                          bgcolor:
+                            sortConfig.key === option.key
+                              ? PRIMARY_COLOR
+                              : "transparent",
+                          color:
+                            sortConfig.key === option.key
+                              ? "#fff"
+                              : PRIMARY_COLOR,
+                          borderColor: PRIMARY_COLOR,
+                        }}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* View Mode Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("view")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {viewMode === "card" ? <ViewModule /> : <ViewList />}
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    View Mode
+                  </Typography>
+                </Stack>
+                {expandedSection === "view" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "view"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      fullWidth
+                      variant={viewMode === "card" ? "contained" : "outlined"}
+                      onClick={() => setViewMode("card")}
+                      startIcon={<ViewModule />}
+                      sx={{
+                        bgcolor:
+                          viewMode === "card" ? PRIMARY_COLOR : "transparent",
+                        color: viewMode === "card" ? "#fff" : PRIMARY_COLOR,
+                        borderColor: PRIMARY_COLOR,
+                      }}
+                    >
+                      Card View
+                    </Button>
+                    <Button
+                      fullWidth
+                      variant={viewMode === "table" ? "contained" : "outlined"}
+                      onClick={() => setViewMode("table")}
+                      startIcon={<ViewList />}
+                      sx={{
+                        bgcolor:
+                          viewMode === "table" ? PRIMARY_COLOR : "transparent",
+                        color: viewMode === "table" ? "#fff" : PRIMARY_COLOR,
+                        borderColor: PRIMARY_COLOR,
+                      }}
+                    >
+                      List View
+                    </Button>
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
           </Stack>
-        </DialogTitle>
+        </Box>
 
-        <DialogContent sx={{ py: 3 }}>
-          <Stack spacing={3}>
-            {errors.submit && (
-              <Alert severity="error" sx={{ borderRadius: 2 }}>
-                {errors.submit}
-              </Alert>
-            )}
+        {/* Action Buttons */}
+        <Box
+          sx={{
+            p: 3,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            bgcolor: "#fff",
+          }}
+        >
+          <Stack direction="row" spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => {
+                handleClearFilters();
+                onClose();
+              }}
+              startIcon={<Clear />}
+              sx={{
+                borderColor: PRIMARY_COLOR,
+                color: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                },
+              }}
+            >
+              Clear All
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={onClose}
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: SECONDARY_COLOR,
+                },
+              }}
+            >
+              Apply Filters
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    </SwipeableDrawer>
+  );
+};
 
+// ========== MOBILE INSTALLATION CARD ==========
+const MobileInstallationCard = ({ lead, onView, onStatusUpdate, permissions }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const installationStatusConfig = getInstallationStatusConfig(lead.installationStatus);
+  const leadStatusConfig = getLeadStatusConfig(lead.status);
+  const initials = getInitials(lead.firstName, lead.lastName);
+
+  return (
+    <Paper
+      sx={{
+        mb: 1.5,
+        borderRadius: 3,
+        border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+        overflow: "hidden",
+      }}
+    >
+      <Box sx={{ p: 2 }}>
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            mb: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+            <Avatar
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                color: "#fff",
+                width: 48,
+                height: 48,
+                fontWeight: 600,
+              }}
+            >
+              {initials}
+            </Avatar>
             <Box>
               <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                gutterBottom
-                sx={{ mt: 2 }}
+                variant="subtitle1"
+                fontWeight="700"
+                color={PRIMARY_COLOR}
               >
+                {lead.firstName} {lead.lastName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                ID: {lead._id?.slice(-8) || "N/A"}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              transform: expanded ? "rotate(180deg)" : "none",
+              transition: "transform 0.3s",
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+            }}
+          >
+            {expanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </Box>
+
+        {/* Quick Info */}
+        <Grid container spacing={1} sx={{ mb: 1.5 }}>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Phone sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {lead.phoneNumber || lead.phone || "No phone"}
+              </Typography>
+            </Stack>
+          </Grid>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Email sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {lead.email || "No email"}
+              </Typography>
+            </Stack>
+          </Grid>
+        </Grid>
+
+        {/* Installation Info */}
+        <Box sx={{ mb: 1.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+            <CalendarToday
+              sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
+            />
+            <Typography variant="body2" fontWeight={500}>
+              {formatDate(lead.installationDate, "dd MMM yyyy")}
+            </Typography>
+          </Stack>
+          {lead.city && (
+            <Stack direction="row" spacing={0.5} alignItems="flex-start">
+              <LocationOn
+                sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6), mt: 0.3 }}
+              />
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {lead.city}, {lead.state || ""}
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+
+        {/* Status Chips */}
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Tooltip title={installationStatusConfig.description} arrow>
+            <Chip
+              label={installationStatusConfig.label}
+              icon={installationStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: installationStatusConfig.bg,
+                color: installationStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={leadStatusConfig.description} arrow>
+            <Chip
+              label={leadStatusConfig.label}
+              icon={leadStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: leadStatusConfig.bg,
+                color: leadStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+        </Box>
+
+        {/* Progress Bar */}
+        <Box sx={{ mt: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+            <Box sx={{ flex: 1 }}>
+              <LinearProgress
+                variant="determinate"
+                value={installationStatusConfig.progress}
+                sx={{
+                  height: 6,
+                  borderRadius: 3,
+                  bgcolor: alpha(installationStatusConfig.color, 0.2),
+                  "& .MuiLinearProgress-bar": {
+                    bgcolor: installationStatusConfig.color,
+                    borderRadius: 3,
+                  },
+                }}
+              />
+            </Box>
+            <Typography variant="caption" fontWeight={600}>
+              {installationStatusConfig.progress}%
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Expanded Details */}
+        <Collapse in={expanded}>
+          <Box
+            sx={{
+              mt: 2,
+              pt: 2,
+              borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
+          >
+            {/* Additional Info */}
+            <Grid container spacing={2}>
+              {lead.installationNotes && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Notes
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {lead.installationNotes}
+                  </Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  Created
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(lead.createdAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(lead.updatedAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+            </Grid>
+
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="contained"
+                startIcon={<Visibility />}
+                onClick={() => onView(lead)}
+                sx={{
+                  bgcolor: PRIMARY_COLOR,
+                  "&:hover": { bgcolor: SECONDARY_COLOR },
+                }}
+              >
+                View
+              </Button>
+              {permissions.canUpdateStatus && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Edit />}
+                  onClick={() => onStatusUpdate(lead)}
+                  sx={{
+                    borderColor: PRIMARY_COLOR,
+                    color: PRIMARY_COLOR,
+                    "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.1) },
+                  }}
+                >
+                  Status
+                </Button>
+              )}
+            </Stack>
+          </Box>
+        </Collapse>
+      </Box>
+    </Paper>
+  );
+};
+
+// ========== INSTALLATION STATUS UPDATE MODAL ==========
+const InstallationStatusUpdateModal = ({
+  open,
+  onClose,
+  lead,
+  onStatusUpdate,
+  showSnackbar,
+  userRole,
+}) => {
+  const { fetchAPI, user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const [loading, setLoading] = useState(false);
+  const [selectedInstallationStatus, setSelectedInstallationStatus] = useState("");
+  const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
+  const [installationDate, setInstallationDate] = useState(null);
+  const [installationNotes, setInstallationNotes] = useState("");
+  const [errors, setErrors] = useState({});
+
+  const installationStatusConfig = useMemo(
+    () => getInstallationStatusConfig(lead?.installationStatus),
+    [lead?.installationStatus],
+  );
+
+  const leadStatusConfig = useMemo(
+    () => getLeadStatusConfig(lead?.status),
+    [lead?.status],
+  );
+
+  useEffect(() => {
+    if (open && lead) {
+      setSelectedInstallationStatus(lead.installationStatus || "");
+      setSelectedLeadStatus(lead.status || "Installation Completion");
+      setInstallationDate(
+        lead.installationDate ? parseISO(lead.installationDate) : null,
+      );
+      setInstallationNotes(lead.installationNotes || "");
+      setErrors({});
+    }
+  }, [open, lead]);
+
+  const handleSubmit = useCallback(async () => {
+    const newErrors = {};
+
+    if (!selectedInstallationStatus) {
+      newErrors.installationStatus = "Please select installation status";
+    }
+
+    if (!selectedLeadStatus) {
+      newErrors.leadStatus = "Please select lead status";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    if (
+      selectedInstallationStatus === lead?.installationStatus &&
+      selectedLeadStatus === lead?.status &&
+      installationNotes === (lead?.installationNotes || "")
+    ) {
+      onClose();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updateData = {
+        installationStatus: selectedInstallationStatus,
+        status: selectedLeadStatus,
+        installationNotes: installationNotes.trim(),
+        installationDate: installationDate ? format(installationDate, "yyyy-MM-dd") : undefined,
+        updatedBy: user?._id,
+        updatedByRole: user?.role,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const response = await fetchAPI(`/lead/updateLead/${lead._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      if (response.success) {
+        showSnackbar("Installation status updated successfully", "success");
+        onStatusUpdate(response.result);
+        onClose();
+      } else {
+        throw new Error(response.message || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Error updating installation status:", error);
+      setErrors({ submit: error.message });
+      showSnackbar(error.message || "Failed to update status", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    selectedInstallationStatus,
+    selectedLeadStatus,
+    installationNotes,
+    installationDate,
+    lead,
+    user,
+    fetchAPI,
+    showSnackbar,
+    onStatusUpdate,
+    onClose,
+  ]);
+
+  const handleClose = useCallback(() => {
+    setSelectedInstallationStatus("");
+    setSelectedLeadStatus("");
+    setInstallationDate(null);
+    setInstallationNotes("");
+    setErrors({});
+    onClose();
+  }, [onClose]);
+
+  const getLeadStatusOptions = useMemo(() => {
+    switch (selectedInstallationStatus) {
+      case "final_payment":
+        return ["Installation Completion"];
+      default:
+        return LEAD_STATUS_OPTIONS;
+    }
+  }, [selectedInstallationStatus]);
+
+  const availableStatuses = useMemo(
+    () =>
+      INSTALLATION_STATUS_OPTIONS.filter(
+        (status) => status !== lead?.installationStatus,
+      ),
+    [lead?.installationStatus],
+  );
+
+  if (!lead) return null;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: alpha(PRIMARY_COLOR, 0.05),
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box
+              sx={{
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                borderRadius: 2,
+                bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: PRIMARY_COLOR,
+              }}
+            >
+              <Build sx={{ fontSize: { xs: 24, sm: 28 } }} />
+            </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                Update Installation Status
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
+                {lead.firstName} {lead.lastName}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={handleClose} size="small" disabled={loading}>
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <Stack spacing={3}>
+          {errors.submit && (
+            <Alert severity="error" sx={{ borderRadius: 2 }}>
+              {errors.submit}
+            </Alert>
+          )}
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <Box flex={1}>
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
                 Current Installation Status
               </Typography>
               <Chip
                 label={installationStatusConfig.label}
                 icon={installationStatusConfig.icon}
+                size="small"
                 sx={{
                   bgcolor: installationStatusConfig.bg,
                   color: installationStatusConfig.color,
                   fontWeight: 600,
-                  fontSize: "0.875rem",
-                  px: 1,
                 }}
               />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 1, display: "block" }}
-              >
-                {installationStatusConfig.description}
-              </Typography>
             </Box>
 
-            <Box>
+            <Box flex={1}>
               <Typography variant="subtitle2" fontWeight={600} gutterBottom>
                 Current Lead Status
               </Typography>
               <Chip
-                label={lead.status}
+                label={lead.status || "Unknown"}
                 icon={leadStatusConfig.icon}
+                size="small"
                 sx={{
                   bgcolor: leadStatusConfig.bg,
                   color: leadStatusConfig.color,
                   fontWeight: 600,
-                  fontSize: "0.875rem",
-                  px: 1,
                 }}
               />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 1, display: "block" }}
-              >
-                {leadStatusConfig.description}
-              </Typography>
             </Box>
-
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                New Installation Status *
-              </Typography>
-              <FormControl
-                fullWidth
-                size="small"
-                error={!!errors.installationStatus}
-              >
-                <Select
-                  value={selectedInstallationStatus}
-                  onChange={(e) => {
-                    setSelectedInstallationStatus(e.target.value);
-                    if (e.target.value === "final-payment") {
-                      setSelectedLeadStatus("Installation Completion");
-                    }
-                  }}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    Select installation status
-                  </MenuItem>
-                  {INSTALLATION_STATUS_OPTIONS.filter(
-                    (status) => status !== lead?.installationStatus,
-                  ).map((status) => {
-                    const config = getInstallationStatusColor(status);
-                    return (
-                      <MenuItem key={status} value={status}>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={1.5}
-                        >
-                          {config.icon}
-                          <Box>
-                            <Typography variant="body2">
-                              {config.label}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {config.description}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </MenuItem>
-                    );
-                  })}
-                </Select>
-                {errors.installationStatus && (
-                  <FormHelperText>{errors.installationStatus}</FormHelperText>
-                )}
-              </FormControl>
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                Lead Status *
-              </Typography>
-              <FormControl fullWidth size="small" error={!!errors.leadStatus}>
-                <Select
-                  value={selectedLeadStatus}
-                  onChange={(e) => setSelectedLeadStatus(e.target.value)}
-                  displayEmpty
-                  disabled={selectedInstallationStatus === "final-payment"}
-                >
-                  <MenuItem value="" disabled>
-                    Select lead status
-                  </MenuItem>
-                  {getLeadStatusOptions.map((status) => {
-                    const config = getLeadStatusConfig(status);
-                    return (
-                      <MenuItem key={status} value={status}>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={1.5}
-                        >
-                          {config.icon}
-                          <Box>
-                            <Typography variant="body2">{status}</Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {config.description}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </MenuItem>
-                    );
-                  })}
-                </Select>
-                {errors.leadStatus && (
-                  <FormHelperText>{errors.leadStatus}</FormHelperText>
-                )}
-              </FormControl>
-            </Box>
-
-            <DatePicker
-              label="Installation Date"
-              value={installationDate}
-              onChange={(newValue) => setInstallationDate(newValue)}
-              slotProps={{
-                textField: {
-                  fullWidth: true,
-                  size: "small",
-                },
-              }}
-            />
-
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                Installation Notes
-              </Typography>
-              <TextField
-                value={installationNotes}
-                onChange={(e) => setInstallationNotes(e.target.value)}
-                fullWidth
-                multiline
-                rows={3}
-                placeholder="Add notes about this installation..."
-                size="small"
-              />
-            </Box>
-
-            {selectedInstallationStatus && (
-              <Alert severity="info" sx={{ mt: 1 }}>
-                <Typography variant="body2">
-                  {selectedInstallationStatus === "final-payment"
-                    ? "When marked as final payment, installation will be considered completed."
-                    : selectedInstallationStatus === "meter-charge"
-                      ? "Meter charge phase indicates installation is in progress."
-                      : "When scheduled, installation is planned but not yet started."}
-                </Typography>
-              </Alert>
-            )}
           </Stack>
-        </DialogContent>
 
-        <DialogActions
-          sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}
-        >
-          <Button onClick={handleClose} variant="outlined" size="large">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            size="large"
-            disabled={
-              loading ||
-              !selectedInstallationStatus ||
-              !selectedLeadStatus ||
-              (selectedInstallationStatus === lead?.installationStatus &&
-                selectedLeadStatus === lead?.status &&
-                installationDate ===
-                  (lead.installationDate
-                    ? parseISO(lead.installationDate)
-                    : null) &&
-                installationNotes === (lead.installationNotes || ""))
-            }
-            startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-            sx={{ bgcolor: PRIMARY, px: 4, "&:hover": { bgcolor: "#2a4ab8" } }}
-          >
-            {loading ? "Updating..." : "Update Status"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  },
-);
-
-InstallationStatusUpdateModal.displayName = "InstallationStatusUpdateModal";
-
-// View Lead Modal
-const ViewLeadModal = React.memo(
-  ({ open, onClose, lead, userRole, showSnackbar }) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const [activeTab, setActiveTab] = useState(0);
-
-    const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
-
-    const handleTabChange = (event, newValue) => {
-      setActiveTab(newValue);
-    };
-
-    if (!lead) return null;
-
-    const tabs = [
-      {
-        label: "Installation",
-        icon: <Build />,
-        content: (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ boxShadow: "none", width: "100%" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 3,
-                      color: PRIMARY,
-                    }}
-                  >
-                    <Build /> Installation Details
-                  </Typography>
-                  <Stack spacing={2.5}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Installation Date
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600}>
-                        {formatDate(lead.installationDate)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Installation Status
-                      </Typography>
-                      <Chip
-                        label={
-                          getInstallationStatusColor(lead.installationStatus)
-                            .label
-                        }
-                        icon={
-                          getInstallationStatusColor(lead.installationStatus)
-                            .icon
-                        }
-                        size="small"
-                        sx={{
-                          bgcolor: getInstallationStatusColor(
-                            lead.installationStatus,
-                          ).bg,
-                          color: getInstallationStatusColor(
-                            lead.installationStatus,
-                          ).color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Last Updated
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(lead.updatedAt)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ boxShadow: "none", width: "100%" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 3,
-                      color: PRIMARY,
-                    }}
-                  >
-                    <GppMaybe /> Status Information
-                  </Typography>
-                  <Stack spacing={2.5}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Lead Status
-                      </Typography>
-                      <Chip
-                        label={lead.status || "Unknown"}
-                        icon={getLeadStatusConfig(lead.status).icon}
-                        size="small"
-                        sx={{
-                          bgcolor: getLeadStatusConfig(lead.status).bg,
-                          color: getLeadStatusConfig(lead.status).color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Created Date
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(lead.createdAt)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Updated By Role
-                      </Typography>
-                      <Typography variant="body1">
-                        {lead.updatedByRole
-                          ? getRoleConfig(lead.updatedByRole).label
-                          : "Not set"}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            {lead.installationNotes && (
-              <Grid item xs={12}>
-                <Card sx={{ boxShadow: "none" }}>
-                  <CardContent>
-                    <Typography
-                      variant="h6"
-                      gutterBottom
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                        color: PRIMARY,
-                      }}
-                    >
-                      <Note /> Installation Notes
-                    </Typography>
-                    <Paper
-                      sx={{
-                        p: 2,
-                        bgcolor: "grey.50",
-                        borderRadius: 2,
-                        border: "1px solid",
-                        borderColor: "grey.300",
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        style={{ whiteSpace: "pre-wrap" }}
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              New Installation Status *
+            </Typography>
+            <FormControl fullWidth size="small" error={!!errors.installationStatus}>
+              <Select
+                value={selectedInstallationStatus}
+                onChange={(e) => {
+                  setSelectedInstallationStatus(e.target.value);
+                  if (e.target.value === "final_payment") {
+                    setSelectedLeadStatus("Installation Completion");
+                  }
+                }}
+                disabled={loading}
+              >
+                <MenuItem value="" disabled>
+                  Select installation status
+                </MenuItem>
+                {availableStatuses.map((status) => {
+                  const config = getInstallationStatusConfig(status);
+                  return (
+                    <MenuItem key={status} value={status}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={1.5}
                       >
-                        {lead.installationNotes}
-                      </Typography>
-                    </Paper>
-                  </CardContent>
-                </Card>
-              </Grid>
-            )}
-          </Grid>
-        ),
-      },
-      {
-        label: "Customer",
-        icon: <Person />,
-        content: (
-          <Card sx={{ boxShadow: "none", width: "100%" }}>
-            <CardContent>
+                        {config.icon}
+                        <Box>
+                          <Typography variant="body2">{config.label}</Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            {config.description}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+              {errors.installationStatus && (
+                <FormHelperText>{errors.installationStatus}</FormHelperText>
+              )}
+            </FormControl>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Lead Status *
+            </Typography>
+            <FormControl fullWidth size="small" error={!!errors.leadStatus}>
+              <Select
+                value={selectedLeadStatus}
+                onChange={(e) => setSelectedLeadStatus(e.target.value)}
+                disabled={!selectedInstallationStatus || loading}
+              >
+                <MenuItem value="" disabled>
+                  Select lead status
+                </MenuItem>
+                {getLeadStatusOptions.map((status) => {
+                  const config = getLeadStatusConfig(status);
+                  return (
+                    <MenuItem key={status} value={status}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={1.5}
+                      >
+                        {config.icon}
+                        <Box>
+                          <Typography variant="body2">{status}</Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            {config.description}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+              {errors.leadStatus && (
+                <FormHelperText>{errors.leadStatus}</FormHelperText>
+              )}
+            </FormControl>
+          </Box>
+
+          <DatePicker
+            label="Installation Date"
+            value={installationDate}
+            onChange={setInstallationDate}
+            disabled={loading}
+            slotProps={{
+              textField: {
+                fullWidth: true,
+                size: "small",
+              },
+            }}
+          />
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Installation Notes
+            </Typography>
+            <TextField
+              value={installationNotes}
+              onChange={(e) => setInstallationNotes(e.target.value)}
+              fullWidth
+              multiline
+              rows={isMobile ? 2 : 3}
+              placeholder="Add notes about this installation..."
+              size="small"
+              disabled={loading}
+            />
+          </Box>
+
+          {selectedInstallationStatus && (
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              {selectedInstallationStatus === "final_payment"
+                ? "When marked as final payment, installation will be considered completed."
+                : selectedInstallationStatus === "meter_charge"
+                  ? "Meter charge phase indicates installation is in progress."
+                  : "When scheduled, installation is planned but not yet started."}
+            </Alert>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
+      >
+        <Button
+          onClick={handleClose}
+          variant="outlined"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={loading}
+          sx={{
+            borderColor: PRIMARY_COLOR,
+            color: PRIMARY_COLOR,
+            "&:hover": {
+              borderColor: PRIMARY_COLOR,
+              bgcolor: alpha(PRIMARY_COLOR, 0.05),
+            },
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={
+            loading ||
+            !selectedInstallationStatus ||
+            !selectedLeadStatus ||
+            (selectedInstallationStatus === lead?.installationStatus &&
+              selectedLeadStatus === lead?.status &&
+              installationNotes === (lead?.installationNotes || ""))
+          }
+          startIcon={
+            loading ? (
+              <CircularProgress size={20} sx={{ color: "#fff" }} />
+            ) : (
+              <Save />
+            )
+          }
+          sx={{
+            bgcolor: PRIMARY_COLOR,
+            px: 4,
+            "&:hover": { bgcolor: SECONDARY_COLOR },
+            "&.Mui-disabled": {
+              bgcolor: "#ccc",
+            },
+          }}
+        >
+          {loading ? "Updating..." : "Update Status"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ========== VIEW LEAD MODAL ==========
+const ViewLeadModal = ({
+  open,
+  onClose,
+  lead,
+  userRole,
+  showSnackbar,
+}) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [activeTab, setActiveTab] = useState(0);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [leadDetails, setLeadDetails] = useState(null);
+
+  const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
+
+  useEffect(() => {
+    if (open && lead?._id) {
+      setLeadDetails(lead);
+    }
+  }, [open, lead]);
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  if (!lead) return null;
+
+  const displayData = leadDetails || lead;
+
+  const tabs = [
+    {
+      label: "Installation",
+      icon: <Build />,
+      content: (
+        <Stack spacing={2.5}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+              border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY_COLOR,
+                fontWeight: 600,
+              }}
+            >
+              <Build sx={{ fontSize: 20 }} /> Installation Details
+            </Typography>
+            <Stack spacing={2}>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Installation Date
+                </Typography>
+                <Typography variant="body2" fontWeight={600}>
+                  {formatDate(displayData.installationDate)}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Installation Status
+                </Typography>
+                <Chip
+                  label={getInstallationStatusConfig(displayData.installationStatus).label}
+                  icon={getInstallationStatusConfig(displayData.installationStatus).icon}
+                  size="small"
+                  sx={{
+                    bgcolor: getInstallationStatusConfig(displayData.installationStatus).bg,
+                    color: getInstallationStatusConfig(displayData.installationStatus).color,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Lead Status
+                </Typography>
+                <Chip
+                  label={displayData.status || "Unknown"}
+                  icon={getLeadStatusConfig(displayData.status).icon}
+                  size="small"
+                  sx={{
+                    bgcolor: getLeadStatusConfig(displayData.status).bg,
+                    color: getLeadStatusConfig(displayData.status).color,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(displayData.updatedAt)}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+
+          {displayData.installationNotes && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: 3,
+                bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+              }}
+            >
               <Typography
-                variant="h6"
-                gutterBottom
+                variant="subtitle2"
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   gap: 1,
-                  mb: 3,
-                  color: PRIMARY,
+                  mb: 2.5,
+                  color: PRIMARY_COLOR,
+                  fontWeight: 600,
                 }}
               >
-                <Person /> Customer Information
+                <Note sx={{ fontSize: 20 }} /> Installation Notes
               </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Stack spacing={2}>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Full Name
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600}>
-                        {lead.firstName} {lead.lastName}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Email
-                      </Typography>
-                      <Typography variant="body1">
-                        {lead.email || "Not set"}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Phone
-                      </Typography>
-                      <Typography variant="body1">
-                        {lead.phoneNumber || lead.phone || "Not set"}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Stack spacing={2}>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Address
-                      </Typography>
-                      <Typography variant="body1">
-                        {lead.address || "Not set"}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        City
-                      </Typography>
-                      <Typography variant="body1">
-                        {lead.city || "Not set"}
-                      </Typography>
-                    </Box>
-                    {lead.state && (
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          State
-                        </Typography>
-                        <Typography variant="body1">{lead.state}</Typography>
-                      </Box>
-                    )}
-                  </Stack>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        ),
-      },
-    ];
-
-    return (
-      <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="md"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3, maxHeight: "90vh" } }}
-      >
-        <DialogTitle
+              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {displayData.installationNotes}
+              </Typography>
+            </Paper>
+          )}
+        </Stack>
+      ),
+    },
+    {
+      label: "Customer",
+      icon: <Person />,
+      content: (
+        <Paper
+          elevation={0}
           sx={{
-            bgcolor: PRIMARY,
-            color: "white",
-            pb: 2,
+            p: 2.5,
+            borderRadius: 3,
+            bgcolor: alpha(PRIMARY_COLOR, 0.02),
+            border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
+          <Typography
+            variant="subtitle2"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: 2.5,
+              color: PRIMARY_COLOR,
+              fontWeight: 600,
+            }}
           >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: "white", color: PRIMARY }}>
-                {lead.firstName?.[0] || "I"}
-              </Avatar>
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  {lead.firstName} {lead.lastName}
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                  Installation Details •{" "}
-                  {getInstallationStatusColor(lead.installationStatus).label}
-                </Typography>
-              </Box>
+            <Person sx={{ fontSize: 20 }} /> Customer Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Full Name
+              </Typography>
+              <Typography variant="body2" fontWeight={600}>
+                {displayData.firstName} {displayData.lastName}
+              </Typography>
             </Box>
-            <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
-              <Close />
-            </IconButton>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Email
+              </Typography>
+              <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
+                {displayData.email || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Phone
+              </Typography>
+              <Typography variant="body2">
+                {displayData.phoneNumber || displayData.phone || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Address
+              </Typography>
+              <Typography variant="body2">
+                {displayData.address || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                City
+              </Typography>
+              <Typography variant="body2">
+                {displayData.city || "Not set"}
+              </Typography>
+            </Box>
           </Stack>
-        </DialogTitle>
+        </Paper>
+      ),
+    },
+  ];
 
-        <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Stack
-              direction="row"
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          maxHeight: isMobile ? "100%" : "90vh",
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: PRIMARY_COLOR,
+          color: "white",
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar
               sx={{
-                px: 2,
-                overflowX: "auto",
-                "& .MuiButtonBase-root": {
-                  minWidth: "auto",
-                  px: 2,
-                },
+                bgcolor: "white",
+                color: PRIMARY_COLOR,
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                fontWeight: 600,
               }}
             >
-              {tabs.map((tab, index) => (
-                <Button
-                  key={index}
-                  startIcon={tab.icon}
-                  onClick={() => setActiveTab(index)}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    fontSize: "0.875rem",
-                    color: activeTab === index ? PRIMARY : "text.secondary",
-                    borderBottom:
-                      activeTab === index ? `2px solid ${PRIMARY}` : "none",
-                    borderRadius: 0,
-                    py: 2,
-                    minHeight: "auto",
-                    "&:hover": {
-                      bgcolor: "transparent",
-                      color: PRIMARY,
-                    },
-                  }}
-                >
-                  {tab.label}
-                </Button>
-              ))}
-            </Stack>
+              {getInitials(displayData.firstName, displayData.lastName)}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                {displayData.firstName} {displayData.lastName}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  opacity: 0.9,
+                  fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                }}
+              >
+                Installation Details • {getInstallationStatusConfig(displayData.installationStatus).label}
+              </Typography>
+            </Box>
           </Box>
+          <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
 
-          <Box sx={{ p: 3, maxHeight: "60vh", overflow: "auto" }}>
-            {tabs[activeTab].content}
-          </Box>
-        </DialogContent>
+      <DialogContent sx={{ p: 0 }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              "& .MuiTab-root": {
+                minHeight: { xs: 48, sm: 56 },
+                py: 1,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              },
+            }}
+          >
+            {tabs.map((tab, index) => (
+              <Tab
+                key={index}
+                icon={React.cloneElement(tab.icon, {
+                  sx: { fontSize: { xs: 18, sm: 20 } },
+                })}
+                label={tab.label}
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              />
+            ))}
+          </Tabs>
+        </Box>
 
-        <DialogActions
-          sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}
+        <Box
+          sx={{
+            p: { xs: 2, sm: 3 },
+            maxHeight: { xs: "calc(100vh - 180px)", sm: "60vh" },
+            overflow: "auto",
+          }}
+        >
+          {loadingDetails ? (
+            <Box
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              minHeight={200}
+            >
+              <CircularProgress sx={{ color: PRIMARY_COLOR }} />
+            </Box>
+          ) : (
+            tabs[activeTab].content
+          )}
+        </Box>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
         >
           <Chip
             label={userRoleConfig.label}
             icon={userRoleConfig.icon}
             size="small"
             sx={{
-              bgcolor: `${userRoleConfig.color}15`,
-              color: userRoleConfig.color,
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+              color: PRIMARY_COLOR,
               fontWeight: 600,
+              height: { xs: 24, sm: 28 },
+              fontSize: { xs: "0.65rem", sm: "0.75rem" },
             }}
           />
           <Button
             onClick={onClose}
             variant="contained"
-            sx={{ borderRadius: 2 }}
+            size={isMobile ? "small" : "medium"}
+            sx={{
+              borderRadius: 2,
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
+            }}
           >
             Close
           </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  },
+        </Box>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ========== LOADING SKELETON ==========
+const LoadingSkeleton = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4, 5, 6].map((item) => (
+          <Grid item xs={6} sm={6} md={4} key={item}>
+            <Skeleton
+              variant="rectangular"
+              height={isMobile ? 90 : 120}
+              sx={{ borderRadius: 3 }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      {isMobile && (
+        <Skeleton
+          variant="rectangular"
+          height={56}
+          sx={{ borderRadius: 2, mb: 2 }}
+        />
+      )}
+      <Skeleton
+        variant="rectangular"
+        height={isMobile ? 500 : 400}
+        sx={{ borderRadius: 3, mb: 2 }}
+      />
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+    </Box>
+  );
+};
+
+// ========== EMPTY STATE ==========
+const EmptyState = ({ onClearFilters, hasFilters }) => (
+  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
+    <Box
+      sx={{
+        width: 120,
+        height: 120,
+        borderRadius: "50%",
+        bgcolor: alpha(PRIMARY_COLOR, 0.1),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        mx: "auto",
+        mb: 3,
+      }}
+    >
+      <Build sx={{ fontSize: 48, color: PRIMARY_COLOR }} />
+    </Box>
+    <Typography variant="h6" fontWeight={600} gutterBottom>
+      No installations found
+    </Typography>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+    >
+      {hasFilters
+        ? "No installations match your current filters. Try adjusting your search criteria."
+        : "No installations have been scheduled yet."}
+    </Typography>
+    {hasFilters && (
+      <Button
+        variant="contained"
+        onClick={onClearFilters}
+        startIcon={<Clear />}
+        sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
+      >
+        Clear All Filters
+      </Button>
+    )}
+  </Box>
 );
 
-ViewLeadModal.displayName = "ViewLeadModal";
-
-// Loading Skeletons
-const LoadingSkeleton = () => (
-  <Box sx={{ p: 3 }}>
-    <Grid container spacing={2} sx={{ mb: 3 }}>
-      {[1, 2, 3, 4].map((item) => (
-        <Grid item xs={6} sm={3} key={item}>
-          <Skeleton
-            variant="rectangular"
-            height={120}
-            sx={{ borderRadius: 2 }}
-          />
-        </Grid>
-      ))}
-    </Grid>
-    <Skeleton
-      variant="rectangular"
-      height={400}
-      sx={{ borderRadius: 2, mb: 2 }}
-    />
-    <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
-  </Box>
+// ========== SUMMARY CARD ==========
+const SummaryCard = ({ card, index }) => (
+  <Fade in={true} timeout={500 + index * 100}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: 3,
+        border: `1px solid ${alpha(card.color, 0.1)}`,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        transition: "transform 0.2s",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+        },
+      }}
+    >
+      <Stack spacing={1}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box
+            sx={{
+              width: { xs: 32, sm: 40, md: 48 },
+              height: { xs: 32, sm: 40, md: 48 },
+              borderRadius: { xs: 1.5, sm: 2 },
+              bgcolor: alpha(card.color, 0.1),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: card.color,
+            }}
+          >
+            {React.cloneElement(card.icon, {
+              sx: { fontSize: { xs: 16, sm: 20, md: 24 } },
+            })}
+          </Box>
+          <Typography
+            variant="h4"
+            fontWeight={700}
+            sx={{
+              color: card.color,
+              fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
+            }}
+          >
+            {card.value}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            fontWeight={600}
+            sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+          >
+            {card.label}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontSize: { xs: "0.6rem", sm: "0.7rem" } }}
+          >
+            {card.subText}
+          </Typography>
+        </Box>
+      </Stack>
+    </Paper>
+  </Fade>
 );
 
 // ========== MAIN COMPONENT ==========
 export default function InstallationPage() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { fetchAPI, user } = useAuth();
-  const userRole = user?.role;
+  const { fetchAPI, user, getUserRole } = useAuth();
+  const userRole = getUserRole();
   const userPermissions = useMemo(
     () => getUserPermissions(userRole),
     [userRole],
@@ -1186,6 +2207,8 @@ export default function InstallationPage() {
     summary: {
       totalInstallations: 0,
       pendingInstallations: 0,
+      inProgressInstallations: 0,
+      jeeVerificationInstallations: 0,
       meterChargeInstallations: 0,
       finalPaymentInstallations: 0,
     },
@@ -1193,10 +2216,10 @@ export default function InstallationPage() {
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState("");
-  const [installationStatusFilter, setInstallationStatusFilter] =
-    useState("All");
+  const [installationStatusFilter, setInstallationStatusFilter] = useState("All");
   const [leadStatusFilter, setLeadStatusFilter] = useState("All");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState({
     startDate: null,
     endDate: null,
@@ -1206,12 +2229,22 @@ export default function InstallationPage() {
   // Sorting & Pagination
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+  const [rowsPerPage, setRowsPerPage] = useState(
+    isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE,
+  );
+
+  // View Mode
+  const [viewMode, setViewMode] = useState(isMobile ? "card" : "table");
 
   // Modal States
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [statusUpdateModalOpen, setStatusUpdateModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
+  const [selectedActionLead, setSelectedActionLead] = useState(null);
+
+  // Refs
+  const containerRef = useRef(null);
 
   // Snackbar Handler
   const showSnackbar = useCallback((message, severity = "success") => {
@@ -1231,13 +2264,11 @@ export default function InstallationPage() {
         params.append("startDate", format(today, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Week") {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgo = subWeeks(today, 1);
         params.append("startDate", format(weekAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Month") {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const monthAgo = subMonths(today, 1);
         params.append("startDate", format(monthAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       }
@@ -1246,129 +2277,156 @@ export default function InstallationPage() {
         `/lead/installationSummary?${params.toString()}`,
       );
 
-      if (!response?.success) {
-        throw new Error(response?.message || "Failed to fetch data");
+      if (response?.success) {
+        const data = response.result || {};
+        const rawInstallations = data.installations || [];
+
+        let filteredInstallations = rawInstallations;
+        if (userRole === "TEAM" && user?._id) {
+          filteredInstallations = rawInstallations.filter(
+            (lead) =>
+              lead.assignedTo === user._id ||
+              lead.assignedManager === user._id ||
+              lead.assignedUser === user._id ||
+              lead.assignedUser?._id === user._id ||
+              lead.createdBy === user._id,
+          );
+        }
+
+        const totalInstallations = filteredInstallations.length;
+        const pendingInstallations = filteredInstallations.filter(
+          (lead) => lead.installationStatus?.toLowerCase() === "pending",
+        ).length;
+        const inProgressInstallations = filteredInstallations.filter(
+          (lead) => lead.installationStatus?.toLowerCase() === "installation_in_progress",
+        ).length;
+        const jeeVerificationInstallations = filteredInstallations.filter(
+          (lead) => 
+            lead.installationStatus?.toLowerCase() === "sent_for_jee_verification" ||
+            lead.installationStatus?.toLowerCase() === "jee_verified",
+        ).length;
+        const meterChargeInstallations = filteredInstallations.filter(
+          (lead) => lead.installationStatus?.toLowerCase() === "meter_charge",
+        ).length;
+        const finalPaymentInstallations = filteredInstallations.filter(
+          (lead) => lead.installationStatus?.toLowerCase() === "final_payment",
+        ).length;
+
+        setInstallationData({
+          installations: filteredInstallations,
+          summary: {
+            totalInstallations,
+            pendingInstallations,
+            inProgressInstallations,
+            jeeVerificationInstallations,
+            meterChargeInstallations,
+            finalPaymentInstallations,
+          },
+        });
+      } else {
+        throw new Error(response?.message || "Failed to fetch installation data");
       }
-
-      const allLeads = response.result?.installations || [];
-
-      let filteredLeads = allLeads;
-      if (userRole === "TEAM" && user?._id) {
-        filteredLeads = allLeads.filter(
-          (lead) =>
-            lead.assignedTo === user._id ||
-            lead.assignedManager === user._id ||
-            lead.assignedUser === user._id ||
-            lead.createdBy === user._id,
-        );
-      }
-
-      const summary = {
-        totalInstallations: filteredLeads.length,
-        pendingInstallations: filteredLeads.filter(
-          (l) => l.installationStatus === "pending",
-        ).length,
-        inProgressInstallations: filteredLeads.filter(
-          (l) => l.installationStatus === "meter-charge",
-        ).length,
-        completedInstallations: filteredLeads.filter(
-          (l) => l.installationStatus === "final-payment",
-        ).length,
-      };
-
-      setInstallationData({
-        installations: filteredLeads,
-        summary,
-      });
     } catch (err) {
-      console.error(err);
-      setError(err.message);
-      showSnackbar(err.message, "error");
+      console.error("Error fetching installation data:", err);
+      setError(err.message || "Network error. Please try again.");
+      showSnackbar(err.message || "Failed to fetch installation data", "error");
+      setInstallationData({
+        installations: [],
+        summary: {
+          totalInstallations: 0,
+          pendingInstallations: 0,
+          inProgressInstallations: 0,
+          jeeVerificationInstallations: 0,
+          meterChargeInstallations: 0,
+          finalPaymentInstallations: 0,
+        },
+      });
     } finally {
       setLoading(false);
     }
   }, [period, fetchAPI, userRole, user, showSnackbar]);
 
-  // Initial fetch
-  useEffect(() => {
-    if (hasAccess(userRole)) {
-      fetchInstallationData();
-    } else {
-      setError("You don't have permission to access this page");
-      setLoading(false);
-    }
-  }, [fetchInstallationData, userRole]);
+  // Apply Filters
+  const applyFilters = useCallback(() => {
+    try {
+      let filtered = [...installationData.installations];
 
-  // Filter and sort data
-  const filteredData = useMemo(() => {
-    let filtered = [...installationData.installations];
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        filtered = filtered.filter(
+          (lead) =>
+            (lead.firstName?.toLowerCase() || "").includes(query) ||
+            (lead.lastName?.toLowerCase() || "").includes(query) ||
+            (lead.email?.toLowerCase() || "").includes(query) ||
+            (lead.phoneNumber || lead.phone || "").includes(query),
+        );
+      }
 
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (lead) =>
-          lead.firstName?.toLowerCase().includes(query) ||
-          lead.lastName?.toLowerCase().includes(query) ||
-          lead.email?.toLowerCase().includes(query) ||
-          lead.phoneNumber?.toLowerCase().includes(query) ||
-          lead.phone?.toLowerCase().includes(query),
-      );
-    }
+      if (installationStatusFilter !== "All") {
+        filtered = filtered.filter(
+          (lead) => lead.installationStatus === installationStatusFilter,
+        );
+      }
 
-    // Apply installation status filter
-    if (installationStatusFilter !== "All") {
-      filtered = filtered.filter(
-        (lead) => lead.installationStatus === installationStatusFilter,
-      );
-    }
+      if (leadStatusFilter !== "All") {
+        filtered = filtered.filter((lead) => lead.status === leadStatusFilter);
+      }
 
-    // Apply lead status filter
-    if (leadStatusFilter !== "All") {
-      filtered = filtered.filter((lead) => lead.status === leadStatusFilter);
-    }
+      if (
+        dateFilter.startDate &&
+        isValid(dateFilter.startDate) &&
+        dateFilter.endDate &&
+        isValid(dateFilter.endDate)
+      ) {
+        const start = startOfDay(new Date(dateFilter.startDate));
+        const end = endOfDay(new Date(dateFilter.endDate));
 
-    // Apply date filter
-    if (dateFilter.startDate && dateFilter.endDate) {
-      filtered = filtered.filter((lead) => {
-        if (!lead.installationDate) return false;
-        const leadDate = parseISO(lead.installationDate);
-        return isWithinInterval(leadDate, {
-          start: startOfDay(dateFilter.startDate),
-          end: endOfDay(dateFilter.endDate),
+        filtered = filtered.filter((lead) => {
+          try {
+            const leadDate = lead.installationDate
+              ? parseISO(lead.installationDate)
+              : lead.createdAt
+                ? parseISO(lead.createdAt)
+                : null;
+            if (!leadDate || !isValid(leadDate)) return false;
+            return isWithinInterval(leadDate, { start, end });
+          } catch {
+            return false;
+          }
         });
-      });
+      }
+
+      if (sortConfig.key) {
+        filtered.sort((a, b) => {
+          let aVal = a[sortConfig.key];
+          let bVal = b[sortConfig.key];
+
+          if (
+            sortConfig.key === "installationDate" ||
+            sortConfig.key === "createdAt"
+          ) {
+            aVal = aVal ? parseISO(aVal) : new Date(0);
+            bVal = bVal ? parseISO(bVal) : new Date(0);
+          } else if (sortConfig.key === "firstName") {
+            aVal = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
+            bVal = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
+          } else if (sortConfig.key === "installationStatus") {
+            aVal = getInstallationStatusConfig(aVal)?.order || 0;
+            bVal = getInstallationStatusConfig(bVal)?.order || 0;
+          }
+
+          if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+          if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+          return 0;
+        });
+      }
+
+      return filtered;
+    } catch (err) {
+      console.error("Filter error:", err);
+      showSnackbar("Error applying filters", "error");
+      return installationData.installations;
     }
-
-    // Apply sorting
-    if (sortConfig.key) {
-      filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-
-        if (
-          sortConfig.key === "installationDate" ||
-          sortConfig.key === "updatedAt" ||
-          sortConfig.key === "createdAt"
-        ) {
-          const aDate = aValue ? parseISO(aValue) : new Date(0);
-          const bDate = bValue ? parseISO(bValue) : new Date(0);
-          return sortConfig.direction === "asc" ? aDate - bDate : bDate - aDate;
-        }
-
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          return sortConfig.direction === "asc"
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        }
-
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return filtered;
   }, [
     installationData.installations,
     searchQuery,
@@ -1376,86 +2434,198 @@ export default function InstallationPage() {
     leadStatusFilter,
     dateFilter,
     sortConfig,
+    showSnackbar,
   ]);
 
-  // Pagination
-  const paginatedData = useMemo(() => {
-    const startIndex = page * rowsPerPage;
-    const endIndex = startIndex + rowsPerPage;
-    return filteredData.slice(startIndex, endIndex);
-  }, [filteredData, page, rowsPerPage]);
+  // Effects
+  useEffect(() => {
+    if (hasAccess(userRole)) {
+      fetchInstallationData();
+    }
+  }, [fetchInstallationData, userRole]);
 
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+  useEffect(() => {
+    if (dateFilter.startDate && dateFilter.endDate) {
+      const from = new Date(dateFilter.startDate);
+      const to = new Date(dateFilter.endDate);
+      const error = from > to ? "Start date cannot be after end date" : "";
+      setDateFilterError(error);
+    } else {
+      setDateFilterError("");
+    }
+  }, [dateFilter.startDate, dateFilter.endDate]);
+
+  useEffect(() => {
+    setRowsPerPage(isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE);
+  }, [isMobile]);
+
+  useEffect(() => {
+    setViewMode(isMobile ? "card" : "table");
+  }, [isMobile]);
+
+  // Memoized Computed Values
+  const filteredInstallations = useMemo(() => applyFilters(), [applyFilters]);
+
+  const paginatedInstallations = useMemo(() => {
+    const start = page * rowsPerPage;
+    return filteredInstallations.slice(start, start + rowsPerPage);
+  }, [filteredInstallations, page, rowsPerPage]);
+
+  const totalPages = useMemo(
+    () => Math.ceil(filteredInstallations.length / rowsPerPage),
+    [filteredInstallations.length, rowsPerPage],
+  );
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (installationStatusFilter !== "All") count++;
+    if (leadStatusFilter !== "All") count++;
+    if (dateFilter.startDate) count++;
+    if (dateFilter.endDate) count++;
+    return count;
+  }, [searchQuery, installationStatusFilter, leadStatusFilter, dateFilter]);
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Total",
+        value: installationData.summary.totalInstallations,
+        color: PRIMARY_COLOR,
+        icon: <Build />,
+        subText: "All installations",
+      },
+      {
+        label: "Scheduled",
+        value: installationData.summary.pendingInstallations,
+        color: PRIMARY_COLOR,
+        icon: <Schedule />,
+        subText: "Pending installation",
+      },
+      {
+        label: "In Progress",
+        value: installationData.summary.inProgressInstallations,
+        color: PRIMARY_COLOR,
+        icon: <Build />,
+        subText: "Ongoing work",
+      },
+      {
+        label: "JEE Verification",
+        value: installationData.summary.jeeVerificationInstallations,
+        color: PRIMARY_COLOR,
+        icon: <VerifiedUser />,
+        subText: "Under verification",
+      },
+      {
+        label: "Meter Charge",
+        value: installationData.summary.meterChargeInstallations,
+        color: PRIMARY_COLOR,
+        icon: <LocalAtm />,
+        subText: "Meter charging",
+      },
+      {
+        label: "Final Payment",
+        value: installationData.summary.finalPaymentInstallations,
+        color: PRIMARY_COLOR,
+        icon: <Payments />,
+        subText: "Completed",
+      },
+    ],
+    [installationData.summary],
+  );
 
   // Handlers
-  const handleSort = (key) => {
-    setSortConfig((current) => ({
+  const handleSort = useCallback((key) => {
+    setSortConfig((prev) => ({
       key,
-      direction:
-        current.key === key && current.direction === "asc" ? "desc" : "asc",
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
-  };
+  }, []);
 
-  const handleStatusUpdate = (updatedLead) => {
-    setInstallationData((prev) => ({
-      ...prev,
-      installations: prev.installations.map((lead) =>
-        lead._id === updatedLead._id ? updatedLead : lead,
-      ),
-      summary: {
-        ...prev.summary,
-        pendingInstallations: prev.installations.filter((l) =>
-          l._id === updatedLead._id
-            ? updatedLead.installationStatus === "pending"
-            : l.installationStatus === "pending",
-        ).length,
-        meterChargeInstallations: prev.installations.filter((l) =>
-          l._id === updatedLead._id
-            ? updatedLead.installationStatus === "meter-charge"
-            : l.installationStatus === "meter-charge",
-        ).length,
-        finalPaymentInstallations: prev.installations.filter((l) =>
-          l._id === updatedLead._id
-            ? updatedLead.installationStatus === "final-payment"
-            : l.installationStatus === "final-payment",
-        ).length,
-      },
-    }));
-  };
+  const handleViewClick = useCallback(
+    (lead) => {
+      if (!lead?._id) {
+        showSnackbar("Invalid lead data", "error");
+        return;
+      }
+      setSelectedLead(lead);
+      setViewModalOpen(true);
+    },
+    [showSnackbar],
+  );
 
-  const handleViewLead = (lead) => {
-    setSelectedLead(lead);
-    setViewModalOpen(true);
-  };
+  const handleStatusUpdateClick = useCallback(
+    (lead) => {
+      if (!lead?._id) {
+        showSnackbar("Invalid lead data", "error");
+        return;
+      }
+      if (!userPermissions.canUpdateStatus) {
+        showSnackbar(
+          "You don't have permission to update installation status",
+          "error",
+        );
+        return;
+      }
+      setSelectedLead(lead);
+      setStatusUpdateModalOpen(true);
+    },
+    [userPermissions, showSnackbar],
+  );
 
-  const handleUpdateStatus = (lead) => {
-    setSelectedLead(lead);
-    setStatusUpdateModalOpen(true);
-  };
+  const handleStatusUpdate = useCallback(
+    async (updatedLead) => {
+      try {
+        await fetchInstallationData();
+        showSnackbar("Installation status updated successfully", "success");
+      } catch (err) {
+        console.error("Error after status update:", err);
+        showSnackbar("Failed to refresh data", "error");
+      }
+    },
+    [fetchInstallationData, showSnackbar],
+  );
 
-  const handleDateFilterChange = (type, date) => {
-    setDateFilter((prev) => {
-      const newFilter = { ...prev, [type]: date };
+  const handleActionMenuOpen = useCallback((event, lead) => {
+    setActionMenuAnchor(event.currentTarget);
+    setSelectedActionLead(lead);
+  }, []);
 
-      if (newFilter.startDate && newFilter.endDate) {
-        if (newFilter.startDate > newFilter.endDate) {
-          setDateFilterError("Start date cannot be after end date");
-        } else {
-          setDateFilterError("");
-        }
+  const handleActionMenuClose = useCallback(() => {
+    setActionMenuAnchor(null);
+    setSelectedActionLead(null);
+  }, []);
+
+  const handleActionSelect = useCallback(
+    (action) => {
+      if (!selectedActionLead) return;
+
+      switch (action) {
+        case "view":
+          handleViewClick(selectedActionLead);
+          break;
+        case "update_status":
+          handleStatusUpdateClick(selectedActionLead);
+          break;
+        default:
+          break;
       }
 
-      return newFilter;
-    });
-  };
+      handleActionMenuClose();
+    },
+    [
+      selectedActionLead,
+      handleViewClick,
+      handleStatusUpdateClick,
+      handleActionMenuClose,
+    ],
+  );
 
-  const handlePeriodChange = (newPeriod) => {
-    setPeriod(newPeriod);
-    setDateFilter({ startDate: null, endDate: null });
-    setDateFilterError("");
-  };
+  const handleCloseSnackbar = useCallback(() => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  }, []);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     setSearchQuery("");
     setInstallationStatusFilter("All");
     setLeadStatusFilter("All");
@@ -1463,416 +2633,511 @@ export default function InstallationPage() {
     setDateFilterError("");
     setSortConfig({ key: null, direction: "asc" });
     setPage(0);
+    if (showFilterPanel) setShowFilterPanel(false);
+  }, [showFilterPanel]);
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
-  const handleRefresh = () => {
-    fetchInstallationData();
-    showSnackbar("Data refreshed successfully", "success");
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
 
-  const handleCloseSnackbar = () => {
-    setSnackbar((prev) => ({ ...prev, open: false }));
-  };
-
-  // Access control
+  // Access Check
   if (!hasAccess(userRole)) {
     return (
       <Box
         sx={{
+          p: 3,
+          textAlign: "center",
+          minHeight: "60vh",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          minHeight: "60vh",
-          p: 3,
         }}
       >
-        <Security sx={{ fontSize: 64, color: "error.main", mb: 2 }} />
-        <Typography variant="h5" color="error" gutterBottom>
-          Access Denied
-        </Typography>
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          align="center"
-          sx={{ maxWidth: 400 }}
-        >
-          You do not have permission to access the installation management page.
-        </Typography>
-        <Button
-          variant="contained"
-          sx={{ mt: 3, bgcolor: PRIMARY }}
-          onClick={() => navigate("/dashboard")}
-        >
-          Go to Dashboard
-        </Button>
+        <Alert severity="error" sx={{ maxWidth: 500, borderRadius: 3 }}>
+          <AlertTitle>Access Denied</AlertTitle>
+          You don't have permission to access this page.
+          <Button
+            sx={{ mt: 2 }}
+            variant="contained"
+            onClick={() => navigate("/dashboard")}
+          >
+            Go to Dashboard
+          </Button>
+        </Alert>
       </Box>
     );
   }
 
-  // Loading state
   if (loading && installationData.installations.length === 0) {
     return <LoadingSkeleton />;
   }
 
-  // Error state
-  if (error && !loading) {
+  if (error && installationData.installations.length === 0) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "60vh",
-          p: 3,
-        }}
-      >
-        <ErrorIcon sx={{ fontSize: 64, color: "error.main", mb: 2 }} />
-        <Typography variant="h5" color="error" gutterBottom>
-          Error Loading Data
-        </Typography>
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          align="center"
-          sx={{ maxWidth: 400, mb: 3 }}
+      <Box sx={{ p: 3, maxWidth: 600, mx: "auto" }}>
+        <Alert
+          severity="error"
+          sx={{ borderRadius: 3 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={fetchInstallationData}
+              sx={{ color: PRIMARY_COLOR }}
+            >
+              Retry
+            </Button>
+          }
         >
+          <AlertTitle>Error</AlertTitle>
           {error}
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Refresh />}
-          sx={{ bgcolor: PRIMARY }}
-          onClick={fetchInstallationData}
-        >
-          Try Again
-        </Button>
+        </Alert>
       </Box>
     );
   }
 
-  // Summary cards data
-  const summaryCards = [
-    {
-      title: "Total Installations",
-      value: installationData.summary.totalInstallations,
-      icon: <Build sx={{ fontSize: 24, color: "#4569ea" }} />,
-      bgcolor: "#e3f2fd",
-      color: "#4569ea",
-      subText: "All installation leads",
-    },
-    {
-      title: "Scheduled",
-      value: installationData.summary.pendingInstallations,
-      icon: <Schedule sx={{ fontSize: 24, color: "#4569ea" }} />,
-      bgcolor: "#e3f2fd",
-      color: "#4569ea",
-      subText: "Pending installation",
-    },
-    {
-      title: "Meter Charge",
-      value: installationData.summary.meterChargeInstallations,
-      icon: <LocalAtm sx={{ fontSize: 24, color: "#4569ea" }} />,
-      bgcolor: "#e6edf5",
-      color: "#4569ea",
-      subText: "Meter charging phase",
-    },
-    {
-      title: "Final Payment",
-      value: installationData.summary.finalPaymentInstallations,
-      icon: <CheckCircle sx={{ fontSize: 24, color: "#4569ea" }} />,
-      bgcolor: "#e8f5e9",
-      color: "#4569ea",
-      subText: "Installation completed",
-    },
-  ];
-
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: { xs: 2, sm: 3 } }}>
-        {/* Header */}
-        <Box sx={{ mb: 4 }}>
+      {/* Modals */}
+      <ViewLeadModal
+        open={viewModalOpen}
+        onClose={() => setViewModalOpen(false)}
+        lead={selectedLead}
+        userRole={userRole}
+        showSnackbar={showSnackbar}
+      />
+
+      <InstallationStatusUpdateModal
+        open={statusUpdateModalOpen}
+        onClose={() => setStatusUpdateModalOpen(false)}
+        lead={selectedLead}
+        onStatusUpdate={handleStatusUpdate}
+        showSnackbar={showSnackbar}
+        userRole={userRole}
+      />
+
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        open={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+        period={period}
+        setPeriod={setPeriod}
+        installationStatusFilter={installationStatusFilter}
+        setInstallationStatusFilter={setInstallationStatusFilter}
+        leadStatusFilter={leadStatusFilter}
+        setLeadStatusFilter={setLeadStatusFilter}
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        handleClearFilters={handleClearFilters}
+        dateFilterError={dateFilterError}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortConfig={sortConfig}
+        setSortConfig={setSortConfig}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        activeFilterCount={activeFilterCount}
+      />
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: "100%", borderRadius: 2 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Action Menu */}
+      <Menu
+        anchorEl={actionMenuAnchor}
+        open={Boolean(actionMenuAnchor)}
+        onClose={handleActionMenuClose}
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            minWidth: 200,
+          },
+        }}
+      >
+        <MenuItem onClick={() => handleActionSelect("view")}>
+          <ListItemIcon>
+            <Visibility fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>View Details</ListItemText>
+        </MenuItem>
+        {userPermissions.canUpdateStatus && (
+          <MenuItem onClick={() => handleActionSelect("update_status")}>
+            <ListItemIcon>
+              <Edit fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Update Status</ListItemText>
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Main Content */}
+      <Box
+        ref={containerRef}
+        sx={{
+          p: { xs: 1.5, sm: 2, md: 3 },
+          minHeight: "100vh",
+          pb: { xs: 8, sm: 3 },
+          bgcolor: "#f8fafc",
+        }}
+      >
+        {/* Header with Gradient Background */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            mb: 3,
+            borderRadius: 3,
+            background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${SECONDARY_COLOR} 100%)`,
+            color: "#fff",
+          }}
+        >
           <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
+            direction={{ xs: "column", sm: "row" }}
             spacing={2}
-            sx={{ mb: 3 }}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
           >
             <Box>
-              <Typography variant="h4" fontWeight={700} sx={{ color: "black" }}>
+              <Typography
+                variant={isMobile ? "h6" : "h5"}
+                fontWeight={700}
+                gutterBottom
+              >
                 Installation Management
               </Typography>
-              <Typography variant="body1" color="text.secondary">
+              <Typography
+                variant="body2"
+                sx={{
+                  opacity: 0.9,
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                }}
+              >
                 Track and manage solar panel installation progress
               </Typography>
             </Box>
-            <Stack direction="row" spacing={2}>
+
+            <Box sx={{ display: "flex", gap: 1 }}>
+              {isMobile && (
+                <Button
+                  variant="contained"
+                  startIcon={<FilterAlt />}
+                  onClick={() => setMobileFilterOpen(true)}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                    position: "relative",
+                  }}
+                >
+                  Filter
+                  {activeFilterCount > 0 && (
+                    <Badge
+                      badgeContent={activeFilterCount}
+                      color="error"
+                      sx={{
+                        position: "absolute",
+                        top: -8,
+                        right: -8,
+                        "& .MuiBadge-badge": {
+                          fontSize: "0.6rem",
+                          minWidth: 16,
+                          height: 16,
+                        },
+                      }}
+                    />
+                  )}
+                </Button>
+              )}
               <Button
-                variant="outlined"
+                variant="contained"
                 startIcon={<Refresh />}
-                onClick={handleRefresh}
+                onClick={fetchInstallationData}
                 disabled={loading}
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                }}
               >
                 Refresh
               </Button>
-              <Chip
-                label={getRoleConfig(userRole).label}
-                icon={getRoleConfig(userRole).icon}
-                sx={{
-                  bgcolor: `${getRoleConfig(userRole).color}15`,
-                  color: getRoleConfig(userRole).color,
-                  fontWeight: 600,
-                }}
-              />
-            </Stack>
+            </Box>
           </Stack>
+        </Paper>
 
-          {/* Stats Cards - Matching Document Submission Page Design */}
-          <Grid container spacing={2} sx={{ mb: 4 }}>
-            {summaryCards.map((stat, index) => (
-              <Grid item xs={6} sm={3} key={index}>
-                <Card
-                  sx={{
-                    borderRadius: 3,
-                    overflow: "visible",
-                    position: "relative",
-                    width: "277px",
-                    border: `1px solid ${alpha(stat.color, 0.1)}`,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                  }}
-                >
-                  <CardContent sx={{ p: 2 }}>
-                    <Stack spacing={1}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 2,
-                            bgcolor: stat.bgcolor,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: stat.color,
-                          }}
-                        >
-                          {stat.icon}
-                        </Box>
-                        <Typography
-                          variant="h6"
-                          fontWeight={700}
-                          sx={{ color: stat.color }}
-                        >
-                          {stat.value}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle2" fontWeight={600}>
-                          {stat.title}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {stat.subText}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
+        {/* Summary Cards */}
+        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+          {summaryCards.map((card, index) => (
+            <Grid item xs={6} sm={6} md={4} key={card.label}>
+              <SummaryCard card={card} index={index} />
+            </Grid>
+          ))}
+        </Grid>
 
-        {/* Filters Card */}
-        <Card sx={{ borderRadius: 3, mb: 4, overflow: "visible" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Stack spacing={3}>
-              {/* Top Filters Row */}
+        {/* Mobile Search Bar */}
+        {isMobile && (
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by name, email, phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery("")}>
+                      <Close />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+        )}
+
+        {/* Desktop Search and Filters */}
+        {!isMobile && (
+          <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+            <Stack spacing={2.5}>
               <Stack
                 direction={{ xs: "column", md: "row" }}
                 spacing={2}
-                justifyContent="space-between"
                 alignItems={{ xs: "stretch", md: "center" }}
               >
-                <Box sx={{ width: { xs: "100%", md: 300 } }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search by name, email or phone..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery && (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            <Close />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search by name, email, phone..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ color: "text.secondary" }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <Close />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ maxWidth: 400 }}
+                />
 
-                <Stack direction="row" spacing={2} flexWrap="wrap">
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Period</InputLabel>
-                    <Select
-                      value={period}
-                      label="Period"
-                      onChange={(e) => handlePeriodChange(e.target.value)}
-                    >
-                      <MenuItem value="Today">Today</MenuItem>
-                      <MenuItem value="This Week">This Week</MenuItem>
-                      <MenuItem value="This Month">This Month</MenuItem>
-                      <MenuItem value="All">All Time</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Installation Status</InputLabel>
-                    <Select
-                      value={installationStatusFilter}
-                      label="Installation Status"
-                      onChange={(e) =>
-                        setInstallationStatusFilter(e.target.value)
-                      }
-                    >
-                      <MenuItem value="All">All Status</MenuItem>
-                      {INSTALLATION_STATUS_OPTIONS.map((status) => (
-                        <MenuItem key={status} value={status}>
-                          {getInstallationStatusColor(status).label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<Tune />}
-                    onClick={() => setShowFilterPanel(!showFilterPanel)}
-                    sx={{ display: { xs: "none", sm: "flex" } }}
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Period</InputLabel>
+                  <Select
+                    value={period}
+                    label="Period"
+                    onChange={(e) => setPeriod(e.target.value)}
                   >
-                    {showFilterPanel ? "Hide Filters" : "More Filters"}
+                    {PERIOD_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {option.icon}
+                          <span>{option.label}</span>
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Installation Status</InputLabel>
+                  <Select
+                    value={installationStatusFilter}
+                    label="Installation Status"
+                    onChange={(e) => setInstallationStatusFilter(e.target.value)}
+                  >
+                    <MenuItem value="All">All Status</MenuItem>
+                    {INSTALLATION_STATUS_OPTIONS.map((status) => {
+                      const config = getInstallationStatusConfig(status);
+                      return (
+                        <MenuItem key={status} value={status}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            {config.icon}
+                            <span>{config.label}</span>
+                          </Stack>
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+
+                <Button
+                  variant="outlined"
+                  startIcon={<Tune />}
+                  onClick={() => setShowFilterPanel(!showFilterPanel)}
+                  sx={{
+                    borderColor: PRIMARY_COLOR,
+                    color: PRIMARY_COLOR,
+                    "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.05) },
+                  }}
+                >
+                  {showFilterPanel ? "Hide Filters" : "More Filters"}
+                </Button>
+
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="text"
+                    startIcon={<Clear />}
+                    onClick={handleClearFilters}
+                    sx={{ color: "error.main" }}
+                  >
+                    Clear All
                   </Button>
-                </Stack>
+                )}
               </Stack>
 
-              {/* Advanced Filter Panel */}
-              {showFilterPanel && (
+              <Collapse in={showFilterPanel}>
                 <Paper
                   variant="outlined"
                   sx={{
                     p: 3,
                     borderRadius: 2,
-                    borderColor: "divider",
-                    bgcolor: "grey.50",
+                    borderColor: alpha(PRIMARY_COLOR, 0.2),
+                    bgcolor: alpha(PRIMARY_COLOR, 0.02),
                   }}
                 >
-                  <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Advanced Filters
-                  </Typography>
                   <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Lead Status
+                      </Typography>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Lead Status</InputLabel>
                         <Select
                           value={leadStatusFilter}
-                          label="Lead Status"
                           onChange={(e) => setLeadStatusFilter(e.target.value)}
+                          displayEmpty
                         >
-                          <MenuItem value="All">All Status</MenuItem>
+                          <MenuItem value="All">All Statuses</MenuItem>
                           {LEAD_STATUS_OPTIONS.map((status) => (
                             <MenuItem key={status} value={status}>
-                              {status}
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                              >
+                                {getLeadStatusConfig(status).icon}
+                                <span>{status}</span>
+                              </Stack>
                             </MenuItem>
                           ))}
                         </Select>
                       </FormControl>
                     </Grid>
+
                     <Grid item xs={12} md={6}>
-                      <Stack direction="row" spacing={2}>
-                        <DatePicker
-                          label="Start Date"
-                          value={dateFilter.startDate}
-                          onChange={(date) =>
-                            handleDateFilterChange("startDate", date)
-                          }
-                          slotProps={{
-                            textField: {
-                              fullWidth: true,
-                              size: "small",
-                              error: !!dateFilterError,
-                              helperText: dateFilterError || " ",
-                            },
-                          }}
-                        />
-                        <DatePicker
-                          label="End Date"
-                          value={dateFilter.endDate}
-                          onChange={(date) =>
-                            handleDateFilterChange("endDate", date)
-                          }
-                          slotProps={{
-                            textField: {
-                              fullWidth: true,
-                              size: "small",
-                              error: !!dateFilterError,
-                            },
-                          }}
-                        />
-                      </Stack>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Start Date
+                      </Typography>
+                      <DatePicker
+                        value={dateFilter.startDate}
+                        onChange={(newValue) =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            startDate: newValue,
+                          }))
+                        }
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: "small",
+                            error: !!dateFilterError,
+                          },
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        End Date
+                      </Typography>
+                      <DatePicker
+                        value={dateFilter.endDate}
+                        onChange={(newValue) =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            endDate: newValue,
+                          }))
+                        }
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            size: "small",
+                            error: !!dateFilterError,
+                          },
+                        }}
+                      />
                     </Grid>
                   </Grid>
-                  <Stack
-                    direction="row"
-                    spacing={2}
-                    justifyContent="flex-end"
-                    sx={{ mt: 3 }}
-                  >
-                    <Button
-                      variant="outlined"
-                      onClick={handleClearFilters}
-                      startIcon={<Clear />}
-                    >
-                      Clear All
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={() => setShowFilterPanel(false)}
-                      sx={{ bgcolor: PRIMARY }}
-                    >
-                      Apply Filters
-                    </Button>
-                  </Stack>
-                </Paper>
-              )}
 
-              {/* Active Filters */}
-              {(searchQuery ||
-                installationStatusFilter !== "All" ||
-                leadStatusFilter !== "All" ||
-                dateFilter.startDate ||
-                dateFilter.endDate) && (
+                  {dateFilterError && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      {dateFilterError}
+                    </Alert>
+                  )}
+                </Paper>
+              </Collapse>
+
+              {activeFilterCount > 0 && (
                 <Box>
                   <Typography
                     variant="caption"
                     color="text.secondary"
-                    sx={{ mb: 1 }}
+                    sx={{ mb: 1, display: "block" }}
                   >
                     Active Filters:
                   </Typography>
@@ -1882,28 +3147,37 @@ export default function InstallationPage() {
                         label={`Search: ${searchQuery}`}
                         size="small"
                         onDelete={() => setSearchQuery("")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
                       />
                     )}
                     {installationStatusFilter !== "All" && (
                       <Chip
-                        label={`Installation: ${installationStatusFilter}`}
+                        label={`Installation: ${getInstallationStatusConfig(installationStatusFilter).label}`}
                         size="small"
                         onDelete={() => setInstallationStatusFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
                       />
                     )}
                     {leadStatusFilter !== "All" && (
                       <Chip
-                        label={`Lead: ${leadStatusFilter}`}
+                        label={`Lead Status: ${leadStatusFilter}`}
                         size="small"
                         onDelete={() => setLeadStatusFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
                       />
                     )}
                     {dateFilter.startDate && (
                       <Chip
-                        label={`From: ${format(
-                          dateFilter.startDate,
-                          "dd MMM yyyy",
-                        )}`}
+                        label={`From: ${format(dateFilter.startDate, "dd MMM yyyy")}`}
                         size="small"
                         onDelete={() =>
                           setDateFilter((prev) => ({
@@ -1911,14 +3185,15 @@ export default function InstallationPage() {
                             startDate: null,
                           }))
                         }
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
                       />
                     )}
                     {dateFilter.endDate && (
                       <Chip
-                        label={`To: ${format(
-                          dateFilter.endDate,
-                          "dd MMM yyyy",
-                        )}`}
+                        label={`To: ${format(dateFilter.endDate, "dd MMM yyyy")}`}
                         size="small"
                         onDelete={() =>
                           setDateFilter((prev) => ({
@@ -1926,54 +3201,61 @@ export default function InstallationPage() {
                             endDate: null,
                           }))
                         }
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
                       />
                     )}
-                    <Chip
-                      label="Clear All"
-                      size="small"
-                      variant="outlined"
-                      onClick={handleClearFilters}
-                      deleteIcon={<Close />}
-                      onDelete={handleClearFilters}
-                    />
                   </Stack>
                 </Box>
               )}
             </Stack>
-          </CardContent>
-        </Card>
+          </Paper>
+        )}
 
-        {/* Main Table */}
-        <Card sx={{ borderRadius: 3, overflow: "hidden" }}>
-          <CardContent sx={{ p: 0 }}>
-            {/* Header */}
-            <Box
-              sx={{
-                p: 3,
-                borderBottom: 1,
-                borderColor: "divider",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 2,
-              }}
+        {/* Main Content */}
+        <Paper elevation={0} sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <Box
+            sx={{
+              p: { xs: 2, sm: 3 },
+              borderBottom: 1,
+              borderColor: "divider",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 2,
+              bgcolor: "#fff",
+            }}
+          >
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
             >
-              <Typography variant="h6" fontWeight={600}>
-                Installation Leads ({filteredData.length})
-              </Typography>
+              Installations
+              <Chip
+                label={`${filteredInstallations.length} total`}
+                size="small"
+                sx={{
+                  ml: 1,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                  color: PRIMARY_COLOR,
+                }}
+              />
+            </Typography>
+
+            {!isMobile && (
               <Stack direction="row" spacing={2} alignItems="center">
                 <Typography variant="body2" color="text.secondary">
-                  Show:
+                  Rows per page:
                 </Typography>
                 <Select
                   size="small"
                   value={rowsPerPage}
-                  onChange={(e) => {
-                    setRowsPerPage(Number(e.target.value));
-                    setPage(0);
-                  }}
-                  sx={{ minWidth: 100 }}
+                  onChange={handleChangeRowsPerPage}
+                  sx={{ minWidth: 80 }}
                 >
                   {ITEMS_PER_PAGE_OPTIONS.map((option) => (
                     <MenuItem key={option} value={option}>
@@ -1982,35 +3264,50 @@ export default function InstallationPage() {
                   ))}
                 </Select>
               </Stack>
-            </Box>
+            )}
+          </Box>
 
-            {/* Table Container */}
+          {!isMobile ? (
             <TableContainer
-              sx={{
-                maxHeight: { xs: "60vh", md: "70vh" },
-                position: "relative",
-              }}
+              sx={{ maxHeight: "70vh", overflow: "auto", position: "relative" }}
             >
               {loading && installationData.installations.length > 0 && (
                 <LinearProgress
-                  sx={{ position: "absolute", top: 0, left: 0, right: 0 }}
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    "& .MuiLinearProgress-bar": {
+                      bgcolor: PRIMARY_COLOR,
+                    },
+                  }}
                 />
               )}
 
               <Table stickyHeader size="medium">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: alpha(PRIMARY, 0.05) }}>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Customer
-                      </Typography>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Customer
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
                       <Button
-                        fullWidth
                         size="small"
                         onClick={() => handleSort("installationDate")}
-                        startIcon={
+                        endIcon={
                           sortConfig.key === "installationDate" ? (
                             sortConfig.direction === "asc" ? (
                               <ArrowUpward fontSize="small" />
@@ -2022,19 +3319,26 @@ export default function InstallationPage() {
                         sx={{
                           justifyContent: "flex-start",
                           fontWeight: 600,
-                          color: "text.primary",
-                          textTransform: "none",
+                          color: "inherit",
+                          "&:hover": {
+                            bgcolor: "transparent",
+                          },
                         }}
                       >
                         Installation Date
                       </Button>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
                       <Button
-                        fullWidth
                         size="small"
                         onClick={() => handleSort("installationStatus")}
-                        startIcon={
+                        endIcon={
                           sortConfig.key === "installationStatus" ? (
                             sortConfig.direction === "asc" ? (
                               <ArrowUpward fontSize="small" />
@@ -2046,218 +3350,167 @@ export default function InstallationPage() {
                         sx={{
                           justifyContent: "flex-start",
                           fontWeight: 600,
-                          color: "text.primary",
-                          textTransform: "none",
+                          color: "inherit",
+                          "&:hover": {
+                            bgcolor: "transparent",
+                          },
                         }}
                       >
                         Installation Status
                       </Button>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Lead Status
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Lead Status
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Progress
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Progress
                     </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Actions
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
 
                 <TableBody>
-                  {paginatedData.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                        <Box sx={{ textAlign: "center" }}>
-                          <Build
-                            sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
-                          />
-                          <Typography
-                            variant="h6"
-                            color="text.secondary"
-                            gutterBottom
-                          >
-                            No Installation Leads Found
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ maxWidth: 400, mx: "auto", mb: 3 }}
-                          >
-                            {filteredData.length === 0 &&
-                            installationData.installations.length > 0
-                              ? "Try adjusting your filters to see more results."
-                              : "No installation data available for the selected period."}
-                          </Typography>
-                          {filteredData.length === 0 &&
-                            installationData.installations.length > 0 && (
-                              <Button
-                                variant="outlined"
-                                startIcon={<FilterList />}
-                                onClick={handleClearFilters}
-                              >
-                                Clear All Filters
-                              </Button>
-                            )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    paginatedData.map((lead) => {
-                      const installationStatus = getInstallationStatusColor(
+                  {paginatedInstallations.length > 0 ? (
+                    paginatedInstallations.map((lead) => {
+                      const installationStatusConfig = getInstallationStatusConfig(
                         lead.installationStatus,
                       );
-                      const leadStatus = getLeadStatusConfig(lead.status);
+                      const leadStatusConfig = getLeadStatusConfig(
+                        lead.status,
+                      );
 
                       return (
                         <TableRow
                           key={lead._id}
                           hover
                           sx={{
-                            "&:hover": { bgcolor: alpha(PRIMARY, 0.02) },
+                            "&:hover": {
+                              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                            },
                           }}
                         >
                           <TableCell>
-                            <Stack spacing={1}>
-                              <Typography variant="subtitle2" fontWeight={600}>
-                                {lead.firstName} {lead.lastName}
-                              </Typography>
-                              <Stack spacing={0.5}>
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    color: "text.secondary",
-                                  }}
-                                >
-                                  <Email fontSize="inherit" />
-                                  {lead.email || "No email"}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    color: "text.secondary",
-                                  }}
-                                >
-                                  <Phone fontSize="inherit" />
-                                  {lead.phoneNumber || lead.phone || "No phone"}
-                                </Typography>
-                              </Stack>
-                            </Stack>
-                          </TableCell>
-
-                          <TableCell>
-                            <Stack spacing={0.5}>
-                              <Typography variant="body2">
-                                {formatDate(
-                                  lead.installationDate,
-                                  "dd MMM yyyy",
-                                )}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                Created:{" "}
-                                {formatDate(lead.createdAt, "dd MMM yyyy")}
-                              </Typography>
-                            </Stack>
-                          </TableCell>
-
-                          <TableCell>
-                            <Chip
-                              label={installationStatus.label}
-                              icon={installationStatus.icon}
-                              size="small"
-                              sx={{
-                                bgcolor: installationStatus.bg,
-                                color: installationStatus.color,
-                                fontWeight: 600,
-                                minWidth: 120,
-                              }}
-                            />
-                          </TableCell>
-
-                          <TableCell>
-                            <Chip
-                              label={leadStatus.label}
-                              icon={leadStatus.icon}
-                              size="small"
-                              sx={{
-                                bgcolor: leadStatus.bg,
-                                color: leadStatus.color,
-                                fontWeight: 600,
-                              }}
-                            />
-                          </TableCell>
-
-                          <TableCell>
-                            <Box sx={{ minWidth: 120 }}>
-                              <Box
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <Avatar
                                 sx={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 1,
-                                  mb: 0.5,
+                                  width: 32,
+                                  height: 32,
+                                  bgcolor: PRIMARY_COLOR,
+                                  fontSize: '0.875rem',
                                 }}
                               >
-                                <LinearProgress
-                                  variant="determinate"
-                                  value={installationStatus.progress}
-                                  sx={{
-                                    flex: 1,
-                                    height: 8,
-                                    borderRadius: 4,
-                                    bgcolor: alpha(
-                                      installationStatus.color,
-                                      0.2,
-                                    ),
-                                    "& .MuiLinearProgress-bar": {
-                                      bgcolor: installationStatus.color,
-                                      borderRadius: 4,
-                                    },
-                                  }}
-                                />
-                                <Typography variant="caption" fontWeight={600}>
-                                  {installationStatus.progress}%
+                                {getInitials(lead.firstName, lead.lastName)}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="body2" fontWeight={500}>
+                                  {lead.firstName} {lead.lastName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {lead.phoneNumber || lead.phone || 'No phone'}
                                 </Typography>
                               </Box>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {installationStatus.description}
+                            </Stack>
+                          </TableCell>
+
+                          <TableCell>
+                            <Box>
+                              <Typography variant="body2">
+                                {formatDate(lead.installationDate, "dd MMM yyyy")}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                Created: {formatDate(lead.createdAt, "dd MMM")}
                               </Typography>
                             </Box>
                           </TableCell>
 
-                          <TableCell align="center">
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              justifyContent="center"
-                            >
-                              <Tooltip title="View Details">
+                          <TableCell>
+                            <Tooltip title={installationStatusConfig.description} arrow>
+                              <Chip
+                                label={installationStatusConfig.label}
+                                icon={installationStatusConfig.icon}
+                                size="small"
+                                sx={{
+                                  bgcolor: installationStatusConfig.bg,
+                                  color: installationStatusConfig.color,
+                                  fontWeight: 600,
+                                  minWidth: 80,
+                                }}
+                              />
+                            </Tooltip>
+                          </TableCell>
+
+                          <TableCell>
+                            <Tooltip title={leadStatusConfig.description} arrow>
+                              <Chip
+                                label={lead.status || "Unknown"}
+                                icon={leadStatusConfig.icon}
+                                size="small"
+                                sx={{
+                                  bgcolor: leadStatusConfig.bg,
+                                  color: leadStatusConfig.color,
+                                  fontWeight: 600,
+                                  minWidth: 80,
+                                }}
+                              />
+                            </Tooltip>
+                          </TableCell>
+
+                          <TableCell>
+                            <Box sx={{ minWidth: 100 }}>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                                <Box sx={{ flex: 1 }}>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={installationStatusConfig.progress}
+                                    sx={{
+                                      height: 6,
+                                      borderRadius: 3,
+                                      bgcolor: alpha(installationStatusConfig.color, 0.2),
+                                      "& .MuiLinearProgress-bar": {
+                                        bgcolor: installationStatusConfig.color,
+                                        borderRadius: 3,
+                                      },
+                                    }}
+                                  />
+                                </Box>
+                                <Typography variant="caption" fontWeight={600}>
+                                  {installationStatusConfig.progress}%
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </TableCell>
+
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              <Tooltip title="View Details" arrow>
                                 <IconButton
                                   size="small"
-                                  onClick={() => handleViewLead(lead)}
+                                  onClick={() => handleViewClick(lead)}
                                   sx={{
-                                    bgcolor: alpha("#1976d2", 0.1),
-                                    color: "#1976d2",
+                                    bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                                    color: PRIMARY_COLOR,
                                     "&:hover": {
-                                      bgcolor: alpha("#1976d2", 0.2),
+                                      bgcolor: alpha(PRIMARY_COLOR, 0.2),
                                     },
                                   }}
                                 >
@@ -2266,15 +3519,15 @@ export default function InstallationPage() {
                               </Tooltip>
 
                               {userPermissions.canUpdateStatus && (
-                                <Tooltip title="Update Status">
+                                <Tooltip title="Update Status" arrow>
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleUpdateStatus(lead)}
+                                    onClick={() => handleStatusUpdateClick(lead)}
                                     sx={{
-                                      bgcolor: alpha(PRIMARY, 0.1),
-                                      color: PRIMARY,
+                                      bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                                      color: PRIMARY_COLOR,
                                       "&:hover": {
-                                        bgcolor: alpha(PRIMARY, 0.2),
+                                        bgcolor: alpha(PRIMARY_COLOR, 0.2),
                                       },
                                     }}
                                   >
@@ -2287,107 +3540,187 @@ export default function InstallationPage() {
                         </TableRow>
                       );
                     })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        <EmptyState
+                          onClearFilters={handleClearFilters}
+                          hasFilters={activeFilterCount > 0}
+                        />
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
             </TableContainer>
-
-            {/* Pagination */}
-            {paginatedData.length > 0 && (
-              <Box
-                sx={{
-                  p: 2,
-                  borderTop: 1,
-                  borderColor: "divider",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: 2,
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Showing{" "}
-                  {Math.min(page * rowsPerPage + 1, filteredData.length)} to{" "}
-                  {Math.min((page + 1) * rowsPerPage, filteredData.length)} of{" "}
-                  {filteredData.length} entries
-                </Typography>
-                <Pagination
-                  count={totalPages}
-                  page={page + 1}
-                  onChange={(event, value) => setPage(value - 1)}
-                  color="primary"
-                  showFirstButton
-                  showLastButton
-                  siblingCount={1}
-                  boundaryCount={1}
-                  size={isMobile ? "small" : "medium"}
+          ) : (
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+              {loading && installationData.installations.length > 0 && (
+                <LinearProgress
                   sx={{
-                    "& .MuiPaginationItem-root": {
-                      borderRadius: 2,
+                    mb: 2,
+                    borderRadius: 2,
+                    "& .MuiLinearProgress-bar": {
+                      bgcolor: PRIMARY_COLOR,
                     },
                   }}
                 />
-              </Box>
-            )}
-          </CardContent>
-        </Card>
+              )}
+              {paginatedInstallations.length > 0 ? (
+                paginatedInstallations.map((lead) => (
+                  <MobileInstallationCard
+                    key={lead._id}
+                    lead={lead}
+                    onView={handleViewClick}
+                    onStatusUpdate={handleStatusUpdateClick}
+                    permissions={userPermissions}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  onClearFilters={handleClearFilters}
+                  hasFilters={activeFilterCount > 0}
+                />
+              )}
+            </Box>
+          )}
 
-        {/* Footer Note */}
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ mt: 3, display: "block", textAlign: "center" }}
-        >
-          Last updated: {formatDate(new Date().toISOString())} •{" "}
-          {installationData.summary.totalInstallations} total installations
-        </Typography>
-
-        {/* Modals */}
-        {selectedLead && (
-          <>
-            <ViewLeadModal
-              open={viewModalOpen}
-              onClose={() => {
-                setViewModalOpen(false);
-                setSelectedLead(null);
+          {filteredInstallations.length > 0 && (
+            <Box
+              sx={{
+                p: { xs: 2, sm: 3 },
+                borderTop: 1,
+                borderColor: "divider",
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+                bgcolor: "#fff",
               }}
-              lead={selectedLead}
-              userRole={userRole}
-              showSnackbar={showSnackbar}
-            />
+            >
+              <Typography variant="body2">
+                Showing {page * rowsPerPage + 1} to{" "}
+                {Math.min((page + 1) * rowsPerPage, filteredInstallations.length)} of{" "}
+                {filteredInstallations.length}
+              </Typography>
+              <Pagination
+                count={totalPages}
+                page={page + 1}
+                onChange={handleChangePage}
+                color="primary"
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  "& .MuiPaginationItem-root": {
+                    borderRadius: 2,
+                    "&.Mui-selected": {
+                      bgcolor: PRIMARY_COLOR,
+                      color: "#fff",
+                    },
+                  },
+                }}
+              />
+            </Box>
+          )}
+        </Paper>
 
-            <InstallationStatusUpdateModal
-              open={statusUpdateModalOpen}
-              onClose={() => {
-                setStatusUpdateModalOpen(false);
-                setSelectedLead(null);
-              }}
-              lead={selectedLead}
-              onStatusUpdate={handleStatusUpdate}
-              showSnackbar={showSnackbar}
-              userRole={userRole}
-            />
-          </>
-        )}
-
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        {/* Footer */}
+        <Box
+          sx={{
+            mt: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
+          }}
         >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            variant="filled"
-            sx={{ width: "100%", color: "#fff" }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
+          <Typography variant="caption" color="text.secondary">
+            Last updated: {format(new Date(), "dd MMM yyyy, hh:mm a")}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {installationData.summary.totalInstallations} total installations
+          </Typography>
+        </Box>
       </Box>
+
+      {/* Mobile FAB */}
+      {isMobile && (
+        <Zoom in={true}>
+          <Fab
+            color="primary"
+            aria-label="filter"
+            onClick={() => setMobileFilterOpen(true)}
+            sx={{
+              position: "fixed",
+              bottom: 80,
+              right: 16,
+              zIndex: 1000,
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
+              boxShadow: `0 4px 12px ${alpha(PRIMARY_COLOR, 0.3)}`,
+            }}
+          >
+            <Badge
+              badgeContent={activeFilterCount}
+              color="error"
+              max={9}
+              sx={{
+                "& .MuiBadge-badge": {
+                  fontSize: "0.6rem",
+                  minWidth: 16,
+                  height: 16,
+                },
+              }}
+            >
+              <FilterAlt />
+            </Badge>
+          </Fab>
+        </Zoom>
+      )}
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            sx={{
+              height: 64,
+              "& .MuiBottomNavigationAction-root": {
+                color: "text.secondary",
+                "&.Mui-selected": { color: PRIMARY_COLOR },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate("/dashboard")}
+            />
+            <BottomNavigationAction
+              label="Installations"
+              icon={<Build />}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
+            <BottomNavigationAction
+              label="Profile"
+              icon={<Person />}
+              onClick={() => navigate("/profile")}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </LocalizationProvider>
   );
 }

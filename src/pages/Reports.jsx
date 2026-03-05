@@ -1,5 +1,5 @@
-// pages/ReportsPage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+// pages/ReportsPage.jsx (Updated with proper leads report handling)
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Box,
   Typography,
@@ -45,6 +45,12 @@ import {
   FormControl,
   InputLabel,
   Select,
+  SwipeableDrawer,
+  Collapse,
+  Fab,
+  BottomNavigation,
+  BottomNavigationAction,
+  Slide,
 } from "@mui/material";
 import {
   BarChart,
@@ -91,12 +97,28 @@ import {
   Money,
   TrendingDown,
   TrendingFlat,
+  FilterAlt,
+  ExpandMore,
+  ExpandLess,
+  ViewList,
+  ViewModule,
+  Dashboard,
+  FiberManualRecord,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO, isValid, subDays, subMonths } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 const PRIMARY_COLOR = "#4569ea";
 const SECONDARY_COLOR = "#1a237e";
+
+// Period Options
+const PERIOD_OPTIONS = [
+  { value: "today", label: "Today", icon: <CalendarToday /> },
+  { value: "week", label: "This Week", icon: <DateRange /> },
+  { value: "month", label: "This Month", icon: <DateRange /> },
+  { value: "all", label: "All Time", icon: <DateRange /> },
+];
 
 // Role-based access control with proper visibility rules
 const ROLE_ACCESS = {
@@ -104,7 +126,7 @@ const ROLE_ACCESS = {
     level: 1,
     label: "Head Office",
     icon: <AdminPanelSettings />,
-    canAccess: ["leads", "installation", "expenses"],
+    canAccess: ["leads", "installation", "expenses", "attendance"],
     visibility: "all",
     description: "View all reports across organization",
   },
@@ -112,7 +134,7 @@ const ROLE_ACCESS = {
     level: 2,
     label: "Zone Sales Manager",
     icon: <WorkspacePremium />,
-    canAccess: ["leads", "installation", "expenses"],
+    canAccess: ["leads", "installation", "expenses", "attendance"],
     visibility: "zone",
     description: "View zone-wide reports",
   },
@@ -120,7 +142,7 @@ const ROLE_ACCESS = {
     level: 3,
     label: "Area Sales Manager",
     icon: <SupervisorAccount />,
-    canAccess: ["leads", "installation", "expenses"],
+    canAccess: ["leads", "installation", "expenses", "attendance"],
     visibility: "team",
     description: "View own and team members' data",
   },
@@ -128,7 +150,7 @@ const ROLE_ACCESS = {
     level: 4,
     label: "Team Member",
     icon: <Groups />,
-    canAccess: ["leads", "installation", "expenses"],
+    canAccess: ["leads", "installation", "expenses", "attendance"],
     visibility: "own",
     description: "View only own data",
   },
@@ -149,12 +171,17 @@ const REPORT_CONFIGS = [
       { field: "lastName", label: "Last Name", type: "string" },
       { field: "email", label: "Email", type: "email" },
       { field: "phone", label: "Phone", type: "phone" },
-      { field: "status", label: "Status", type: "status" },
-      { field: "source", label: "Source", type: "string" },
-      { field: "assignedManager", label: "Assigned ASM", type: "user" },
-      { field: "assignedUser", label: "Assigned TEAM", type: "user" },
-      { field: "createdAt", label: "Created Date", type: "date" },
+      { field: "status", label: "Lead Status", type: "status" },
+      { field: "visitStatus", label: "Visit Status", type: "status" },
       { field: "city", label: "City", type: "string" },
+      { field: "address", label: "Address", type: "string" },
+      { field: "pincode", label: "Pincode", type: "string" },
+      { field: "createdBy", label: "Created By", type: "user" },
+      { field: "assignedManager", label: "Assigned Manager", type: "user" },
+      { field: "assignedUser", label: "Assigned User", type: "user" },
+      { field: "createdAt", label: "Created Date", type: "date" },
+      { field: "updatedAt", label: "Updated Date", type: "date" },
+      { field: "lastContactedAt", label: "Last Contact", type: "date" },
     ],
   },
   {
@@ -195,12 +222,224 @@ const REPORT_CONFIGS = [
       { field: "createdBy", label: "Created By", type: "user" },
       { field: "expenseDate", label: "Expense Date", type: "date" },
       { field: "approvedBy", label: "Approved By", type: "user" },
+      { field: "approverRemarks", label: "Remarks", type: "string" },
+      { field: "vehicleType", label: "Vehicle Type", type: "string" },
+      { field: "fuelType", label: "Fuel Type", type: "string" },
+      { field: "kilometersTraveled", label: "Distance", type: "number" },
+    ],
+  },
+  {
+    key: "attendance",
+    title: "Attendance Report",
+    description: "Attendance tracking and records",
+    icon: <People />,
+    endpoint: "/report/attendance",
+    color: "#9c27b0",
+    bgColor: alpha("#9c27b0", 0.1),
+    columns: [
+      { field: "title", label: "Title", type: "string" },
+      { field: "amount", label: "Amount", type: "amount" },
+      { field: "category", label: "Category", type: "string" },
+      { field: "status", label: "Status", type: "status" },
+      { field: "createdBy", label: "Created By", type: "user" },
+      { field: "expenseDate", label: "Expense Date", type: "date" },
+      { field: "approvedBy", label: "Approved By", type: "user" },
       { field: "description", label: "Description", type: "string" },
     ],
   },
 ];
 
-// Mobile Card Component
+// ========== MOBILE FILTER DRAWER ==========
+const MobileFilterDrawer = ({
+  open,
+  onClose,
+  dateRange,
+  setDateRange,
+  handleClearFilters,
+  activeFilterCount,
+}) => {
+  const [expandedSection, setExpandedSection] = useState("date");
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  return (
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      onOpen={() => {}}
+      disableSwipeToOpen={false}
+      PaperProps={{
+        sx: {
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          maxHeight: "90vh",
+          overflow: "hidden",
+        },
+      }}
+    >
+      <Box sx={{ position: "relative" }}>
+        {/* Drag Handle */}
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            bgcolor: "grey.300",
+            borderRadius: 2,
+            mx: "auto",
+            my: 1.5,
+          }}
+        />
+
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 3,
+            pb: 2,
+            borderBottom: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Box>
+            <Typography variant="h6" fontWeight="700" color={PRIMARY_COLOR}>
+              Filter Reports
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.1) }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Filter Content */}
+        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
+          <Stack spacing={2.5}>
+            {/* Date Range Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("date")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <DateRange sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Time Period
+                  </Typography>
+                </Stack>
+                {expandedSection === "date" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "date"}>
+                <Box sx={{ p: 2 }}>
+                  <Grid container spacing={1}>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <Grid item xs={6} key={option.value}>
+                        <Button
+                          fullWidth
+                          variant={
+                            dateRange === option.value ? "contained" : "outlined"
+                          }
+                          onClick={() => setDateRange(option.value)}
+                          startIcon={option.icon}
+                          size="small"
+                          sx={{
+                            bgcolor:
+                              dateRange === option.value
+                                ? PRIMARY_COLOR
+                                : "transparent",
+                            color:
+                              dateRange === option.value ? "#fff" : PRIMARY_COLOR,
+                            borderColor: PRIMARY_COLOR,
+                            "&:hover": {
+                              bgcolor:
+                                dateRange === option.value
+                                  ? SECONDARY_COLOR
+                                  : alpha(PRIMARY_COLOR, 0.1),
+                            },
+                          }}
+                        >
+                          {option.label}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Collapse>
+            </Paper>
+          </Stack>
+        </Box>
+
+        {/* Action Buttons */}
+        <Box
+          sx={{
+            p: 3,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            bgcolor: "#fff",
+          }}
+        >
+          <Stack direction="row" spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => {
+                handleClearFilters();
+                onClose();
+              }}
+              startIcon={<Clear />}
+              sx={{
+                borderColor: PRIMARY_COLOR,
+                color: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                },
+              }}
+            >
+              Clear All
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={onClose}
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: SECONDARY_COLOR,
+                },
+              }}
+            >
+              Apply Filters
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    </SwipeableDrawer>
+  );
+};
+
+// ========== MOBILE REPORT CARD ==========
 const MobileReportCard = ({
   report,
   data,
@@ -209,15 +448,15 @@ const MobileReportCard = ({
   onDownload,
   downloading,
 }) => {
-  const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <Card
+    <Paper
       sx={{
-        mb: 2,
+        mb: 1.5,
         borderRadius: 3,
-        overflow: "hidden",
         border: `1px solid ${alpha(report.color, 0.2)}`,
+        overflow: "hidden",
         position: "relative",
       }}
     >
@@ -235,40 +474,122 @@ const MobileReportCard = ({
         />
       )}
 
-      <CardContent sx={{ p: 2.5 }}>
+      <Box sx={{ p: 2 }}>
         {/* Header */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-          <Avatar
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            mb: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+            <Avatar
+              sx={{
+                bgcolor: report.bgColor,
+                color: report.color,
+                width: 48,
+                height: 48,
+              }}
+            >
+              {React.cloneElement(report.icon, { sx: { fontSize: 24 } })}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="subtitle1"
+                fontWeight="700"
+                color={PRIMARY_COLOR}
+              >
+                {report.title}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {report.description}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setExpanded(!expanded)}
             sx={{
-              bgcolor: report.bgColor,
-              color: report.color,
-              width: 48,
-              height: 48,
+              transform: expanded ? "rotate(180deg)" : "none",
+              transition: "transform 0.3s",
+              bgcolor: alpha(report.color, 0.1),
             }}
           >
-            {report.icon}
-          </Avatar>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle1" fontWeight={700}>
-              {report.title}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {report.description}
-            </Typography>
-          </Box>
+            {expanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
         </Box>
 
-        {/* Stats */}
-        {stats && (
+        {/* Quick Stats */}
+        <Box
+          sx={{
+            bgcolor: alpha(report.color, 0.05),
+            borderRadius: 2,
+            p: 1.5,
+            mb: 1.5,
+          }}
+        >
+          <Grid container spacing={1}>
+            <Grid item xs={6}>
+              <Typography variant="caption" color="text.secondary">
+                Records
+              </Typography>
+              <Typography variant="body2" fontWeight={600} sx={{ color: report.color }}>
+                {data?.length || 0}
+              </Typography>
+            </Grid>
+            {stats && Object.entries(stats).filter(([key]) => key !== 'role').slice(0, 3).map(([key, value]) => (
+              <Grid item xs={6} key={key}>
+                <Typography variant="caption" color="text.secondary">
+                  {key.replace(/([A-Z])/g, " $1").trim()}:
+                </Typography>
+                <Typography variant="body2" fontWeight={600} noWrap>
+                  {value}
+                </Typography>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+
+        {/* Record Count & Role */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <InsertDriveFile sx={{ color: alpha(report.color, 0.5), fontSize: 16 }} />
+            <Typography variant="body2" color="text.secondary">
+              {data?.length || 0} records
+            </Typography>
+          </Box>
+          <Chip
+            label={stats?.role || "View"}
+            size="small"
+            sx={{
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+              color: PRIMARY_COLOR,
+              height: 20,
+              fontSize: "0.6rem",
+            }}
+          />
+        </Box>
+
+        {/* Expanded Details */}
+        <Collapse in={expanded}>
           <Box
             sx={{
-              bgcolor: alpha(report.color, 0.05),
-              borderRadius: 2,
-              p: 2,
-              mb: 2,
+              mt: 2,
+              pt: 2,
+              borderTop: `1px solid ${alpha(report.color, 0.1)}`,
             }}
           >
-            {Object.entries(stats).map(([key, value]) => (
+            {/* Detailed Stats */}
+            {stats && Object.entries(stats).filter(([key]) => key !== 'role').map(([key, value]) => (
               <Box
                 key={key}
                 sx={{
@@ -281,86 +602,54 @@ const MobileReportCard = ({
                 <Typography variant="caption" color="text.secondary">
                   {key.replace(/([A-Z])/g, " $1").trim()}:
                 </Typography>
-                <Typography
-                  variant="body2"
-                  fontWeight={600}
-                  sx={{ color: report.color }}
-                >
+                <Typography variant="body2" fontWeight={600}>
                   {value}
                 </Typography>
               </Box>
             ))}
-          </Box>
-        )}
 
-        {/* Record Count */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            mb: 2,
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <InsertDriveFile
-              sx={{ color: alpha(report.color, 0.5), fontSize: 18 }}
-            />
-            <Typography variant="body2" color="text.secondary">
-              {data?.length || 0} records
-            </Typography>
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="contained"
+                onClick={() => onDownload(report.key)}
+                disabled={downloading || !data?.length}
+                startIcon={downloading ? <CircularProgress size={16} /> : <Download />}
+                sx={{
+                  bgcolor: report.color,
+                  borderRadius: 2,
+                  "&:hover": { bgcolor: SECONDARY_COLOR },
+                  "&:disabled": { bgcolor: alpha(report.color, 0.3) },
+                }}
+              >
+                {downloading ? "..." : "Download"}
+              </Button>
+              <Button
+                fullWidth
+                size="small"
+                variant="outlined"
+                onClick={() => onView(report.key)}
+                disabled={!data?.length}
+                startIcon={<Visibility />}
+                sx={{
+                  borderColor: report.color,
+                  color: report.color,
+                  borderRadius: 2,
+                  "&:hover": {
+                    borderColor: SECONDARY_COLOR,
+                    bgcolor: alpha(report.color, 0.05),
+                  },
+                }}
+              >
+                View
+              </Button>
+            </Stack>
           </Box>
-          <Chip
-            label={ROLE_ACCESS[stats?.role]?.label || "View"}
-            size="small"
-            sx={{
-              bgcolor: alpha(PRIMARY_COLOR, 0.1),
-              color: PRIMARY_COLOR,
-              fontSize: "0.7rem",
-            }}
-          />
-        </Box>
-
-        {/* Actions */}
-        <Stack direction="row" spacing={1}>
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={() => onDownload(report.key)}
-            disabled={downloading || !data?.length}
-            startIcon={<Download />}
-            size="small"
-            sx={{
-              bgcolor: report.color,
-              borderRadius: 2,
-              "&:hover": { bgcolor: SECONDARY_COLOR },
-              "&:disabled": { bgcolor: alpha(report.color, 0.3) },
-            }}
-          >
-            {downloading ? "..." : "Download"}
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={() => onView(report.key)}
-            disabled={!data?.length}
-            startIcon={<Visibility />}
-            size="small"
-            sx={{
-              borderColor: report.color,
-              color: report.color,
-              borderRadius: 2,
-              "&:hover": {
-                borderColor: SECONDARY_COLOR,
-                bgcolor: alpha(report.color, 0.05),
-              },
-            }}
-          >
-            View
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
+        </Collapse>
+      </Box>
+    </Paper>
   );
 };
 
@@ -437,7 +726,7 @@ const DesktopReportCard = ({
         {/* Stats */}
         {stats && (
           <Box sx={{ mb: 2 }}>
-            {Object.entries(stats).map(([key, value]) => (
+            {Object.entries(stats).filter(([key]) => key !== 'role').map(([key, value]) => (
               <Box
                 key={key}
                 sx={{
@@ -482,11 +771,11 @@ const DesktopReportCard = ({
             </Typography>
           </Box>
           <Chip
-            label="CSV"
+            label={stats?.role || "View"}
             size="small"
             sx={{
-              bgcolor: alpha(report.color, 0.1),
-              color: report.color,
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+              color: PRIMARY_COLOR,
               fontSize: "0.7rem",
             }}
           />
@@ -499,7 +788,7 @@ const DesktopReportCard = ({
             variant="contained"
             onClick={() => onDownload(report.key)}
             disabled={downloading || !data?.length}
-            startIcon={<Download />}
+            startIcon={downloading ? <CircularProgress size={20} /> : <Download />}
             sx={{
               bgcolor: report.color,
               borderRadius: 2,
@@ -555,9 +844,16 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
     if (!searchTerm) return data;
     const term = searchTerm.toLowerCase();
     return data.filter((row) =>
-      Object.values(row).some((val) =>
-        val?.toString().toLowerCase().includes(term),
-      ),
+      Object.values(row).some((val) => {
+        if (val === null || val === undefined) return false;
+        if (typeof val === 'object') {
+          if (val.firstName) {
+            return `${val.firstName} ${val.lastName || ''}`.toLowerCase().includes(term);
+          }
+          return false;
+        }
+        return val?.toString().toLowerCase().includes(term);
+      }),
     );
   }, [data, searchTerm]);
 
@@ -567,6 +863,16 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
       let aVal = a[sortConfig.field];
       let bVal = b[sortConfig.field];
 
+      if (typeof aVal === 'object' && aVal !== null) {
+        if (aVal.firstName) {
+          aVal = `${aVal.firstName} ${aVal.lastName || ''}`;
+          bVal = `${bVal?.firstName || ''} ${bVal?.lastName || ''}`;
+        } else {
+          aVal = JSON.stringify(aVal);
+          bVal = JSON.stringify(bVal);
+        }
+      }
+
       if (
         sortConfig.field.includes("Date") ||
         sortConfig.field.includes("At")
@@ -574,6 +880,9 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
         aVal = aVal ? new Date(aVal) : new Date(0);
         bVal = bVal ? new Date(bVal) : new Date(0);
       }
+
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
 
       if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
       if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
@@ -603,12 +912,12 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
       case "amount":
         return `₹${Number(value).toLocaleString()}`;
       case "user":
-        if (typeof value === "object") {
+        if (typeof value === "object" && value !== null) {
           return (
             `${value.firstName || ""} ${value.lastName || ""}`.trim() || "—"
           );
         }
-        return value;
+        return value || "—";
       case "status":
         return (
           <Chip
@@ -623,7 +932,7 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
           />
         );
       default:
-        return value;
+        return value || "—";
     }
   };
 
@@ -641,6 +950,8 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
           height: isMobile ? "100%" : "auto",
         },
       }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
     >
       <DialogTitle
         sx={{
@@ -654,8 +965,8 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
           <Box display="flex" alignItems="center" gap={1.5}>
             <Box
               sx={{
-                width: 40,
-                height: 40,
+                width: { xs: 36, sm: 40 },
+                height: { xs: 36, sm: 40 },
                 borderRadius: 2,
                 bgcolor: "rgba(255,255,255,0.2)",
                 display: "flex",
@@ -663,10 +974,10 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
                 justifyContent: "center",
               }}
             >
-              {React.cloneElement(report.icon, { sx: { color: "white" } })}
+              {React.cloneElement(report.icon, { sx: { color: "white", fontSize: { xs: 18, sm: 20 } } })}
             </Box>
             <Box>
-              <Typography variant="h6" fontWeight={700}>
+              <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}>
                 {report.title}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.9 }}>
@@ -726,7 +1037,7 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
             )}
           </Box>
         ) : (
-          <TableContainer sx={{ maxHeight: "50vh", overflow: "auto" }}>
+          <TableContainer sx={{ maxHeight: { xs: "calc(100vh - 200px)", sm: "50vh" }, overflow: "auto" }}>
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
@@ -738,6 +1049,7 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
                         fontWeight: 600,
                         whiteSpace: "nowrap",
                         cursor: "pointer",
+                        fontSize: { xs: "0.75rem", sm: "0.875rem" },
                       }}
                       onClick={() => handleSort(col.field)}
                     >
@@ -745,9 +1057,9 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
                         {col.label}
                         {sortConfig.field === col.field &&
                           (sortConfig.direction === "asc" ? (
-                            <ArrowUpward sx={{ fontSize: 16 }} />
+                            <ArrowUpward sx={{ fontSize: 14 }} />
                           ) : (
-                            <ArrowDownward sx={{ fontSize: 16 }} />
+                            <ArrowDownward sx={{ fontSize: 14 }} />
                           ))}
                       </Box>
                     </TableCell>
@@ -771,6 +1083,7 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
                           maxWidth: 200,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
+                          fontSize: { xs: "0.75rem", sm: "0.875rem" },
                         }}
                       >
                         {formatCellValue(row[col.field], col)}
@@ -797,7 +1110,7 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
               gap: 2,
             }}
           >
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>
               Showing {page * rowsPerPage + 1} to{" "}
               {Math.min((page + 1) * rowsPerPage, filteredData.length)} of{" "}
               {filteredData.length} entries
@@ -849,6 +1162,93 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
   );
 };
 
+// Loading Skeleton
+const LoadingSkeleton = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4].map((item) => (
+          <Grid item xs={6} sm={6} md={3} key={item}>
+            <Skeleton
+              variant="rectangular"
+              height={isMobile ? 90 : 120}
+              sx={{ borderRadius: 3 }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      {isMobile && (
+        <Skeleton
+          variant="rectangular"
+          height={56}
+          sx={{ borderRadius: 2, mb: 2 }}
+        />
+      )}
+      <Skeleton
+        variant="rectangular"
+        height={isMobile ? 500 : 400}
+        sx={{ borderRadius: 3, mb: 2 }}
+      />
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+    </Box>
+  );
+};
+
+// Empty State
+const EmptyState = ({ onRefresh, hasFilters, onClearFilters }) => (
+  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
+    <Box
+      sx={{
+        width: 120,
+        height: 120,
+        borderRadius: "50%",
+        bgcolor: alpha(PRIMARY_COLOR, 0.1),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        mx: "auto",
+        mb: 3,
+      }}
+    >
+      <Info sx={{ fontSize: 48, color: PRIMARY_COLOR }} />
+    </Box>
+    <Typography variant="h6" fontWeight={600} gutterBottom>
+      No data available
+    </Typography>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+    >
+      {hasFilters
+        ? "No data matches your current filters. Try adjusting your date range."
+        : "No data available for the selected period."}
+    </Typography>
+    {hasFilters ? (
+      <Button
+        variant="contained"
+        onClick={onClearFilters}
+        startIcon={<Clear />}
+        sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
+      >
+        Clear Filters
+      </Button>
+    ) : (
+      <Button
+        variant="contained"
+        onClick={onRefresh}
+        startIcon={<Refresh />}
+        sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
+      >
+        Refresh Data
+      </Button>
+    )}
+  </Box>
+);
+
 // Utility function to format dates
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
@@ -865,6 +1265,7 @@ const formatDate = (dateString) => {
 export default function ReportsPage() {
   const { user, fetchAPI } = useAuth();
   const theme = useTheme();
+  const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isTablet = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -885,11 +1286,22 @@ export default function ReportsPage() {
   });
   const [dateRange, setDateRange] = useState("month");
   const [anchorEl, setAnchorEl] = useState(null);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
+  // Refs
+  const containerRef = useRef(null);
 
   // Filter reports based on role access
   const accessibleReports = REPORT_CONFIGS.filter((report) =>
     roleConfig.canAccess.includes(report.key),
   );
+
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (dateRange !== "month") count++;
+    return count;
+  }, [dateRange]);
 
   // Show snackbar message
   const showSnackbar = useCallback((message, severity = "success") => {
@@ -905,7 +1317,6 @@ export default function ReportsPage() {
 
       for (const report of accessibleReports) {
         try {
-          // Add date range filter based on role
           let endpoint = report.endpoint;
           const params = new URLSearchParams();
 
@@ -936,14 +1347,13 @@ export default function ReportsPage() {
           if (response?.success) {
             const result = response.result || {};
 
-            // Handle different response structures
             let data = [];
             if (report.key === "leads") {
               data = result.leads || [];
               stats[report.key] = {
-                totalLeads: result.summary?.totalLeads || data.length,
-                activeLeads: result.summary?.activeLeads || 0,
-                convertedLeads: result.summary?.convertedLeads || 0,
+                totalLeads: result.totalLeads || data.length,
+                activeLeads: data.filter(lead => lead.status === "Visit" || lead.status === "Registration").length,
+                convertedLeads: data.filter(lead => lead.status === "Installation Completion").length,
                 role: userRole,
               };
             } else if (report.key === "installation") {
@@ -954,13 +1364,14 @@ export default function ReportsPage() {
                 pending: result.summary?.pending || 0,
                 role: userRole,
               };
-            } else if (report.key === "expenses") {
+            } else if (report.key === "expenses" || report.key === "attendance") {
               data = result.expenses || [];
+              const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
               stats[report.key] = {
-                total: result.summary?.totalExpenses || data.length,
-                amount: `₹${(result.summary?.totalAmount || 0).toLocaleString()}`,
-                approved: result.summary?.approved?.count || 0,
-                pending: result.summary?.pending?.count || 0,
+                total: result.totalExpenses || data.length,
+                amount: totalAmount ? `₹${totalAmount.toLocaleString()}` : "₹0",
+                approved: data.filter(item => item.status === "Approved").length || 0,
+                pending: data.filter(item => item.status === "Pending").length || 0,
                 role: userRole,
               };
             }
@@ -1072,6 +1483,8 @@ export default function ReportsPage() {
             value = `₹${value}`;
           }
 
+          if (value === null || value === undefined) value = "";
+          
           const escapedValue = String(value || "").replace(/"/g, '""');
           return value?.toString().includes(",")
             ? `"${escapedValue}"`
@@ -1095,11 +1508,6 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Handle menu open
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
@@ -1110,160 +1518,198 @@ export default function ReportsPage() {
     handleMenuClose();
   };
 
+  // Handle clear filters
+  const handleClearFilters = () => {
+    setDateRange("month");
+  };
+
   // Loading skeletons
   if (loading && !Object.keys(reportsData).length) {
-    return (
-      <Box sx={{ p: { xs: 2, sm: 3 } }}>
-        <Stack spacing={3}>
-          <Skeleton
-            variant="rectangular"
-            height={60}
-            sx={{ borderRadius: 2 }}
-          />
-          <Grid container spacing={3}>
-            {[1, 2, 3].map((i) => (
-              <Grid item xs={12} md={4} key={i}>
-                <Skeleton
-                  variant="rectangular"
-                  height={300}
-                  sx={{ borderRadius: 3 }}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </Stack>
-      </Box>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (
     <Box
+      ref={containerRef}
       sx={{
-        p: { xs: 2, sm: 3 },
-        bgcolor: "#ffffff",
+        p: { xs: 1.5, sm: 2, md: 3 },
         minHeight: "100vh",
+        pb: { xs: 8, sm: 3 },
+        bgcolor: "#f8fafc",
       }}
     >
-      {/* Header */}
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={2}
-        sx={{ mb: 4 }}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        open={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+        dateRange={dateRange}
+        setDateRange={setDateRange}
+        handleClearFilters={handleClearFilters}
+        activeFilterCount={activeFilterCount}
+      />
+
+      {/* Header with Gradient Background */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 2, sm: 3 },
+          mb: 3,
+          borderRadius: 3,
+          background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${SECONDARY_COLOR} 100%)`,
+          color: "#fff",
+        }}
       >
-        <Box>
-          <Typography
-            variant={isMobile ? "h6" : "h5"}
-            fontWeight={700}
-            gutterBottom
-            sx={{ color: PRIMARY_COLOR }}
-          >
-            Reports Dashboard
-          </Typography>
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="center"
-            flexWrap="wrap"
-          >
-            <Typography variant="body2" color="text.secondary">
-              Viewing as:
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+        >
+          <Box>
+            <Typography
+              variant={isMobile ? "h6" : "h5"}
+              fontWeight={700}
+              gutterBottom
+            >
+              Reports Dashboard
             </Typography>
-            <Chip
-              icon={roleConfig.icon}
-              label={roleConfig.label}
-              size="small"
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              flexWrap="wrap"
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  opacity: 0.9,
+                  fontSize: { xs: "0.7rem", sm: "0.875rem" },
+                }}
+              >
+                Viewing as:
+              </Typography>
+              <Chip
+                icon={React.cloneElement(roleConfig.icon, { sx: { fontSize: 14 } })}
+                label={roleConfig.label}
+                size="small"
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  height: { xs: 20, sm: 24 },
+                  "& .MuiChip-icon": { color: "#fff" },
+                }}
+              />
+            </Stack>
+          </Box>
+
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {isMobile && (
+              <Button
+                variant="contained"
+                startIcon={<FilterAlt />}
+                onClick={() => setMobileFilterOpen(true)}
+                size="small"
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                  position: "relative",
+                }}
+              >
+                Filter
+                {activeFilterCount > 0 && (
+                  <Badge
+                    badgeContent={activeFilterCount}
+                    color="error"
+                    sx={{
+                      position: "absolute",
+                      top: -8,
+                      right: -8,
+                      "& .MuiBadge-badge": {
+                        fontSize: "0.6rem",
+                        minWidth: 16,
+                        height: 16,
+                      },
+                    }}
+                  />
+                )}
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<Refresh />}
+              onClick={fetchAllReports}
+              disabled={loading}
+              size={isMobile ? "small" : "medium"}
               sx={{
-                bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                color: PRIMARY_COLOR,
-                fontWeight: 600,
+                bgcolor: "rgba(255,255,255,0.2)",
+                color: "#fff",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
               }}
-            />
-            <Typography variant="caption" color="text.secondary">
-              • {roleConfig.description}
-            </Typography>
-          </Stack>
-        </Box>
-
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-          {/* Date Range Filter */}
-          <Button
-            variant="outlined"
-            startIcon={<DateRange />}
-            onClick={handleMenuOpen}
-            size={isMobile ? "small" : "medium"}
-            sx={{
-              borderColor: PRIMARY_COLOR,
-              color: PRIMARY_COLOR,
-              "&:hover": {
-                borderColor: SECONDARY_COLOR,
-                bgcolor: alpha(PRIMARY_COLOR, 0.05),
-              },
-            }}
-          >
-            {dateRange === "today"
-              ? "Today"
-              : dateRange === "week"
-                ? "This Week"
-                : "This Month"}
-          </Button>
-
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            PaperProps={{
-              sx: { borderRadius: 2, minWidth: 150 },
-            }}
-          >
-            <MenuItem onClick={() => handleDateRangeChange("today")}>
-              <ListItemText>Today</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={() => handleDateRangeChange("week")}>
-              <ListItemText>This Week</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={() => handleDateRangeChange("month")}>
-              <ListItemText>This Month</ListItemText>
-            </MenuItem>
-          </Menu>
-
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={fetchAllReports}
-            disabled={loading}
-            size={isMobile ? "small" : "medium"}
-            sx={{
-              borderColor: PRIMARY_COLOR,
-              color: PRIMARY_COLOR,
-              "&:hover": {
-                borderColor: SECONDARY_COLOR,
-                bgcolor: alpha(PRIMARY_COLOR, 0.05),
-              },
-            }}
-          >
-            Refresh
-          </Button>
-
-          <Button
-            variant="contained"
-            startIcon={<CloudDownload />}
-            onClick={handleBulkDownload}
-            disabled={
-              loading ||
-              accessibleReports.every((r) => !reportsData[r.key]?.length)
-            }
-            size={isMobile ? "small" : "medium"}
-            sx={{
-              bgcolor: PRIMARY_COLOR,
-              "&:hover": { bgcolor: SECONDARY_COLOR },
-            }}
-          >
-            {isMobile ? "Download" : "Download All"}
-          </Button>
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<CloudDownload />}
+              onClick={handleBulkDownload}
+              disabled={
+                loading ||
+                accessibleReports.every((r) => !reportsData[r.key]?.length)
+              }
+              size={isMobile ? "small" : "medium"}
+              sx={{
+                bgcolor: "rgba(255,255,255,0.2)",
+                color: "#fff",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+              }}
+            >
+              {isMobile ? "Download" : "Download All"}
+            </Button>
+          </Box>
         </Stack>
-      </Stack>
+      </Paper>
+
+      {/* Desktop Date Range Filter */}
+      {!isMobile && (
+        <Paper sx={{ p: 2, mb: 3, borderRadius: 3 }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <DateRange sx={{ color: "text.secondary" }} />
+            <Typography variant="body2" color="text.secondary">
+              Time Period:
+            </Typography>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <Select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                displayEmpty
+                sx={{ borderRadius: 2 }}
+              >
+                {PERIOD_OPTIONS.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      {option.icon}
+                      <span>{option.label}</span>
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {activeFilterCount > 0 && (
+              <Button
+                variant="text"
+                startIcon={<Clear />}
+                onClick={handleClearFilters}
+                size="small"
+                sx={{ color: "error.main" }}
+              >
+                Clear Filter
+              </Button>
+            )}
+          </Stack>
+        </Paper>
+      )}
 
       {/* Reports Grid */}
       {accessibleReports.length === 0 ? (
@@ -1279,7 +1725,7 @@ export default function ReportsPage() {
           </Typography>
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={isMobile ? 1.5 : 3}>
           {accessibleReports.map((report) => (
             <Grid item xs={12} md={4} key={report.key}>
               {isMobile ? (
@@ -1310,43 +1756,12 @@ export default function ReportsPage() {
       {!loading &&
         accessibleReports.length > 0 &&
         accessibleReports.every((r) => !reportsData[r.key]?.length) && (
-          <Box sx={{ textAlign: "center", py: 8, mt: 4 }}>
-            <Box
-              sx={{
-                width: 120,
-                height: 120,
-                borderRadius: "50%",
-                bgcolor: alpha(PRIMARY_COLOR, 0.05),
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                mx: "auto",
-                mb: 3,
-              }}
-            >
-              <Info sx={{ fontSize: 60, color: alpha(PRIMARY_COLOR, 0.3) }} />
-            </Box>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No data available for the selected period
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Try changing the date range or check back later.
-            </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={fetchAllReports}
-              sx={{
-                borderColor: PRIMARY_COLOR,
-                color: PRIMARY_COLOR,
-                "&:hover": {
-                  borderColor: SECONDARY_COLOR,
-                  bgcolor: alpha(PRIMARY_COLOR, 0.05),
-                },
-              }}
-            >
-              Refresh Data
-            </Button>
+          <Box sx={{ mt: 4 }}>
+            <EmptyState
+              onRefresh={fetchAllReports}
+              hasFilters={activeFilterCount > 0}
+              onClearFilters={handleClearFilters}
+            />
           </Box>
         )}
 
@@ -1359,7 +1774,7 @@ export default function ReportsPage() {
           textAlign: "center",
         }}
       >
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: "0.6rem", sm: "0.75rem" } }}>
           Logged in as: {user?.firstName} {user?.lastName} • Role:{" "}
           {roleConfig.label} • Reports: {accessibleReports.length} • Last
           updated: {format(new Date(), "MMM dd, yyyy HH:mm")}
@@ -1383,22 +1798,98 @@ export default function ReportsPage() {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
       >
         <Alert
           onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           variant="filled"
-          sx={{
-            width: "100%",
-            color: "#fff",
-            bgcolor:
-              snackbar.severity === "success" ? PRIMARY_COLOR : undefined,
-          }}
+          sx={{ width: "100%", borderRadius: 2 }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Mobile FAB */}
+      {isMobile && (
+        <Zoom in={true}>
+          <Fab
+            color="primary"
+            aria-label="filter"
+            onClick={() => setMobileFilterOpen(true)}
+            sx={{
+              position: "fixed",
+              bottom: 80,
+              right: 16,
+              zIndex: 1000,
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
+              boxShadow: `0 4px 12px ${alpha(PRIMARY_COLOR, 0.3)}`,
+            }}
+          >
+            <Badge
+              badgeContent={activeFilterCount}
+              color="error"
+              max={9}
+              sx={{
+                "& .MuiBadge-badge": {
+                  fontSize: "0.6rem",
+                  minWidth: 16,
+                  height: 16,
+                },
+              }}
+            >
+              <FilterAlt />
+            </Badge>
+          </Fab>
+        </Zoom>
+      )}
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            sx={{
+              height: 64,
+              "& .MuiBottomNavigationAction-root": {
+                color: "text.secondary",
+                "&.Mui-selected": { color: PRIMARY_COLOR },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate("/dashboard")}
+            />
+            <BottomNavigationAction
+              label="Reports"
+              icon={<Assessment />}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
+            <BottomNavigationAction
+              label="Profile"
+              icon={<Person />}
+              onClick={() => navigate("/profile")}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </Box>
   );
 }

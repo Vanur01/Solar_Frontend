@@ -1,3 +1,4 @@
+// pages/RegistrationPage.jsx (Bug-Free Version)
 import React, {
   useState,
   useEffect,
@@ -46,16 +47,21 @@ import {
   FormHelperText,
   Menu,
   Skeleton,
-  List,
-  ListItem,
   ListItemIcon,
   ListItemText,
   Tab,
   Tabs,
+  Fab,
+  Badge,
+  Slide,
+  Fade,
+  Collapse,
+  BottomNavigation,
+  BottomNavigationAction,
+  SwipeableDrawer,
 } from "@mui/material";
 import {
   Search,
-  Download,
   Edit,
   Visibility,
   Close,
@@ -65,22 +71,14 @@ import {
   Cancel,
   PendingActions,
   Verified,
-  FileCopy,
   FolderOpen,
-  PictureAsPdf,
-  Image as ImageIcon,
-  InsertDriveFile,
-  Launch,
-  PictureAsPdfOutlined,
-  DescriptionOutlined,
+  Description,
   GetApp,
   AccountBalance,
   Badge as BadgeIcon,
   CloudUpload,
   Delete,
   CreditCard,
-  CloudDownload,
-  Add,
   ZoomIn,
   ZoomOut,
   RotateLeft,
@@ -98,36 +96,29 @@ import {
   Tune,
   ArrowUpward,
   ArrowDownward,
-  Description,
-  Save,
-  ArrowForward,
-  ArrowBack,
+  Save as SaveIcon,
   MoreVert,
   TrendingUp,
-  Assignment,
-  Business,
   HowToReg,
-  LocalAtm,
-  Build,
-  Error as ErrorIcon,
-  Check,
-  Home,
   ReceiptLong,
-  AttachFile,
   AccessTime,
-  Security,
   SupervisorAccount,
   Groups,
   AdminPanelSettings,
   WorkspacePremium,
   AddPhotoAlternate,
   SolarPower,
-  Speed,
-  BuildCircle,
-  Power,
-  Storage,
-  EnergySavingsLeaf,
-  VerifiedUser,
+  FilterAlt,
+  Sort,
+  ViewList,
+  ViewModule,
+  Dashboard,
+  ExpandMore,
+  ExpandLess,
+  FiberManualRecord,
+  DateRange,
+  InsertDriveFile,
+  PictureAsPdfOutlined,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -140,12 +131,14 @@ import {
   isWithinInterval,
   startOfDay,
   endOfDay,
+  subWeeks,
+  subMonths,
 } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import AlertTitle from "@mui/material/AlertTitle";
 
 // ========== CONSTANTS & CONFIGURATION ==========
-const PRIMARY = "#3a5ac8";
+const PRIMARY = "#4569ea";
 const SECONDARY = "#1a237e";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 const DEFAULT_ITEMS_PER_PAGE = 10;
@@ -171,40 +164,66 @@ const REGISTRATION_STATUS_OPTIONS = [
 
 const REGISTRATION_STATUS_CONFIG = {
   pending: {
-    bg: "#fff3e0",
-    color: "#ef6c00",
+    bg: alpha(PRIMARY, 0.08),
+    color: PRIMARY,
     icon: <PendingActions sx={{ fontSize: 16 }} />,
     label: "Pending",
     description: "Registration is pending review",
+    order: 1,
   },
   completed: {
-    bg: "#e8f5e9",
-    color: "#2e7d32",
+    bg: alpha(PRIMARY, 0.08),
+    color: PRIMARY,
     icon: <CheckCircle sx={{ fontSize: 16 }} />,
     label: "Completed",
     description: "Registration completed successfully",
+    order: 2,
+  },
+  in_progress: {
+    bg: alpha(PRIMARY, 0.08),
+    color: PRIMARY,
+    icon: <AccessTime sx={{ fontSize: 16 }} />,
+    label: "In Progress",
+    description: "Registration is in progress",
+    order: 3,
+  },
+  rejected: {
+    bg: alpha(PRIMARY, 0.08),
+    color: PRIMARY,
+    icon: <Cancel sx={{ fontSize: 16 }} />,
+    label: "Rejected",
+    description: "Registration was rejected",
+    order: 4,
+  },
+  approved: {
+    bg: alpha(PRIMARY, 0.08),
+    color: PRIMARY,
+    icon: <Verified sx={{ fontSize: 16 }} />,
+    label: "Approved",
+    description: "Registration approved",
+    order: 5,
   },
 };
 
-// Lead Status Configuration for Registration Page
+// Lead Status Configuration
 const LEAD_STATUS_OPTIONS = ["Registration", "Bank Loan Apply", "Missed Leads"];
 
 const LEAD_STATUS_CONFIG = {
   Registration: {
-    bg: "#e3f2fd",
-    color: "#1976d2",
+    bg: alpha(PRIMARY, 0.08),
+    color: PRIMARY,
     icon: <HowToReg sx={{ fontSize: 16 }} />,
     description: "Customer registration process",
   },
   "Bank Loan Apply": {
-    bg: "#e8f5e9",
-    color: "#2e7d32",
+    bg: alpha(PRIMARY, 0.08),
+    color: PRIMARY,
     icon: <AccountBalance sx={{ fontSize: 16 }} />,
     description: "Bank loan application stage",
   },
   "Missed Leads": {
-    bg: "#ffebee",
-    color: "#d32f2f",
+    bg: alpha(PRIMARY, 0.08),
+    color: PRIMARY,
     icon: <Cancel sx={{ fontSize: 16 }} />,
     description: "Lead was not converted",
   },
@@ -224,25 +243,33 @@ const SOLAR_REQUIREMENT_TYPES = [
 const ROLE_CONFIG = {
   Head_office: {
     label: "Head Office",
-    color: "#3a5ac8",
+    color: PRIMARY,
     icon: <AdminPanelSettings sx={{ fontSize: 16 }} />,
   },
   ZSM: {
     label: "Zone Sales Manager",
-    color: "#3a5ac8",
+    color: PRIMARY,
     icon: <WorkspacePremium sx={{ fontSize: 16 }} />,
   },
   ASM: {
     label: "Area Sales Manager",
-    color: "#3a5ac8",
+    color: PRIMARY,
     icon: <SupervisorAccount sx={{ fontSize: 16 }} />,
   },
   TEAM: {
     label: "Team Member",
-    color: "#3a5ac8",
+    color: PRIMARY,
     icon: <Groups sx={{ fontSize: 16 }} />,
   },
 };
+
+// Period Options
+const PERIOD_OPTIONS = [
+  { value: "Today", label: "Today", icon: <CalendarToday /> },
+  { value: "This Week", label: "This Week", icon: <DateRange /> },
+  { value: "This Month", label: "This Month", icon: <DateRange /> },
+  { value: "All", label: "All Time", icon: <DateRange /> },
+];
 
 // ========== HELPER FUNCTIONS ==========
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
@@ -258,12 +285,16 @@ const getUserPermissions = (userRole) => ({
   canUploadDocs: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
 });
 
-const getRegistrationStatusColor = (status) => {
+const getRegistrationStatusConfig = (status) => {
   const normalizedStatus = status?.toLowerCase();
   return (
     REGISTRATION_STATUS_CONFIG[normalizedStatus] || {
-      bg: "#f5f5f5",
-      color: "#757575",
+      bg: alpha(PRIMARY, 0.08),
+      color: PRIMARY,
+      icon: <Warning sx={{ fontSize: 16 }} />,
+      label: status || "Unknown",
+      description: "Unknown status",
+      order: 0,
     }
   );
 };
@@ -271,8 +302,8 @@ const getRegistrationStatusColor = (status) => {
 const getLeadStatusConfig = (status) => {
   return (
     LEAD_STATUS_CONFIG[status] || {
-      bg: "#f5f5f5",
-      color: "#616161",
+      bg: alpha(PRIMARY, 0.08),
+      color: PRIMARY,
       icon: <Warning sx={{ fontSize: 16 }} />,
       description: "Unknown status",
     }
@@ -283,7 +314,7 @@ const getRoleConfig = (role) => {
   return (
     ROLE_CONFIG[role] || {
       label: "Unknown",
-      color: "#757575",
+      color: PRIMARY,
       icon: <Person sx={{ fontSize: 16 }} />,
     }
   );
@@ -327,13 +358,818 @@ const formatDate = (dateString, formatStr = "dd MMM yyyy, hh:mm a") => {
   }
 };
 
-// ========== REUSABLE COMPONENTS ==========
+const getInitials = (firstName, lastName) => {
+  return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
+};
 
-// Image Viewer Modal Component
-const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
+// ========== MOBILE FILTER DRAWER ==========
+const MobileFilterDrawer = ({
+  open,
+  onClose,
+  period,
+  setPeriod,
+  registrationStatusFilter,
+  setRegistrationStatusFilter,
+  leadStatusFilter,
+  setLeadStatusFilter,
+  dateFilter,
+  setDateFilter,
+  dateFilterError,
+  searchQuery,
+  setSearchQuery,
+  sortConfig,
+  setSortConfig,
+  viewMode,
+  setViewMode,
+  activeFilterCount,
+  onClear,
+}) => {
+  const [expandedSection, setExpandedSection] = useState("search");
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  return (
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      onOpen={() => {}}
+      disableSwipeToOpen={false}
+      PaperProps={{
+        sx: {
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          maxHeight: "90vh",
+          overflow: "hidden",
+        },
+      }}
+    >
+      <Box sx={{ position: "relative" }}>
+        {/* Drag Handle */}
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            bgcolor: "grey.300",
+            borderRadius: 2,
+            mx: "auto",
+            my: 1.5,
+          }}
+        />
+
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 3,
+            pb: 2,
+            borderBottom: `1px solid ${alpha(PRIMARY, 0.1)}`,
+          }}
+        >
+          <Box>
+            <Typography variant="h6" fontWeight="700" color={PRIMARY}>
+              Filter Registrations
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{ bgcolor: alpha(PRIMARY, 0.1) }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Filter Content */}
+        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
+          <Stack spacing={2.5}>
+            {/* Search Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("search")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Search sx={{ color: PRIMARY, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Search
+                  </Typography>
+                </Stack>
+                {expandedSection === "search" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "search"}>
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search by name, email, phone, location..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search sx={{ color: "text.secondary", fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery && (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setSearchQuery("")}>
+                            <Close fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Period Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("period")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <DateRange sx={{ color: PRIMARY, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Time Period
+                  </Typography>
+                </Stack>
+                {expandedSection === "period" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "period"}>
+                <Box sx={{ p: 2 }}>
+                  <Grid container spacing={1}>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <Grid item xs={6} key={option.value}>
+                        <Button
+                          fullWidth
+                          variant={period === option.value ? "contained" : "outlined"}
+                          onClick={() => setPeriod(option.value)}
+                          startIcon={option.icon}
+                          size="small"
+                          sx={{
+                            bgcolor: period === option.value ? PRIMARY : "transparent",
+                            color: period === option.value ? "#fff" : PRIMARY,
+                            borderColor: PRIMARY,
+                            "&:hover": {
+                              bgcolor: period === option.value ? SECONDARY : alpha(PRIMARY, 0.1),
+                            },
+                          }}
+                        >
+                          {option.label}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Registration Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("regStatus")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <FilterList sx={{ color: PRIMARY, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Registration Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "regStatus" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "regStatus"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={registrationStatusFilter}
+                      onChange={(e) => setRegistrationStatusFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {REGISTRATION_STATUS_OPTIONS.map((status) => {
+                        const config = getRegistrationStatusConfig(status);
+                        return (
+                          <MenuItem key={status} value={status}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              {config.icon}
+                              <span>{config.label}</span>
+                            </Stack>
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Lead Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("leadStatus")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TrendingUp sx={{ color: PRIMARY, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Lead Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "leadStatus" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "leadStatus"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={leadStatusFilter}
+                      onChange={(e) => setLeadStatusFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {LEAD_STATUS_OPTIONS.map((status) => (
+                        <MenuItem key={status} value={status}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            {getLeadStatusConfig(status).icon}
+                            <span>{status}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Date Range Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("date")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CalendarToday sx={{ color: PRIMARY, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Custom Date Range
+                  </Typography>
+                </Stack>
+                {expandedSection === "date" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "date"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={2}>
+                    <DatePicker
+                      label="Start Date"
+                      value={dateFilter.startDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          startDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    <DatePicker
+                      label="End Date"
+                      value={dateFilter.endDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          endDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    {dateFilterError && (
+                      <Alert severity="error" sx={{ fontSize: "0.75rem" }}>
+                        {dateFilterError}
+                      </Alert>
+                    )}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Sort Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("sort")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Sort sx={{ color: PRIMARY, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Sort By
+                  </Typography>
+                </Stack>
+                {expandedSection === "sort" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "sort"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={1}>
+                    {[
+                      { key: "firstName", label: "Name" },
+                      { key: "dateOfRegistration", label: "Registration Date" },
+                      { key: "registrationStatus", label: "Status" },
+                    ].map((option) => (
+                      <Button
+                        key={option.key}
+                        fullWidth
+                        variant={sortConfig.key === option.key ? "contained" : "outlined"}
+                        onClick={() =>
+                          setSortConfig((prev) => ({
+                            key: option.key,
+                            direction:
+                              prev.key === option.key && prev.direction === "asc"
+                                ? "desc"
+                                : "asc",
+                          }))
+                        }
+                        endIcon={
+                          sortConfig.key === option.key &&
+                          (sortConfig.direction === "asc" ? (
+                            <ArrowUpward fontSize="small" />
+                          ) : (
+                            <ArrowDownward fontSize="small" />
+                          ))
+                        }
+                        sx={{
+                          justifyContent: "space-between",
+                          bgcolor: sortConfig.key === option.key ? PRIMARY : "transparent",
+                          color: sortConfig.key === option.key ? "#fff" : PRIMARY,
+                          borderColor: PRIMARY,
+                        }}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* View Mode Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("view")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {viewMode === "card" ? <ViewModule /> : <ViewList />}
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    View Mode
+                  </Typography>
+                </Stack>
+                {expandedSection === "view" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "view"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      fullWidth
+                      variant={viewMode === "card" ? "contained" : "outlined"}
+                      onClick={() => setViewMode("card")}
+                      startIcon={<ViewModule />}
+                      sx={{
+                        bgcolor: viewMode === "card" ? PRIMARY : "transparent",
+                        color: viewMode === "card" ? "#fff" : PRIMARY,
+                        borderColor: PRIMARY,
+                      }}
+                    >
+                      Card View
+                    </Button>
+                    <Button
+                      fullWidth
+                      variant={viewMode === "table" ? "contained" : "outlined"}
+                      onClick={() => setViewMode("table")}
+                      startIcon={<ViewList />}
+                      sx={{
+                        bgcolor: viewMode === "table" ? PRIMARY : "transparent",
+                        color: viewMode === "table" ? "#fff" : PRIMARY,
+                        borderColor: PRIMARY,
+                      }}
+                    >
+                      List View
+                    </Button>
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+          </Stack>
+        </Box>
+
+        {/* Action Buttons */}
+        <Box
+          sx={{
+            p: 3,
+            borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
+            bgcolor: "#fff",
+          }}
+        >
+          <Stack direction="row" spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => {
+                onClear();
+                onClose();
+              }}
+              startIcon={<Clear />}
+              sx={{
+                borderColor: PRIMARY,
+                color: PRIMARY,
+                "&:hover": { bgcolor: alpha(PRIMARY, 0.05) },
+              }}
+            >
+              Clear All
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={onClose}
+              sx={{
+                bgcolor: PRIMARY,
+                "&:hover": { bgcolor: SECONDARY },
+              }}
+            >
+              Apply Filters
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    </SwipeableDrawer>
+  );
+};
+
+// ========== MOBILE REGISTRATION CARD ==========
+const MobileRegistrationCard = ({
+  registration,
+  onView,
+  onEdit,
+  onUpload,
+  userPermissions,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  
+  const regStatusConfig = getRegistrationStatusConfig(registration.registrationStatus);
+  const leadStatusConfig = getLeadStatusConfig(registration.status);
+  const initials = getInitials(registration.firstName, registration.lastName);
+
+  return (
+    <Paper
+      sx={{
+        mb: 1.5,
+        borderRadius: 3,
+        border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+        overflow: "hidden",
+      }}
+    >
+      <Box sx={{ p: 2 }}>
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            mb: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+            <Avatar
+              sx={{
+                bgcolor: PRIMARY,
+                color: "#fff",
+                width: 48,
+                height: 48,
+                fontWeight: 600,
+              }}
+            >
+              {initials}
+            </Avatar>
+            <Box>
+              <Typography variant="subtitle1" fontWeight="700" color={PRIMARY}>
+                {registration.firstName} {registration.lastName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                ID: {registration._id?.slice(-8) || "N/A"}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              transform: expanded ? "rotate(180deg)" : "none",
+              transition: "transform 0.3s",
+              bgcolor: alpha(PRIMARY, 0.1),
+            }}
+          >
+            {expanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </Box>
+
+        {/* Quick Info */}
+        <Grid container spacing={1} sx={{ mb: 1.5 }}>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Phone sx={{ fontSize: 14, color: alpha(PRIMARY, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {registration.phone || "No phone"}
+              </Typography>
+            </Stack>
+          </Grid>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Email sx={{ fontSize: 14, color: alpha(PRIMARY, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {registration.email || "No email"}
+              </Typography>
+            </Stack>
+          </Grid>
+        </Grid>
+
+        {/* Registration Info */}
+        <Box sx={{ mb: 1.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+            <CalendarToday sx={{ fontSize: 14, color: alpha(PRIMARY, 0.6) }} />
+            <Typography variant="body2" fontWeight={500}>
+              {formatDate(registration.dateOfRegistration, "dd MMM yyyy")}
+            </Typography>
+            <FiberManualRecord sx={{ fontSize: 4, color: "text.disabled" }} />
+            <SolarPower sx={{ fontSize: 14, color: alpha(PRIMARY, 0.6) }} />
+            <Typography variant="body2" fontWeight={500} noWrap>
+              {registration.solarRequirement || "Not specified"}
+            </Typography>
+          </Stack>
+          {registration.city && (
+            <Stack direction="row" spacing={0.5} alignItems="flex-start">
+              <LocationOn sx={{ fontSize: 14, color: alpha(PRIMARY, 0.6), mt: 0.3 }} />
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {registration.city}, {registration.state || ""}
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+
+        {/* Status Chips */}
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Tooltip title={regStatusConfig.description} arrow>
+            <Chip
+              label={regStatusConfig.label}
+              icon={regStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: regStatusConfig.bg,
+                color: regStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={leadStatusConfig.description} arrow>
+            <Chip
+              label={registration.status || "Unknown"}
+              icon={leadStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: leadStatusConfig.bg,
+                color: leadStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+        </Box>
+
+        {/* Expanded Details */}
+        <Collapse in={expanded}>
+          <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${alpha(PRIMARY, 0.1)}` }}>
+            {/* Additional Info */}
+            <Grid container spacing={2}>
+              {registration.address && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Address
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {registration.address}
+                  </Typography>
+                </Grid>
+              )}
+              {registration.registrationNotes && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Notes
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {registration.registrationNotes}
+                  </Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Created
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(registration.createdAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(registration.updatedAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+            </Grid>
+
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="contained"
+                startIcon={<Visibility />}
+                onClick={() => onView(registration)}
+                sx={{
+                  bgcolor: PRIMARY,
+                  "&:hover": { bgcolor: SECONDARY },
+                }}
+              >
+                View
+              </Button>
+              {userPermissions.canEdit && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Edit />}
+                  onClick={() => onEdit(registration)}
+                  sx={{
+                    borderColor: PRIMARY,
+                    color: PRIMARY,
+                    "&:hover": { bgcolor: alpha(PRIMARY, 0.1) },
+                  }}
+                >
+                  Edit
+                </Button>
+              )}
+              {userPermissions.canUploadDocs && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  startIcon={<CloudUpload />}
+                  onClick={() => onUpload(registration)}
+                  sx={{
+                    borderColor: PRIMARY,
+                    color: PRIMARY,
+                    "&:hover": { bgcolor: alpha(PRIMARY, 0.1) },
+                  }}
+                >
+                  Upload
+                </Button>
+              )}
+            </Stack>
+          </Box>
+        </Collapse>
+      </Box>
+    </Paper>
+  );
+};
+
+// ========== IMAGE VIEWER MODAL ==========
+const ImageViewerModal = ({ open, onClose, imageUrl, title }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handleZoomIn = useCallback(
     () => setZoom((prev) => Math.min(prev + 0.25, 3)),
@@ -348,7 +1184,7 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
     [],
   );
   const handleRotateLeft = useCallback(
-    () => setRotation((prev) => (prev - 90) % 360),
+    () => setRotation((prev) => (prev - 90 + 360) % 360),
     [],
   );
   const handleReset = useCallback(() => {
@@ -383,8 +1219,10 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
       onClose={handleClose}
       maxWidth={fullscreen ? false : "lg"}
       fullWidth
-      fullScreen={fullscreen}
-      PaperProps={fullscreen ? { style: { margin: 0, height: "100vh" } } : {}}
+      fullScreen={fullscreen || isMobile}
+      PaperProps={fullscreen || isMobile ? { style: { margin: 0, height: "100vh" } } : {}}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
     >
       <DialogTitle
         sx={{
@@ -398,15 +1236,17 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
           py: 1.5,
         }}
       >
-        <Typography variant="h6" fontWeight={600}>
+        <Typography variant="h6" fontWeight={600} noWrap sx={{ maxWidth: '70%' }}>
           {title || "Document Viewer"}
         </Typography>
         <Box display="flex" gap={1}>
-          <Tooltip title={fullscreen ? "Exit Fullscreen" : "Fullscreen"}>
-            <IconButton onClick={() => setFullscreen(!fullscreen)} size="small">
-              {fullscreen ? <FullscreenExit /> : <Fullscreen />}
-            </IconButton>
-          </Tooltip>
+          {!isMobile && (
+            <Tooltip title={fullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+              <IconButton onClick={() => setFullscreen(!fullscreen)} size="small">
+                {fullscreen ? <FullscreenExit /> : <Fullscreen />}
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Download">
             <IconButton onClick={handleDownload} size="small">
               <GetApp />
@@ -425,8 +1265,8 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          bgcolor: fullscreen ? "#000" : "transparent",
-          minHeight: fullscreen ? "calc(100vh - 64px)" : 400,
+          bgcolor: fullscreen || isMobile ? "#000" : "transparent",
+          minHeight: fullscreen || isMobile ? "calc(100vh - 64px)" : 400,
         }}
       >
         {isImage ? (
@@ -435,8 +1275,13 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               position: "relative",
               overflow: "auto",
               maxWidth: "100%",
-              maxHeight: fullscreen ? "100vh" : "70vh",
-              p: fullscreen ? 0 : 2,
+              maxHeight: fullscreen || isMobile ? "100vh" : "70vh",
+              p: fullscreen || isMobile ? 0 : 2,
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <img
@@ -446,15 +1291,16 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
                 transform: `scale(${zoom}) rotate(${rotation}deg)`,
                 transition: "transform 0.3s ease",
                 maxWidth: "100%",
-                maxHeight: fullscreen ? "100vh" : "70vh",
+                maxHeight: fullscreen || isMobile ? "100vh" : "70vh",
                 display: "block",
                 margin: "0 auto",
+                objectFit: 'contain',
               }}
             />
           </Box>
         ) : (
           <Box sx={{ p: 4, textAlign: "center" }}>
-            <DescriptionOutlined
+            <Description
               sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
             />
             <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -467,7 +1313,7 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               variant="contained"
               startIcon={<GetApp />}
               onClick={handleDownload}
-              sx={{ mt: 2 }}
+              sx={{ mt: 2, bgcolor: PRIMARY }}
             >
               Download Document
             </Button>
@@ -483,6 +1329,7 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
             justifyContent: "center",
             gap: 1,
             py: 1.5,
+            flexWrap: 'wrap',
           }}
         >
           <Tooltip title="Zoom In">
@@ -510,1484 +1357,1545 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               <Refresh />
             </IconButton>
           </Tooltip>
-          <Typography variant="caption" sx={{ ml: 2, color: "text.secondary" }}>
+          <Typography variant="caption" sx={{ ml: { sm: 2 }, color: "text.secondary" }}>
             {Math.round(zoom * 100)}% • {rotation}°
           </Typography>
         </DialogActions>
       )}
     </Dialog>
   );
-});
+};
 
-ImageViewerModal.displayName = "ImageViewerModal";
+// ========== DOCUMENT CARD COMPONENT ==========
+const DocumentCard = ({
+  title,
+  url,
+  icon,
+  filename,
+  onView,
+  onDownload,
+}) => {
+  const handleView = useCallback(() => {
+    if (onView) onView(url, title);
+  }, [onView, url, title]);
 
-// File Upload Field Component
-const FileUploadField = React.memo(
-  ({
-    label,
-    field,
-    value,
-    onFileChange,
-    onRemove,
-    validationErrors,
-    handleViewDocument,
-  }) => {
-    const fileInputRef = useRef(null);
+  const handleDownload = useCallback(() => {
+    if (onDownload) onDownload(url, filename);
+  }, [onDownload, url, filename]);
 
-    const handleBoxClick = useCallback(() => {
-      fileInputRef.current?.click();
-    }, []);
-
-    const handleFileSelect = useCallback(
-      (event) => {
-        onFileChange(field, event);
-      },
-      [field, onFileChange],
-    );
-
-    const handleViewClick = useCallback(() => {
-      if (value.url) {
-        handleViewDocument(value.url, label);
-      }
-    }, [value.url, label, handleViewDocument]);
-
-    const handleRemoveClick = useCallback(() => {
-      onRemove(field);
-    }, [field, onRemove]);
-
-    return (
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-          {label}
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+        {icon}
+        <Typography variant="body2" fontWeight={600} noWrap>
+          {title}
         </Typography>
-        {value.preview || value.url ? (
-          <Box sx={{ mb: 2 }}>
-            <Box
-              sx={{
-                border: "1px dashed #ccc",
-                borderRadius: 2,
-                p: 2,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                bgcolor: "#f9f9f9",
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={2}>
-                {value.preview ? (
-                  <ImageIcon sx={{ color: "#1976d2" }} />
-                ) : (
-                  <DescriptionOutlined sx={{ color: "#1976d2" }} />
-                )}
-                <Box>
-                  <Typography variant="body2" noWrap>
-                    {value.file?.name || "Existing Document"}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {value.file
-                      ? formatFileSize(value.file.size)
-                      : "Click to upload new file"}
-                  </Typography>
-                </Box>
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                {value.url && (
-                  <Tooltip title="View Document">
-                    <IconButton size="small" onClick={handleViewClick}>
-                      <Visibility />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip title="Remove File">
-                  <IconButton
-                    size="small"
-                    onClick={handleRemoveClick}
-                    color="error"
-                  >
-                    <Delete />
-                  </IconButton>
-                </Tooltip>
-              </Stack>
-            </Box>
-            {validationErrors[field] && (
-              <FormHelperText error>{validationErrors[field]}</FormHelperText>
-            )}
-          </Box>
-        ) : (
-          <Box
-            sx={{
-              border: "2px dashed #ccc",
-              borderRadius: 2,
-              p: 3,
-              textAlign: "center",
-              bgcolor: "#f9f9f9",
-              cursor: "pointer",
-              "&:hover": {
-                borderColor: PRIMARY,
-                bgcolor: alpha(PRIMARY, 0.05),
-              },
-            }}
-            onClick={handleBoxClick}
-          >
-            <CloudUpload sx={{ fontSize: 48, color: "#ccc", mb: 1 }} />
-            <Typography color="text.secondary">
-              Click to upload {label}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Supports PDF, DOC, DOCX, JPG, PNG (Max 10MB)
-            </Typography>
-          </Box>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.doc,.docx,image/*"
-          style={{ display: "none" }}
-          onChange={handleFileSelect}
-        />
       </Box>
-    );
-  },
-);
-
-FileUploadField.displayName = "FileUploadField";
-
-// Document Card Component
-const DocumentCard = React.memo(
-  ({ title, url, icon, filename, onView, onDownload }) => {
-    const handleView = useCallback(() => {
-      if (onView) onView(url, title);
-    }, [onView, url, title]);
-
-    const handleDownload = useCallback(() => {
-      if (onDownload) onDownload(url, filename);
-    }, [onDownload, url, filename]);
-
-    return (
-      <Card
-        variant="outlined"
-        sx={{
-          p: 2,
-          borderRadius: 2,
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-        }}
+      <Stack 
+        direction={{ xs: 'column', sm: 'row' }} 
+        spacing={1} 
+        sx={{ mt: "auto" }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-          {icon}
-          <Typography variant="body2" fontWeight={600} noWrap>
-            {title}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
-          <Button
-            fullWidth
-            size="small"
-            variant="outlined"
-            startIcon={<Visibility />}
-            onClick={handleView}
-          >
-            View
-          </Button>
-          <Button
-            fullWidth
-            size="small"
-            variant="contained"
-            startIcon={<GetApp />}
-            onClick={handleDownload}
-            sx={{ bgcolor: PRIMARY }}
-          >
-            Download
-          </Button>
-        </Stack>
-      </Card>
-    );
-  },
-);
-
-DocumentCard.displayName = "DocumentCard";
-
-// View Registration Modal with Tabs
-const ViewRegistrationModal = React.memo(
-  ({
-    open,
-    onClose,
-    registration,
-    userRole,
-    showSnackbar,
-    handleViewDocument,
-  }) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const [activeTab, setActiveTab] = useState(0);
-    const [loadingDetails, setLoadingDetails] = useState(false);
-    const [registrationDetails, setRegistrationDetails] = useState(null);
-
-    const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
-
-    useEffect(() => {
-      if (open && registration?._id && !registrationDetails) {
-        fetchRegistrationDetails();
-      }
-    }, [open, registration?._id]);
-
-    const fetchRegistrationDetails = async () => {
-      if (!registration?._id) return;
-
-      setLoadingDetails(true);
-      try {
-        setRegistrationDetails(registration);
-      } catch (error) {
-        console.error("Error fetching registration details:", error);
-        showSnackbar("Failed to load registration details", "error");
-      } finally {
-        setLoadingDetails(false);
-      }
-    };
-
-    const handleTabChange = (event, newValue) => {
-      setActiveTab(newValue);
-    };
-
-    const handleDownload = (url, filename) => {
-      if (!url) {
-        showSnackbar("No document available to download", "error");
-        return;
-      }
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename || "document";
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    };
-
-    if (!registration) return null;
-
-    const displayData = registrationDetails || registration;
-
-    const tabs = [
-      {
-        label: "Basic Info",
-        icon: <Person />,
-        content: (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ boxShadow: "none", height: "100%", width: "400px" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 3,
-                      color: PRIMARY,
-                    }}
-                  >
-                    <Person /> Customer Information
-                  </Typography>
-                  <Stack spacing={2.5}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        pb: 1.5,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Full Name
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600}>
-                        {displayData.firstName} {displayData.lastName}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        pb: 1.5,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Email
-                      </Typography>
-                      <Typography variant="body1">
-                        {displayData.email || "Not set"}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        pb: 1.5,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Phone
-                      </Typography>
-                      <Typography variant="body1">
-                        {displayData.phone || "Not set"}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Customer Since
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(displayData.createdAt)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ boxShadow: "none", height: "100%", width: "380px" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 3,
-                      color: PRIMARY,
-                    }}
-                  >
-                    <SolarPower /> Solar Information
-                  </Typography>
-                  <Stack spacing={2.5}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        pb: 1.5,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Solar Requirement
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600}>
-                        {displayData.solarRequirement || "Not specified"}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        pb: 1.5,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Registration Date
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(displayData.dateOfRegistration)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        pb: 1.5,
-                        borderBottom: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Registration Status
-                      </Typography>
-                      <Chip
-                        label={
-                          getRegistrationStatusColor(
-                            displayData.registrationStatus,
-                          ).label
-                        }
-                        icon={
-                          getRegistrationStatusColor(
-                            displayData.registrationStatus,
-                          ).icon
-                        }
-                        size="small"
-                        sx={{
-                          bgcolor: getRegistrationStatusColor(
-                            displayData.registrationStatus,
-                          ).bg,
-                          color: getRegistrationStatusColor(
-                            displayData.registrationStatus,
-                          ).color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Lead Status
-                      </Typography>
-                      <Chip
-                        label={displayData.status || "Unknown"}
-                        icon={getLeadStatusConfig(displayData.status).icon}
-                        size="small"
-                        sx={{
-                          bgcolor: getLeadStatusConfig(displayData.status).bg,
-                          color: getLeadStatusConfig(displayData.status).color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12}>
-              <Card sx={{ boxShadow: "none", width: "250px" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 3,
-                      color: PRIMARY,
-                    }}
-                  >
-                    <LocationOn /> Address Details
-                  </Typography>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
-                      <Stack spacing={2}>
-                        <Box>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            display="block"
-                            gutterBottom
-                          >
-                            Address
-                          </Typography>
-                          <Typography variant="body1">
-                            {displayData.address || "Not provided"}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            display="block"
-                            gutterBottom
-                          >
-                            City
-                          </Typography>
-                          <Typography variant="body1">
-                            {displayData.city || "Not provided"}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Stack spacing={2}>
-                        <Box>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            display="block"
-                            gutterBottom
-                          >
-                            Pincode
-                          </Typography>
-                          <Typography variant="body1">
-                            {displayData.pincode || "Not provided"}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            display="block"
-                            gutterBottom
-                          >
-                            State
-                          </Typography>
-                          <Typography variant="body1">
-                            {displayData.state || "Not provided"}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        ),
-      },
-      {
-        label: "Documents",
-        icon: <FolderOpen />,
-        content: (
-          <Box>
-            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-              Uploaded Documents
-            </Typography>
-            <Grid container spacing={2} sx={{ boxShadow: "none" }}>
-              {displayData.uploadDocument?.url && (
-                <Grid item xs={12} sm={6} md={4} sx={{ width: "300px" }}>
-                  <DocumentCard
-                    title="Registration Document"
-                    url={displayData.uploadDocument.url}
-                    icon={<Description sx={{ color: PRIMARY }} />}
-                    filename="registration-document"
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              )}
-              {displayData.aadhaar?.url && (
-                <Grid item xs={12} sm={6} md={4} sx={{ width: "300px" }}>
-                  <DocumentCard
-                    title="Aadhaar Card"
-                    url={displayData.aadhaar.url}
-                    icon={<BadgeIcon sx={{ color: PRIMARY }} />}
-                    filename="aadhaar-card"
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              )}
-              {displayData.panCard?.url && (
-                <Grid item xs={12} sm={6} md={4} sx={{ width: "300px" }}>
-                  <DocumentCard
-                    title="PAN Card"
-                    url={displayData.panCard.url}
-                    icon={<CreditCard sx={{ color: PRIMARY }} />}
-                    filename="pan-card"
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              )}
-              {displayData.passbook?.url && (
-                <Grid item xs={12} sm={6} md={4} sx={{ width: "300px" }}>
-                  <DocumentCard
-                    title="Bank Passbook"
-                    url={displayData.passbook.url}
-                    icon={<ReceiptLong sx={{ color: PRIMARY }} />}
-                    filename="passbook"
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              )}
-              {displayData.otherDocuments?.map((doc, index) => (
-                <Grid
-                  item
-                  xs={12}
-                  sm={6}
-                  md={4}
-                  key={index}
-                  sx={{ width: "300px" }}
-                >
-                  <DocumentCard
-                    title={doc.name || `Document ${index + 1}`}
-                    url={doc.url}
-                    icon={<InsertDriveFile sx={{ color: PRIMARY }} />}
-                    filename={doc.name}
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-            {!displayData.uploadDocument?.url &&
-              !displayData.aadhaar?.url &&
-              !displayData.panCard?.url &&
-              !displayData.passbook?.url &&
-              (!displayData.otherDocuments ||
-                displayData.otherDocuments.length === 0) && (
-                <Box sx={{ textAlign: "center", py: 8 }}>
-                  <FolderOpen
-                    sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
-                  />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    No Documents Uploaded
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    No documents have been uploaded for this registration yet.
-                  </Typography>
-                </Box>
-              )}
-          </Box>
-        ),
-      },
-      {
-        label: "Notes",
-        icon: <Note />,
-        content: (
-          <Card sx={{ boxShadow: "none" }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Registration Notes
-              </Typography>
-              {displayData.registrationNotes ? (
-                <Paper
-                  sx={{
-                    p: 3,
-                    border: "1px solid",
-                    borderColor: "grey.300",
-                  }}
-                >
-                  <Typography
-                    variant="body1"
-                    style={{ whiteSpace: "pre-wrap" }}
-                  >
-                    {displayData.registrationNotes}
-                  </Typography>
-                </Paper>
-              ) : (
-                <Box sx={{ textAlign: "center", py: 8 }}>
-                  <Note sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    No Notes Available
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    No notes have been added for this registration.
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        ),
-      },
-    ];
-
-    return (
-      <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="lg"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3, maxHeight: "90vh" } }}
-      >
-        <DialogTitle
+        <Button
+          fullWidth
+          size="small"
+          variant="outlined"
+          startIcon={<Visibility />}
+          onClick={handleView}
           sx={{
-            bgcolor: PRIMARY,
-            color: "white",
-            pb: 2,
+            borderColor: PRIMARY,
+            color: PRIMARY,
+            "&:hover": {
+              borderColor: PRIMARY,
+              bgcolor: alpha(PRIMARY, 0.05),
+            },
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: "white", color: PRIMARY }}>
-                {displayData.firstName?.[0] || "R"}
-              </Avatar>
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  {displayData.firstName} {displayData.lastName}
-                </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                  Registration Details • Complete Information
-                </Typography>
-              </Box>
-            </Box>
-            <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
-              <Close />
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={activeTab}
-              onChange={handleTabChange}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{
-                "& .MuiTab-root": {
-                  minHeight: 64,
-                  py: 1.5,
-                },
-              }}
-            >
-              {tabs.map((tab, index) => (
-                <Tab
-                  key={index}
-                  icon={tab.icon}
-                  label={tab.label}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    fontSize: "0.875rem",
-                  }}
-                />
-              ))}
-            </Tabs>
-          </Box>
-
-          <Box sx={{ p: 3, maxHeight: "60vh", overflow: "auto" }}>
-            {loadingDetails ? (
-              <Box
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                minHeight={200}
-              >
-                <CircularProgress sx={{ color: PRIMARY }} />
-              </Box>
-            ) : (
-              tabs[activeTab].content
-            )}
-          </Box>
-        </DialogContent>
-
-        <DialogActions
-          sx={{ p: 3, pt: 0, borderTop: 1, borderColor: "divider" }}
+          View
+        </Button>
+        <Button
+          fullWidth
+          size="small"
+          variant="contained"
+          startIcon={<GetApp />}
+          onClick={handleDownload}
+          sx={{ bgcolor: PRIMARY, "&:hover": { bgcolor: SECONDARY } }}
         >
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            width="100%"
+          Download
+        </Button>
+      </Stack>
+    </Card>
+  );
+};
+
+// ========== VIEW REGISTRATION MODAL ==========
+const ViewRegistrationModal = ({
+  open,
+  onClose,
+  registration,
+  userRole,
+  showSnackbar,
+  handleViewDocument,
+}) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [activeTab, setActiveTab] = useState(0);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const handleDownload = (url, filename) => {
+    if (!url) {
+      showSnackbar("No document available to download", "error");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename || "document";
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (!registration) return null;
+
+  const tabs = [
+    {
+      label: "Basic Info",
+      icon: <Person />,
+      content: (
+        <Stack spacing={2.5}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY, 0.02),
+              border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+            }}
           >
-            <Chip
-              label={userRoleConfig.label}
-              icon={userRoleConfig.icon}
-              size="small"
+            <Typography
+              variant="subtitle2"
               sx={{
-                bgcolor: `${userRoleConfig.color}15`,
-                color: userRoleConfig.color,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY,
                 fontWeight: 600,
               }}
-            />
-            <Button
-              onClick={onClose}
-              variant="contained"
-              sx={{ bgcolor: PRIMARY, borderRadius: 2, mt: 2 }}
             >
-              Close
-            </Button>
-          </Box>
-        </DialogActions>
-      </Dialog>
-    );
-  },
-);
-
-ViewRegistrationModal.displayName = "ViewRegistrationModal";
-
-// Edit Registration Modal
-const EditRegistrationModal = React.memo(
-  ({ open, onClose, registration, onSave, userRole, showSnackbar }) => {
-    const { fetchAPI } = useAuth();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-      address: "",
-      city: "",
-      pincode: "",
-      solarRequirement: "",
-      dateOfRegistration: null,
-      registrationStatus: "pending",
-      registrationNotes: "",
-      status: "Registration",
-    });
-    const [validationErrors, setValidationErrors] = useState({});
-
-    useEffect(() => {
-      if (open && registration) {
-        setFormData({
-          address: registration.address || "",
-          city: registration.city || "",
-          pincode: registration.pincode || "",
-          solarRequirement: registration.solarRequirement || "",
-          dateOfRegistration: registration.dateOfRegistration
-            ? parseISO(registration.dateOfRegistration)
-            : registration.createdAt
-              ? parseISO(registration.createdAt)
-              : null,
-          registrationStatus: registration.registrationStatus || "pending",
-          registrationNotes: registration.registrationNotes || "",
-          status: registration.status || "Registration",
-        });
-        setValidationErrors({});
-      }
-    }, [open, registration]);
-
-    const validateForm = useCallback(() => {
-      const errors = {
-        address: validateRequiredField(formData.address, "Address"),
-        city: validateRequiredField(formData.city, "City"),
-        pincode: validatePincode(formData.pincode),
-        solarRequirement: validateRequiredField(
-          formData.solarRequirement,
-          "Solar requirement",
-        ),
-      };
-
-      setValidationErrors(errors);
-      return Object.values(errors).every((error) => error === "");
-    }, [formData]);
-
-    const handleSubmit = useCallback(async () => {
-      if (!validateForm()) {
-        showSnackbar("Please fix the errors in the form", "error");
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const payload = {
-          address: formData.address.trim(),
-          city: formData.city.trim(),
-          pincode: formData.pincode.trim(),
-          solarRequirement: formData.solarRequirement.trim(),
-          registrationStatus: formData.registrationStatus,
-          registrationNotes: formData.registrationNotes.trim(),
-          status: formData.status,
-        };
-
-        if (formData.dateOfRegistration) {
-          payload.dateOfRegistration = format(
-            formData.dateOfRegistration,
-            "yyyy-MM-dd",
-          );
-        }
-
-        const response = await fetchAPI(
-          `/lead/updateLead/${registration._id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          },
-        );
-
-        if (response?.success) {
-          showSnackbar("Registration updated successfully", "success");
-          onSave(response.result);
-          onClose();
-        } else {
-          throw new Error(response?.message || "Failed to update registration");
-        }
-      } catch (error) {
-        console.error("Error updating registration:", error);
-        showSnackbar(error.message || "Failed to update registration", "error");
-      } finally {
-        setLoading(false);
-      }
-    }, [
-      formData,
-      validateForm,
-      registration,
-      fetchAPI,
-      showSnackbar,
-      onSave,
-      onClose,
-    ]);
-
-    if (!registration) return null;
-
-    return (
-      <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="md"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3 } }}
-      >
-        <DialogTitle sx={{ bgcolor: alpha(PRIMARY, 0.05), pb: 2 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 2,
-                  bgcolor: `${PRIMARY}15`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: PRIMARY,
-                }}
-              >
-                <Edit sx={{ fontSize: 28 }} />
-              </Box>
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  Edit Registration
-                </Typography>
+              <Person sx={{ fontSize: 20 }} /> Personal Information
+            </Typography>
+            <Stack spacing={2}>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography variant="body2" color="text.secondary">
+                  Full Name
+                </Typography>
+                <Typography variant="body2" fontWeight={600}>
                   {registration.firstName} {registration.lastName}
                 </Typography>
               </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Email
+                </Typography>
+                <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
+                  {registration.email || "Not set"}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Phone
+                </Typography>
+                <Typography variant="body2">
+                  {registration.phone || "Not set"}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY, 0.02),
+              border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY,
+                fontWeight: 600,
+              }}
+            >
+              <SolarPower sx={{ fontSize: 20 }} /> Registration Information
+            </Typography>
+            <Stack spacing={2}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Registration Status
+                </Typography>
+                <Chip
+                  label={getRegistrationStatusConfig(registration.registrationStatus).label}
+                  icon={getRegistrationStatusConfig(registration.registrationStatus).icon}
+                  size="small"
+                  sx={{
+                    bgcolor: getRegistrationStatusConfig(registration.registrationStatus).bg,
+                    color: getRegistrationStatusConfig(registration.registrationStatus).color,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Lead Status
+                </Typography>
+                <Chip
+                  label={registration.status || "Unknown"}
+                  icon={getLeadStatusConfig(registration.status).icon}
+                  size="small"
+                  sx={{
+                    bgcolor: getLeadStatusConfig(registration.status).bg,
+                    color: getLeadStatusConfig(registration.status).color,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Registration Date
+                </Typography>
+                <Typography variant="body2" fontWeight={500}>
+                  {formatDate(registration.dateOfRegistration, "dd MMM yyyy")}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Solar Requirement
+                </Typography>
+                <Typography variant="body2" fontWeight={500}>
+                  {registration.solarRequirement || "Not specified"}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY, 0.02),
+              border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY,
+                fontWeight: 600,
+              }}
+            >
+              <LocationOn sx={{ fontSize: 20 }} /> Address Information
+            </Typography>
+            <Stack spacing={2}>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Address
+                </Typography>
+                <Typography variant="body2">
+                  {registration.address || "Not set"}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  City
+                </Typography>
+                <Typography variant="body2">
+                  {registration.city || "Not set"}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  State
+                </Typography>
+                <Typography variant="body2">
+                  {registration.state || "Not set"}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Pincode
+                </Typography>
+                <Typography variant="body2">
+                  {registration.pincode || "Not set"}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Stack>
+      ),
+    },
+    {
+      label: "Documents",
+      icon: <FolderOpen />,
+      content: (
+        <Box>
+          <Typography variant="h6" gutterBottom sx={{ mb: 3, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+            Uploaded Documents
+          </Typography>
+          <Grid container spacing={2}>
+            {registration.uploadDocument?.url && (
+              <Grid item xs={12} sm={6} md={4}>
+                <DocumentCard
+                  title="Registration Document"
+                  url={registration.uploadDocument.url}
+                  icon={<Description sx={{ color: PRIMARY }} />}
+                  filename="registration-document"
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            )}
+            {registration.aadhaar?.url && (
+              <Grid item xs={12} sm={6} md={4}>
+                <DocumentCard
+                  title="Aadhaar Card"
+                  url={registration.aadhaar.url}
+                  icon={<BadgeIcon sx={{ color: PRIMARY }} />}
+                  filename="aadhaar-card"
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            )}
+            {registration.panCard?.url && (
+              <Grid item xs={12} sm={6} md={4}>
+                <DocumentCard
+                  title="PAN Card"
+                  url={registration.panCard.url}
+                  icon={<CreditCard sx={{ color: PRIMARY }} />}
+                  filename="pan-card"
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            )}
+            {registration.passbook?.url && (
+              <Grid item xs={12} sm={6} md={4}>
+                <DocumentCard
+                  title="Bank Passbook"
+                  url={registration.passbook.url}
+                  icon={<ReceiptLong sx={{ color: PRIMARY }} />}
+                  filename="passbook"
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            )}
+            {registration.otherDocuments?.map((doc, index) => (
+              <Grid item xs={12} sm={6} md={4} key={index}>
+                <DocumentCard
+                  title={doc.name || `Document ${index + 1}`}
+                  url={doc.url}
+                  icon={<InsertDriveFile sx={{ color: PRIMARY }} />}
+                  filename={doc.name}
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            ))}
+          </Grid>
+          {!registration.uploadDocument?.url &&
+            !registration.aadhaar?.url &&
+            !registration.panCard?.url &&
+            !registration.passbook?.url &&
+            (!registration.otherDocuments || registration.otherDocuments.length === 0) && (
+              <Box sx={{ textAlign: "center", py: 8 }}>
+                <FolderOpen sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No Documents Uploaded
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  No documents have been uploaded for this registration yet.
+                </Typography>
+              </Box>
+            )}
+        </Box>
+      ),
+    },
+    {
+      label: "Notes",
+      icon: <Note />,
+      content: (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            bgcolor: alpha(PRIMARY, 0.02),
+            border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: 2.5,
+              color: PRIMARY,
+              fontWeight: 600,
+            }}
+          >
+            <Note sx={{ fontSize: 20 }} /> Registration Notes
+          </Typography>
+          {registration.registrationNotes ? (
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              {registration.registrationNotes}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No notes available
+            </Typography>
+          )}
+        </Paper>
+      ),
+    },
+    {
+      label: "Timeline",
+      icon: <AccessTime />,
+      content: (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            bgcolor: alpha(PRIMARY, 0.02),
+            border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: 2.5,
+              color: PRIMARY,
+              fontWeight: 600,
+            }}
+          >
+            <AccessTime sx={{ fontSize: 20 }} /> Activity Timeline
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Created
+              </Typography>
+              <Stack alignItems="flex-end">
+                <Typography variant="body2" fontWeight={500}>
+                  {formatDate(registration.createdAt, "dd MMM yyyy")}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {formatDate(registration.createdAt, "hh:mm a")}
+                </Typography>
+              </Stack>
             </Box>
-            <IconButton onClick={onClose} size="medium">
-              <Close />
-            </IconButton>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Last Updated
+              </Typography>
+              <Stack alignItems="flex-end">
+                <Typography variant="body2" fontWeight={500}>
+                  {formatDate(registration.updatedAt, "dd MMM yyyy")}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {formatDate(registration.updatedAt, "hh:mm a")}
+                </Typography>
+              </Stack>
+            </Box>
           </Stack>
-        </DialogTitle>
+        </Paper>
+      ),
+    },
+  ];
 
-        <DialogContent sx={{ py: 3 }}>
-          <Stack spacing={3} sx={{ mt: 2 }}>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6} sx={{ width: "300px" }}>
-                <TextField
-                  label="Address"
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      address: e.target.value,
-                    }))
-                  }
-                  fullWidth
-                  multiline
-                  rows={2}
-                  size="small"
-                  error={!!validationErrors.address}
-                  helperText={validationErrors.address}
-                  required
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <LocationOn fontSize="small" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6} sx={{ width: "300px" }}>
-                <TextField
-                  label="City"
-                  value={formData.city}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, city: e.target.value }))
-                  }
-                  fullWidth
-                  size="small"
-                  error={!!validationErrors.city}
-                  helperText={validationErrors.city}
-                  required
-                />
-              </Grid>
-            </Grid>
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          maxHeight: isMobile ? "100%" : "90vh",
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: PRIMARY,
+          color: "white",
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar
+              sx={{
+                bgcolor: "white",
+                color: PRIMARY,
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                fontWeight: 600,
+              }}
+            >
+              {getInitials(registration.firstName, registration.lastName)}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                {registration.firstName} {registration.lastName}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  opacity: 0.9,
+                  fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                }}
+              >
+                Registration Details • ID: {registration._id?.slice(-8)}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6} sx={{ width: "300px" }}>
-                <TextField
-                  label="Pincode"
-                  value={formData.pincode}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      pincode: e.target.value,
-                    }))
-                  }
-                  fullWidth
-                  size="small"
-                  error={!!validationErrors.pincode}
-                  helperText={validationErrors.pincode}
-                  required
-                  inputProps={{ maxLength: 6 }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6} sx={{ width: "300px" }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Solar Requirement</InputLabel>
-                  <Select
-                    value={formData.solarRequirement}
-                    label="Solar Requirement"
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        solarRequirement: e.target.value,
-                      }))
-                    }
-                  >
-                    <MenuItem value="">
-                      <em>Select requirement</em>
-                    </MenuItem>
-                    {SOLAR_REQUIREMENT_TYPES.map((type) => (
-                      <MenuItem key={type} value={type}>
-                        {type}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
+      <DialogContent sx={{ p: 0 }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              "& .MuiTab-root": {
+                minHeight: { xs: 48, sm: 56 },
+                py: 1,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              },
+            }}
+          >
+            {tabs.map((tab, index) => (
+              <Tab
+                key={index}
+                icon={React.cloneElement(tab.icon, {
+                  sx: { fontSize: { xs: 18, sm: 20 } },
+                })}
+                label={tab.label}
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              />
+            ))}
+          </Tabs>
+        </Box>
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6} sx={{ width: "300px" }}>
-                <DatePicker
-                  label="Registration Date"
-                  value={formData.dateOfRegistration}
-                  onChange={(newValue) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      dateOfRegistration: newValue,
-                    }))
-                  }
-                  slotProps={{
-                    textField: { fullWidth: true, size: "small" },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6} sx={{ width: "300px" }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Registration Status</InputLabel>
-                  <Select
-                    value={formData.registrationStatus}
-                    label="Registration Status"
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        registrationStatus: e.target.value,
-                      }))
-                    }
-                  >
-                    {REGISTRATION_STATUS_OPTIONS.map((status) => {
-                      const config = getRegistrationStatusColor(status);
-                      return (
-                        <MenuItem key={status} value={status}>
-                          <Stack
-                            direction="row"
-                            alignItems="center"
-                            spacing={1}
-                          >
-                            {config.icon}
-                            <span>{config.label}</span>
-                          </Stack>
-                        </MenuItem>
-                      );
-                    })}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
+        <Box
+          sx={{
+            p: { xs: 2, sm: 3 },
+            maxHeight: { xs: "calc(100vh - 180px)", sm: "60vh" },
+            overflow: "auto",
+          }}
+        >
+          {loadingDetails ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
+              <CircularProgress sx={{ color: PRIMARY }} />
+            </Box>
+          ) : (
+            tabs[activeTab].content
+          )}
+        </Box>
+      </DialogContent>
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6} sx={{ width: "300px" }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Lead Status</InputLabel>
-                  <Select
-                    value={formData.status}
-                    label="Lead Status"
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        status: e.target.value,
-                      }))
-                    }
-                  >
-                    {LEAD_STATUS_OPTIONS.map((status) => {
-                      const config = getLeadStatusConfig(status);
-                      return (
-                        <MenuItem key={status} value={status}>
-                          <Stack
-                            direction="row"
-                            alignItems="center"
-                            spacing={1}
-                          >
-                            {config.icon}
-                            <span>{status}</span>
-                          </Stack>
-                        </MenuItem>
-                      );
-                    })}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+        >
+          <Chip
+            label={userRoleConfig.label}
+            icon={userRoleConfig.icon}
+            size="small"
+            sx={{
+              bgcolor: alpha(PRIMARY, 0.1),
+              color: PRIMARY,
+              fontWeight: 600,
+              height: { xs: 24, sm: 28 },
+              fontSize: { xs: "0.65rem", sm: "0.75rem" },
+            }}
+          />
+          <Button
+            onClick={onClose}
+            variant="contained"
+            size={isMobile ? "small" : "medium"}
+            sx={{
+              borderRadius: 2,
+              bgcolor: PRIMARY,
+              "&:hover": { bgcolor: SECONDARY },
+            }}
+          >
+            Close
+          </Button>
+        </Box>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
-            <TextField
-              label="Registration Notes"
-              value={formData.registrationNotes}
+// ========== EDIT REGISTRATION MODAL ==========
+const EditRegistrationModal = ({
+  open,
+  onClose,
+  registration,
+  onSave,
+  userRole,
+  showSnackbar,
+}) => {
+  const { fetchAPI } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    address: "",
+    city: "",
+    pincode: "",
+    solarRequirement: "",
+    dateOfRegistration: null,
+    registrationStatus: "pending",
+    registrationNotes: "",
+    status: "Registration",
+  });
+  const [validationErrors, setValidationErrors] = useState({});
+
+  useEffect(() => {
+    if (open && registration) {
+      setFormData({
+        address: registration.address || "",
+        city: registration.city || "",
+        pincode: registration.pincode || "",
+        solarRequirement: registration.solarRequirement || "",
+        dateOfRegistration: registration.dateOfRegistration
+          ? parseISO(registration.dateOfRegistration)
+          : registration.createdAt
+            ? parseISO(registration.createdAt)
+            : null,
+        registrationStatus: registration.registrationStatus || "pending",
+        registrationNotes: registration.registrationNotes || "",
+        status: registration.status || "Registration",
+      });
+      setValidationErrors({});
+    }
+  }, [open, registration]);
+
+  const validateForm = useCallback(() => {
+    const errors = {
+      address: validateRequiredField(formData.address, "Address"),
+      city: validateRequiredField(formData.city, "City"),
+      pincode: validatePincode(formData.pincode),
+      solarRequirement: validateRequiredField(
+        formData.solarRequirement,
+        "Solar requirement",
+      ),
+    };
+
+    setValidationErrors(errors);
+    return Object.values(errors).every((error) => error === "");
+  }, [formData]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!validateForm()) {
+      showSnackbar("Please fix the errors in the form", "error");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        pincode: formData.pincode.trim(),
+        solarRequirement: formData.solarRequirement.trim(),
+        registrationStatus: formData.registrationStatus,
+        registrationNotes: formData.registrationNotes.trim(),
+        status: formData.status,
+      };
+
+      if (formData.dateOfRegistration && isValid(formData.dateOfRegistration)) {
+        payload.dateOfRegistration = format(
+          formData.dateOfRegistration,
+          "yyyy-MM-dd",
+        );
+      }
+
+      const response = await fetchAPI(
+        `/lead/updateLead/${registration._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (response?.success) {
+        showSnackbar("Registration updated successfully", "success");
+        onSave(response.result);
+        onClose();
+      } else {
+        throw new Error(response?.message || "Failed to update registration");
+      }
+    } catch (error) {
+      console.error("Error updating registration:", error);
+      showSnackbar(error.message || "Failed to update registration", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    formData,
+    validateForm,
+    registration,
+    fetchAPI,
+    showSnackbar,
+    onSave,
+    onClose,
+  ]);
+
+  if (!registration) return null;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: alpha(PRIMARY, 0.05),
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box
+              sx={{
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                borderRadius: 2,
+                bgcolor: alpha(PRIMARY, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: PRIMARY,
+              }}
+            >
+              <Edit sx={{ fontSize: { xs: 24, sm: 28 } }} />
+            </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                Edit Registration
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
+                {registration.firstName} {registration.lastName}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={onClose} size="small">
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          <TextField
+            label="Address *"
+            value={formData.address}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                address: e.target.value,
+              }))
+            }
+            fullWidth
+            multiline
+            rows={isMobile ? 2 : 3}
+            size="small"
+            error={!!validationErrors.address}
+            helperText={validationErrors.address}
+            required
+          />
+
+          <TextField
+            label="City *"
+            value={formData.city}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, city: e.target.value }))
+            }
+            fullWidth
+            size="small"
+            error={!!validationErrors.city}
+            helperText={validationErrors.city}
+            required
+          />
+
+          <TextField
+            label="Pincode *"
+            value={formData.pincode}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                pincode: e.target.value,
+              }))
+            }
+            fullWidth
+            size="small"
+            error={!!validationErrors.pincode}
+            helperText={validationErrors.pincode}
+            required
+            inputProps={{ maxLength: 6 }}
+          />
+
+          <FormControl fullWidth size="small" error={!!validationErrors.solarRequirement}>
+            <InputLabel>Solar Requirement *</InputLabel>
+            <Select
+              value={formData.solarRequirement}
+              label="Solar Requirement *"
               onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
-                  registrationNotes: e.target.value,
+                  solarRequirement: e.target.value,
                 }))
               }
-              fullWidth
-              multiline
-              rows={4}
-              placeholder="Add any comments or notes about this registration..."
-              variant="outlined"
-            />
-          </Stack>
-        </DialogContent>
+            >
+              <MenuItem value="">
+                <em>Select requirement</em>
+              </MenuItem>
+              {SOLAR_REQUIREMENT_TYPES.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {type}
+                </MenuItem>
+              ))}
+            </Select>
+            {validationErrors.solarRequirement && (
+              <FormHelperText>{validationErrors.solarRequirement}</FormHelperText>
+            )}
+          </FormControl>
 
-        <DialogActions
-          sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}
-        >
-          <Button onClick={onClose} variant="outlined" size="large">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            size="large"
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-            sx={{ background: "#4569ea", px: 4, "&:hover": { bgcolor: "#2d4bb9" } }}
-          >
-            {loading ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  },
-);
-
-EditRegistrationModal.displayName = "EditRegistrationModal";
-
-// Document Upload Modal
-const DocumentUploadModal = React.memo(
-  ({ open, onClose, registration, onUpload, userRole, showSnackbar }) => {
-    const { fetchAPI } = useAuth();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-    const [loading, setLoading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [documentFile, setDocumentFile] = useState(null);
-    const [documentType, setDocumentType] = useState("registration");
-    const [validationErrors, setValidationErrors] = useState({});
-
-    const documentTypes = [
-      {
-        value: "registration",
-        label: "Registration Document",
-        icon: <Description />,
-      },
-      { value: "aadhaar", label: "Aadhaar Card", icon: <BadgeIcon /> },
-      { value: "panCard", label: "PAN Card", icon: <CreditCard /> },
-      { value: "passbook", label: "Bank Passbook", icon: <ReceiptLong /> },
-      { value: "other", label: "Other Document", icon: <InsertDriveFile /> },
-    ];
-
-    const handleFileSelect = (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        const error = validateFile(file);
-        if (error) {
-          showSnackbar(error, "error");
-          return;
-        }
-        setDocumentFile(file);
-        setValidationErrors({});
-      }
-    };
-
-    const handleRemoveFile = () => {
-      setDocumentFile(null);
-      setUploadProgress(0);
-    };
-
-    const handleSubmit = async () => {
-      if (!documentFile) {
-        setValidationErrors({ document: "Please select a file to upload" });
-        return;
-      }
-
-      setLoading(true);
-      setUploadProgress(0);
-
-      try {
-        const formData = new FormData();
-        formData.append("document", documentFile);
-        formData.append("documentType", documentType);
-
-        // Simulate upload progress
-        const progressInterval = setInterval(() => {
-          setUploadProgress((prev) => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return prev;
+          <DatePicker
+            label="Registration Date"
+            value={formData.dateOfRegistration}
+            onChange={(newValue) =>
+              setFormData((prev) => ({
+                ...prev,
+                dateOfRegistration: newValue,
+              }))
             }
-            return prev + 10;
-          });
-        }, 200);
+            slotProps={{
+              textField: { 
+                fullWidth: true, 
+                size: "small",
+              },
+            }}
+          />
 
-        const response = await fetchAPI(
-          `/lead/registration/${registration._id}/document-upload`,
-          {
-            method: "POST",
-            body: formData,
-          },
-        );
-
-        clearInterval(progressInterval);
-        setUploadProgress(100);
-
-        if (response?.success) {
-          showSnackbar("Document uploaded successfully", "success");
-          onUpload(response.result);
-          onClose();
-        } else {
-          throw new Error(response?.message || "Failed to upload document");
-        }
-      } catch (error) {
-        console.error("Error uploading document:", error);
-        showSnackbar(error.message || "Failed to upload document", "error");
-      } finally {
-        setLoading(false);
-        setUploadProgress(0);
-        setDocumentFile(null);
-      }
-    };
-
-    const handleClose = () => {
-      setDocumentFile(null);
-      setUploadProgress(0);
-      setDocumentType("registration");
-      setValidationErrors({});
-      onClose();
-    };
-
-    if (!registration) return null;
-
-    return (
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3 } }}
-      >
-        <DialogTitle sx={{ bgcolor: alpha(PRIMARY, 0.05), pb: 2 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 2,
-                  bgcolor: `${PRIMARY}15`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: PRIMARY,
-                }}
-              >
-                <CloudUpload sx={{ fontSize: 28 }} />
-              </Box>
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  Upload Document
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {registration.firstName} {registration.lastName}
-                </Typography>
-              </Box>
-            </Box>
-            <IconButton onClick={handleClose} size="medium">
-              <Close />
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-
-        <DialogContent sx={{ py: 3 }}>
-          <Stack spacing={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Document Type</InputLabel>
-              <Select
-                value={documentType}
-                label="Document Type"
-                onChange={(e) => setDocumentType(e.target.value)}
-              >
-                {documentTypes.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Registration Status</InputLabel>
+            <Select
+              value={formData.registrationStatus}
+              label="Registration Status"
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  registrationStatus: e.target.value,
+                }))
+              }
+            >
+              {REGISTRATION_STATUS_OPTIONS.map((status) => {
+                const config = getRegistrationStatusConfig(status);
+                return (
+                  <MenuItem key={status} value={status}>
                     <Stack direction="row" alignItems="center" spacing={1}>
-                      {type.icon}
-                      <span>{type.label}</span>
+                      {config.icon}
+                      <span>{config.label}</span>
                     </Stack>
                   </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                );
+              })}
+            </Select>
+          </FormControl>
 
+          <FormControl fullWidth size="small">
+            <InputLabel>Lead Status</InputLabel>
+            <Select
+              value={formData.status}
+              label="Lead Status"
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  status: e.target.value,
+                }))
+              }
+            >
+              {LEAD_STATUS_OPTIONS.map((status) => (
+                <MenuItem key={status} value={status}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    {getLeadStatusConfig(status).icon}
+                    <span>{status}</span>
+                  </Stack>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            label="Registration Notes"
+            value={formData.registrationNotes}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                registrationNotes: e.target.value,
+              }))
+            }
+            fullWidth
+            multiline
+            rows={isMobile ? 2 : 3}
+            size="small"
+            placeholder="Add any comments or notes about this registration..."
+          />
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
+      >
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          sx={{
+            borderColor: PRIMARY,
+            color: PRIMARY,
+            "&:hover": { bgcolor: alpha(PRIMARY, 0.05) },
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={loading}
+          startIcon={
+            loading ? (
+              <CircularProgress size={20} sx={{ color: "#fff" }} />
+            ) : (
+              <SaveIcon />
+            )
+          }
+          sx={{
+            bgcolor: PRIMARY,
+            "&:hover": { bgcolor: SECONDARY },
+          }}
+        >
+          {loading ? "Saving..." : "Save Changes"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ========== DOCUMENT UPLOAD MODAL ==========
+const DocumentUploadModal = ({
+  open,
+  onClose,
+  registration,
+  onUpload,
+  userRole,
+  showSnackbar,
+}) => {
+  const { fetchAPI } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [documentFile, setDocumentFile] = useState(null);
+  const [documentType, setDocumentType] = useState("registration");
+  const [validationErrors, setValidationErrors] = useState({});
+
+  const documentTypes = [
+    {
+      value: "registration",
+      label: "Registration Document",
+      icon: <Description />,
+    },
+    { value: "aadhaar", label: "Aadhaar Card", icon: <BadgeIcon /> },
+    { value: "panCard", label: "PAN Card", icon: <CreditCard /> },
+    { value: "passbook", label: "Bank Passbook", icon: <ReceiptLong /> },
+    { value: "other", label: "Other Document", icon: <InsertDriveFile /> },
+  ];
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const error = validateFile(file);
+      if (error) {
+        showSnackbar(error, "error");
+        return;
+      }
+      setDocumentFile(file);
+      setValidationErrors({});
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setDocumentFile(null);
+    setUploadProgress(0);
+  };
+
+  const handleSubmit = async () => {
+    if (!documentFile) {
+      setValidationErrors({ document: "Please select a file to upload" });
+      return;
+    }
+
+    setLoading(true);
+    setUploadProgress(0);
+
+    try {
+      const formData = new FormData();
+      formData.append("document", documentFile);
+      formData.append("documentType", documentType);
+
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 10;
+        });
+      }, 200);
+
+      const response = await fetchAPI(
+        `/lead/registration/${registration._id}/document-upload`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (response?.success) {
+        showSnackbar("Document uploaded successfully", "success");
+        onUpload(response.result);
+        setTimeout(() => onClose(), 500);
+      } else {
+        throw new Error(response?.message || "Failed to upload document");
+      }
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      showSnackbar(error.message || "Failed to upload document", "error");
+    } finally {
+      setLoading(false);
+      setUploadProgress(0);
+      setDocumentFile(null);
+    }
+  };
+
+  const handleClose = () => {
+    setDocumentFile(null);
+    setUploadProgress(0);
+    setDocumentType("registration");
+    setValidationErrors({});
+    onClose();
+  };
+
+  if (!registration) return null;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: alpha(PRIMARY, 0.05),
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
             <Box
               sx={{
-                border: "2px dashed",
-                borderColor: documentFile ? "success.main" : "divider",
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
                 borderRadius: 2,
-                p: 4,
-                textAlign: "center",
-                bgcolor: documentFile ? alpha("#4caf50", 0.05) : "transparent",
-                cursor: "pointer",
-                "&:hover": {
-                  borderColor: "primary.main",
-                  bgcolor: alpha(PRIMARY, 0.05),
-                },
+                bgcolor: alpha(PRIMARY, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: PRIMARY,
               }}
-              onClick={() => document.getElementById("file-input")?.click()}
             >
-              <input
-                id="file-input"
-                type="file"
-                accept=".pdf,.doc,.docx,image/*"
-                style={{ display: "none" }}
-                onChange={handleFileSelect}
-              />
-              {documentFile ? (
-                <Stack spacing={2} alignItems="center">
-                  <Description sx={{ fontSize: 48, color: "success.main" }} />
-                  <Typography variant="body1" fontWeight={500}>
-                    {documentFile.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {formatFileSize(documentFile.size)}
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<Delete />}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveFile();
-                    }}
-                    disabled={loading}
-                  >
-                    Remove File
-                  </Button>
-                </Stack>
-              ) : (
-                <Stack spacing={2} alignItems="center">
-                  <CloudUpload sx={{ fontSize: 48, color: "text.secondary" }} />
-                  <Typography variant="body1">
-                    Click to select a document
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Supports PDF, DOC, DOCX, JPG, PNG (Max 10MB)
-                  </Typography>
-                </Stack>
-              )}
+              <CloudUpload sx={{ fontSize: { xs: 24, sm: 28 } }} />
             </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                Upload Document
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
+                {registration.firstName} {registration.lastName}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={handleClose} size="small">
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
 
-            {validationErrors.document && (
-              <Alert severity="error" sx={{ mt: 1 }}>
-                <Typography variant="body2">
-                  {validationErrors.document}
-                </Typography>
-              </Alert>
-            )}
+      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 }}}>
+        <Stack spacing={2}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Document Type</InputLabel>
+            <Select
+              value={documentType}
+              label="Document Type"
+              onChange={(e) => setDocumentType(e.target.value)}
+            >
+              {documentTypes.map((type) => (
+                <MenuItem key={type.value} value={type.value}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    {type.icon}
+                    <span>{type.label}</span>
+                  </Stack>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-            {loading && (
-              <Box>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Uploading document... {uploadProgress}%
-                </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={uploadProgress}
-                  sx={{ height: 8, borderRadius: 4 }}
-                />
-              </Box>
-            )}
-          </Stack>
-        </DialogContent>
-
-        <DialogActions
-          sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}
-        >
-          <Button onClick={handleClose} variant="outlined" size="large">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            size="large"
-            disabled={loading || !documentFile}
-            startIcon={
-              loading ? <CircularProgress size={20} /> : <CloudUpload />
-            }
-            sx={{ bgcolor: PRIMARY, px: 4, "&:hover": { bgcolor: "#2d4bb9" } }}
+          <Box
+            sx={{
+              border: "2px dashed",
+              borderColor: documentFile ? "success.main" : "divider",
+              borderRadius: 2,
+              p: { xs: 3, sm: 4 },
+              textAlign: "center",
+              bgcolor: documentFile ? alpha("#4caf50", 0.05) : "transparent",
+              cursor: "pointer",
+              "&:hover": {
+                borderColor: "primary.main",
+                bgcolor: alpha(PRIMARY, 0.05),
+              },
+            }}
+            onClick={() => document.getElementById("file-input")?.click()}
           >
-            {loading ? "Uploading..." : "Upload Document"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  },
+            <input
+              id="file-input"
+              type="file"
+              accept=".pdf,.doc,.docx,image/*"
+              style={{ display: "none" }}
+              onChange={handleFileSelect}
+            />
+            {documentFile ? (
+              <Stack spacing={2} alignItems="center">
+                <Description sx={{ fontSize: 48, color: "success.main" }} />
+                <Typography variant="body1" fontWeight={500} sx={{ wordBreak: 'break-word' }}>
+                  {documentFile.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {formatFileSize(documentFile.size)}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Delete />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveFile();
+                  }}
+                  disabled={loading}
+                  sx={{
+                    borderColor: "error.main",
+                    color: "error.main",
+                  }}
+                >
+                  Remove File
+                </Button>
+              </Stack>
+            ) : (
+              <Stack spacing={2} alignItems="center">
+                <CloudUpload sx={{ fontSize: 48, color: "text.secondary" }} />
+                <Typography variant="body1">
+                  Click to select a document
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Supports PDF, DOC, DOCX, JPG, PNG (Max 10MB)
+                </Typography>
+              </Stack>
+            )}
+          </Box>
+
+          {validationErrors.document && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              <Typography variant="body2">
+                {validationErrors.document}
+              </Typography>
+            </Alert>
+          )}
+
+          {loading && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Uploading document... {uploadProgress}%
+              </Typography>
+              <LinearProgress
+                variant="determinate"
+                value={uploadProgress}
+                sx={{ height: 8, borderRadius: 4 }}
+              />
+            </Box>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
+      >
+        <Button
+          onClick={handleClose}
+          variant="outlined"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          sx={{
+            borderColor: PRIMARY,
+            color: PRIMARY,
+            "&:hover": { bgcolor: alpha(PRIMARY, 0.05) },
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={loading || !documentFile}
+          startIcon={
+            loading ? (
+              <CircularProgress size={20} sx={{ color: "#fff" }} />
+            ) : (
+              <CloudUpload />
+            )
+          }
+          sx={{
+            bgcolor: PRIMARY,
+            "&:hover": { bgcolor: SECONDARY },
+          }}
+        >
+          {loading ? "Uploading..." : "Upload Document"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ========== LOADING SKELETON ==========
+const LoadingSkeleton = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4].map((item) => (
+          <Grid item xs={6} sm={6} md={3} key={item}>
+            <Skeleton
+              variant="rectangular"
+              height={isMobile ? 90 : 120}
+              sx={{ borderRadius: 3 }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      {isMobile && (
+        <Skeleton
+          variant="rectangular"
+          height={56}
+          sx={{ borderRadius: 2, mb: 2 }}
+        />
+      )}
+      <Skeleton
+        variant="rectangular"
+        height={isMobile ? 500 : 400}
+        sx={{ borderRadius: 3, mb: 2 }}
+      />
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+    </Box>
+  );
+};
+
+// ========== EMPTY STATE ==========
+const EmptyState = ({ onClearFilters, hasFilters }) => (
+  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
+    <Box
+      sx={{
+        width: 120,
+        height: 120,
+        borderRadius: "50%",
+        bgcolor: alpha(PRIMARY, 0.1),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        mx: "auto",
+        mb: 3,
+      }}
+    >
+      <HowToReg sx={{ fontSize: 48, color: PRIMARY }} />
+    </Box>
+    <Typography variant="h6" fontWeight={600} gutterBottom>
+      No registrations found
+    </Typography>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+    >
+      {hasFilters
+        ? "No registrations match your current filters. Try adjusting your search criteria."
+        : "No registrations have been submitted yet."}
+    </Typography>
+    {hasFilters && (
+      <Button
+        variant="contained"
+        onClick={onClearFilters}
+        startIcon={<Clear />}
+        sx={{ bgcolor: PRIMARY, "&:hover": { bgcolor: SECONDARY } }}
+      >
+        Clear All Filters
+      </Button>
+    )}
+  </Box>
 );
 
-DocumentUploadModal.displayName = "DocumentUploadModal";
-
-// Loading Skeletons
-const LoadingSkeleton = () => (
-  <Box sx={{ p: 3 }}>
-    <Grid container spacing={2} sx={{ mb: 3 }}>
-      {[1, 2, 3, 4].map((item) => (
-        <Grid item xs={6} sm={3} key={item}>
-          <Skeleton
-            variant="rectangular"
-            height={120}
-            sx={{ borderRadius: 2 }}
-          />
-        </Grid>
-      ))}
-    </Grid>
-    <Skeleton
-      variant="rectangular"
-      height={400}
-      sx={{ borderRadius: 2, mb: 2 }}
-    />
-    <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
-  </Box>
+// ========== SUMMARY CARD ==========
+const SummaryCard = ({ card, index }) => (
+  <Fade in={true} timeout={500 + index * 100}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: 3,
+        border: `1px solid ${alpha(card.color, 0.1)}`,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        transition: "transform 0.2s",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+        },
+      }}
+    >
+      <Stack spacing={1}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box
+            sx={{
+              width: { xs: 32, sm: 40, md: 48 },
+              height: { xs: 32, sm: 40, md: 48 },
+              borderRadius: { xs: 1.5, sm: 2 },
+              bgcolor: alpha(card.color, 0.1),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: card.color,
+            }}
+          >
+            {React.cloneElement(card.icon, {
+              sx: { fontSize: { xs: 16, sm: 20, md: 24 } },
+            })}
+          </Box>
+          <Typography
+            variant="h4"
+            fontWeight={700}
+            sx={{
+              color: card.color,
+              fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
+            }}
+          >
+            {card.value}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            fontWeight={600}
+            sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+          >
+            {card.label}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontSize: { xs: "0.6rem", sm: "0.7rem" } }}
+          >
+            {card.subText}
+          </Typography>
+        </Box>
+      </Stack>
+    </Paper>
+  </Fade>
 );
 
 // ========== MAIN COMPONENT ==========
@@ -2001,8 +2909,7 @@ export default function RegistrationPage() {
     [userRole],
   );
 
-  const isXSmall = useMediaQuery(theme.breakpoints.down("sm"));
-  const isSmall = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // State Management
   const [period, setPeriod] = useState("Today");
@@ -2033,11 +2940,15 @@ export default function RegistrationPage() {
     useState("All");
   const [leadStatusFilter, setLeadStatusFilter] = useState("All");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState({
     startDate: null,
     endDate: null,
   });
   const [dateFilterError, setDateFilterError] = useState("");
+
+  // View Mode
+  const [viewMode, setViewMode] = useState(isMobile ? "card" : "table");
 
   // Sorting & Pagination
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
@@ -2047,7 +2958,6 @@ export default function RegistrationPage() {
   // Modal States
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [statusUpdateModalOpen, setStatusUpdateModalOpen] = useState(false);
   const [documentUploadModalOpen, setDocumentUploadModalOpen] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [currentImageUrl, setCurrentImageUrl] = useState("");
@@ -2055,6 +2965,9 @@ export default function RegistrationPage() {
   const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
   const [selectedActionRegistration, setSelectedActionRegistration] =
     useState(null);
+
+  // Refs
+  const containerRef = useRef(null);
 
   // Snackbar Handler
   const showSnackbar = useCallback((message, severity = "success") => {
@@ -2074,13 +2987,11 @@ export default function RegistrationPage() {
         params.append("startDate", format(today, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Week") {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgo = subWeeks(today, 1);
         params.append("startDate", format(weekAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Month") {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const monthAgo = subMonths(today, 1);
         params.append("startDate", format(monthAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       }
@@ -2155,7 +3066,6 @@ export default function RegistrationPage() {
     try {
       let filtered = [...registrationsData.registrations];
 
-      // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(
@@ -2169,19 +3079,16 @@ export default function RegistrationPage() {
         );
       }
 
-      // Registration Status filter
       if (registrationStatusFilter !== "All") {
         filtered = filtered.filter(
           (reg) => reg.registrationStatus === registrationStatusFilter,
         );
       }
 
-      // Lead Status filter
       if (leadStatusFilter !== "All") {
         filtered = filtered.filter((reg) => reg.status === leadStatusFilter);
       }
 
-      // Date filter
       if (
         dateFilter.startDate &&
         isValid(dateFilter.startDate) &&
@@ -2206,7 +3113,6 @@ export default function RegistrationPage() {
         });
       }
 
-      // Sorting
       if (sortConfig.key) {
         filtered.sort((a, b) => {
           let aVal = a[sortConfig.key];
@@ -2221,6 +3127,9 @@ export default function RegistrationPage() {
           } else if (sortConfig.key === "firstName") {
             aVal = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
             bVal = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
+          } else if (sortConfig.key === "registrationStatus") {
+            aVal = getRegistrationStatusConfig(aVal)?.order || 0;
+            bVal = getRegistrationStatusConfig(bVal)?.order || 0;
           }
 
           if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
@@ -2245,6 +3154,64 @@ export default function RegistrationPage() {
     showSnackbar,
   ]);
 
+  // Memoized Computed Values
+  const filteredRegistrations = useMemo(() => applyFilters(), [applyFilters]);
+
+  const paginatedRegistrations = useMemo(() => {
+    const start = page * rowsPerPage;
+    return filteredRegistrations.slice(start, start + rowsPerPage);
+  }, [filteredRegistrations, page, rowsPerPage]);
+
+  const totalPages = useMemo(
+    () => Math.ceil(filteredRegistrations.length / rowsPerPage),
+    [filteredRegistrations.length, rowsPerPage],
+  );
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Total",
+        value: registrationsData.summary.totalRegistrations,
+        color: PRIMARY,
+        icon: <HowToReg />,
+        subText: "All registrations",
+      },
+      {
+        label: "Pending",
+        value: registrationsData.summary.pendingRegistrations,
+        color: PRIMARY,
+        icon: <PendingActions />,
+        subText: "Pending review",
+      },
+      {
+        label: "Completed",
+        value: registrationsData.summary.completedRegistrations,
+        color: PRIMARY,
+        icon: <CheckCircle />,
+        subText: "Completed",
+      },
+      {
+        label: "Approved",
+        value: registrationsData.summary.approvedRegistrations,
+        color: PRIMARY,
+        icon: <Verified />,
+        subText: "Approved",
+      },
+    ],
+    [registrationsData.summary],
+  );
+
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (registrationStatusFilter !== "All") count++;
+    if (leadStatusFilter !== "All") count++;
+    if (dateFilter.startDate) count++;
+    if (dateFilter.endDate) count++;
+    return count;
+  }, [searchQuery, registrationStatusFilter, leadStatusFilter, dateFilter]);
+
   // Effects
   useEffect(() => {
     if (hasAccess(userRole)) {
@@ -2262,6 +3229,14 @@ export default function RegistrationPage() {
       setDateFilterError("");
     }
   }, [dateFilter.startDate, dateFilter.endDate]);
+
+  useEffect(() => {
+    setRowsPerPage(isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE);
+  }, [isMobile]);
+
+  useEffect(() => {
+    setViewMode(isMobile ? "card" : "table");
+  }, [isMobile]);
 
   // Handlers
   const handleSort = useCallback((key) => {
@@ -2302,25 +3277,6 @@ export default function RegistrationPage() {
     [userPermissions, showSnackbar],
   );
 
-  const handleStatusUpdateClick = useCallback(
-    (registration) => {
-      if (!registration?._id) {
-        showSnackbar("Invalid registration data", "error");
-        return;
-      }
-      if (!userPermissions.canUpdateStatus) {
-        showSnackbar(
-          "You don't have permission to update registration status",
-          "error",
-        );
-        return;
-      }
-      setSelectedRegistration(registration);
-      setStatusUpdateModalOpen(true);
-    },
-    [userPermissions, showSnackbar],
-  );
-
   const handleDocumentUploadClick = useCallback(
     (registration) => {
       if (!registration?._id) {
@@ -2335,19 +3291,6 @@ export default function RegistrationPage() {
       setDocumentUploadModalOpen(true);
     },
     [userPermissions, showSnackbar],
-  );
-
-  const handleStatusUpdate = useCallback(
-    async (updatedRegistration) => {
-      try {
-        await fetchRegistrationsData();
-        showSnackbar("Registration status updated successfully", "success");
-      } catch (err) {
-        console.error("Error after status update:", err);
-        showSnackbar("Failed to refresh data", "error");
-      }
-    },
-    [fetchRegistrationsData, showSnackbar],
   );
 
   const handleRegistrationUpdate = useCallback(
@@ -2397,9 +3340,6 @@ export default function RegistrationPage() {
         case "edit":
           handleEditClick(selectedActionRegistration);
           break;
-        case "update_status":
-          handleStatusUpdateClick(selectedActionRegistration);
-          break;
         case "upload_document":
           handleDocumentUploadClick(selectedActionRegistration);
           break;
@@ -2413,7 +3353,6 @@ export default function RegistrationPage() {
       selectedActionRegistration,
       handleViewClick,
       handleEditClick,
-      handleStatusUpdateClick,
       handleDocumentUploadClick,
       handleActionMenuClose,
     ],
@@ -2443,55 +3382,19 @@ export default function RegistrationPage() {
     setDateFilterError("");
     setSortConfig({ key: null, direction: "asc" });
     setPage(0);
-    if (showFilterPanel) setShowFilterPanel(false);
-  }, [showFilterPanel]);
+  }, []);
 
-  // Memoized Computed Values
-  const filteredRegistrations = useMemo(() => applyFilters(), [applyFilters]);
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage - 1);
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
-  const paginatedRegistrations = useMemo(() => {
-    const start = page * rowsPerPage;
-    return filteredRegistrations.slice(start, start + rowsPerPage);
-  }, [filteredRegistrations, page, rowsPerPage]);
-
-  const totalPages = useMemo(
-    () => Math.ceil(filteredRegistrations.length / rowsPerPage),
-    [filteredRegistrations.length, rowsPerPage],
-  );
-
-  const summaryCards = useMemo(
-    () => [
-      {
-        label: "Total Registrations",
-        value: registrationsData.summary.totalRegistrations,
-        color: PRIMARY,
-        icon: <HowToReg />,
-        subText: "All registrations",
-      },
-      {
-        label: "Pending",
-        value: registrationsData.summary.pendingRegistrations,
-        color: PRIMARY,
-        icon: <PendingActions />,
-        subText: "Pending registrations",
-      },
-      {
-        label: "Completed",
-        value: registrationsData.summary.completedRegistrations,
-        color: PRIMARY,
-        icon: <CheckCircle />,
-        subText: "Completed registrations",
-      },
-            {
-        label: "Rejected",
-        value: registrationsData.summary.rejectedRegistrations,
-        color: PRIMARY,
-        icon: <CheckCircle />,
-        subText: "Rejected registrations",
-      },
-    ],
-    [registrationsData.summary],
-  );
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   // Access Check
   if (!hasAccess(userRole)) {
@@ -2506,7 +3409,7 @@ export default function RegistrationPage() {
           justifyContent: "center",
         }}
       >
-        <Alert severity="error" sx={{ maxWidth: 500 }}>
+        <Alert severity="error" sx={{ maxWidth: 500, borderRadius: 3 }}>
           <AlertTitle>Access Denied</AlertTitle>
           You don't have permission to access this page.
           <Button
@@ -2530,12 +3433,9 @@ export default function RegistrationPage() {
       <Box sx={{ p: 3, maxWidth: 600, mx: "auto" }}>
         <Alert
           severity="error"
+          sx={{ borderRadius: 3 }}
           action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={fetchRegistrationsData}
-            >
+            <Button color="inherit" size="small" onClick={fetchRegistrationsData}>
               Retry
             </Button>
           }
@@ -2584,18 +3484,44 @@ export default function RegistrationPage() {
         showSnackbar={showSnackbar}
       />
 
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        open={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+        period={period}
+        setPeriod={setPeriod}
+        registrationStatusFilter={registrationStatusFilter}
+        setRegistrationStatusFilter={setRegistrationStatusFilter}
+        leadStatusFilter={leadStatusFilter}
+        setLeadStatusFilter={setLeadStatusFilter}
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        dateFilterError={dateFilterError}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortConfig={sortConfig}
+        setSortConfig={setSortConfig}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        activeFilterCount={activeFilterCount}
+        onClear={handleClearFilters}
+      />
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
       >
         <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", color: "#fff" }}
+          sx={{ width: "100%", borderRadius: 2 , color:"#fff"}}
         >
           {snackbar.message}
         </Alert>
@@ -2618,22 +3544,14 @@ export default function RegistrationPage() {
           <ListItemIcon>
             <Visibility fontSize="small" />
           </ListItemIcon>
-          View Details
+          <ListItemText>View Details</ListItemText>
         </MenuItem>
         {userPermissions.canEdit && (
           <MenuItem onClick={() => handleActionSelect("edit")}>
             <ListItemIcon>
               <Edit fontSize="small" />
             </ListItemIcon>
-            Edit
-          </MenuItem>
-        )}
-        {userPermissions.canUpdateStatus && (
-          <MenuItem onClick={() => handleActionSelect("update_status")}>
-            <ListItemIcon>
-              <TrendingUp fontSize="small" />
-            </ListItemIcon>
-            Update Status
+            <ListItemText>Edit</ListItemText>
           </MenuItem>
         )}
         {userPermissions.canUploadDocs && (
@@ -2641,234 +3559,246 @@ export default function RegistrationPage() {
             <ListItemIcon>
               <CloudUpload fontSize="small" />
             </ListItemIcon>
-            Upload Document
+            <ListItemText>Upload Document</ListItemText>
           </MenuItem>
         )}
       </Menu>
 
       {/* Main Content */}
-      <Box sx={{ p: { xs: 2, sm: 3 }, minHeight: "100vh" }}>
-        {/* Header */}
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          sx={{ mb: 4 }}
-          justifyContent="space-between"
-          alignItems={{ xs: "stretch", sm: "center" }}
+      <Box
+        ref={containerRef}
+        sx={{
+          p: { xs: 1.5, sm: 2, md: 3 },
+          minHeight: "100vh",
+          pb: { xs: 8, sm: 3 },
+          bgcolor: "#f8fafc",
+        }}
+      >
+        {/* Header with Gradient Background */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            mb: 3,
+            borderRadius: 3,
+            background: `linear-gradient(135deg, ${PRIMARY} 0%, ${SECONDARY} 100%)`,
+            color: "#fff",
+          }}
         >
-          <Box>
-            <Typography variant="h5" fontWeight={700} gutterBottom>
-              Registration Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Track and manage all customer registrations and solar
-              installations
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={fetchRegistrationsData}
-              disabled={loading}
-            >
-              Refresh
-            </Button>
-          </Box>
-        </Stack>
-
-        {/* Summary Cards */}
-        <Grid container spacing={2} sx={{ mb: 4 }}>
-          {summaryCards.map((card, index) => (
-            <Grid item xs={6} sm={6} md={3} key={index}>
-              <Card
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+          >
+            <Box>
+              <Typography
+                variant={isMobile ? "h6" : "h5"}
+                fontWeight={700}
+                gutterBottom
+              >
+                Registration Management
+              </Typography>
+              <Typography
+                variant="body2"
                 sx={{
-                  borderRadius: 3,
-                  overflow: "visible",
-                  position: "relative",
-                  border: `1px solid ${alpha(card.color, 0.1)}`,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                  opacity: 0.9,
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
                 }}
               >
-                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                  <Stack spacing={1}>
-                    <Box
+                Track and manage all customer registrations
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", gap: 1 }}>
+              {isMobile && (
+                <Button
+                  variant="contained"
+                  startIcon={<FilterAlt />}
+                  onClick={() => setMobileFilterOpen(true)}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                    position: "relative",
+                  }}
+                >
+                  Filter
+                  {activeFilterCount > 0 && (
+                    <Badge
+                      badgeContent={activeFilterCount}
+                      color="error"
                       sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        position: "absolute",
+                        top: -8,
+                        right: -8,
+                        "& .MuiBadge-badge": {
+                          fontSize: "0.6rem",
+                          minWidth: 16,
+                          height: 16,
+                        },
                       }}
-                    >
-                      <Box
-                        sx={{
-                          width: { xs: 40, sm: 48 },
-                          height: { xs: 40, sm: 48 },
-                          borderRadius: 2,
-                          bgcolor: alpha(card.color, 0.1),
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: card.color,
-                        }}
-                      >
-                        {React.cloneElement(card.icon, {
-                          sx: { fontSize: { xs: 20, sm: 24 } },
-                        })}
-                      </Box>
-                      <Typography
-                        variant="h4"
-                        fontWeight={700}
-                        sx={{
-                          color: card.color,
-                          fontSize: { xs: "1.5rem", sm: "2rem" },
-                        }}
-                      >
-                        {card.value}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        {card.label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {card.subText}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
+                    />
+                  )}
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                startIcon={<Refresh />}
+                onClick={fetchRegistrationsData}
+                disabled={loading}
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                }}
+              >
+                Refresh
+              </Button>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Summary Cards */}
+        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+          {summaryCards.map((card, index) => (
+            <Grid item xs={6} sm={6} md={3} key={card.label}>
+              <SummaryCard card={card} index={index} />
             </Grid>
           ))}
         </Grid>
 
-        {/* Filters Card */}
-        <Card sx={{ borderRadius: 3, mb: 4, overflow: "visible" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Stack spacing={3}>
-              {/* Top Filters Row */}
-              <Stack
-                direction={{ xs: "column", md: "row" }}
-                spacing={2}
-                justifyContent="space-between"
-                alignItems={{ xs: "stretch", md: "center" }}
-              >
-                <Box sx={{ width: { xs: "100%", md: 300 } }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search by name, email, phone, address..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery && (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            <Close />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
+        {/* Mobile Search Bar */}
+        {isMobile && (
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by name, email, phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery("")}>
+                      <Close />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+        )}
 
-                <Stack direction="row" spacing={2} flexWrap="wrap">
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Period</InputLabel>
-                    <Select
-                      value={period}
-                      label="Period"
-                      onChange={(e) => setPeriod(e.target.value)}
-                    >
-                      <MenuItem value="Today">Today</MenuItem>
-                      <MenuItem value="This Week">This Week</MenuItem>
-                      <MenuItem value="This Month">This Month</MenuItem>
-                      <MenuItem value="All">All Time</MenuItem>
-                    </Select>
-                  </FormControl>
+        {/* Desktop Search and Filters */}
+        {!isMobile && (
+          <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+            <Stack spacing={2.5}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search by name, email, phone or location..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ color: "text.secondary" }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <Close />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ maxWidth: 400 }}
+                />
 
-                  <FormControl size="small" sx={{ minWidth: 180 }}>
-                    <InputLabel>Registration Status</InputLabel>
-                    <Select
-                      value={registrationStatusFilter}
-                      label="Registration Status"
-                      onChange={(e) =>
-                        setRegistrationStatusFilter(e.target.value)
-                      }
-                    >
-                      <MenuItem value="All">All Status</MenuItem>
-                      {REGISTRATION_STATUS_OPTIONS.map((status) => {
-                        const config = getRegistrationStatusColor(status);
-                        return (
-                          <MenuItem key={status} value={status}>
-                            <Stack
-                              direction="row"
-                              alignItems="center"
-                              spacing={1}
-                            >
-                              {config.icon}
-                              <span>{config.label}</span>
-                            </Stack>
-                          </MenuItem>
-                        );
-                      })}
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<Tune />}
-                    onClick={() => setShowFilterPanel(!showFilterPanel)}
-                    sx={{ display: { xs: "none", sm: "flex" } }}
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Period</InputLabel>
+                  <Select
+                    value={period}
+                    label="Period"
+                    onChange={(e) => setPeriod(e.target.value)}
                   >
-                    {showFilterPanel ? "Hide Filters" : "More Filters"}
+                    {PERIOD_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {option.icon}
+                          <span>{option.label}</span>
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Button
+                  variant="outlined"
+                  startIcon={<Tune />}
+                  onClick={() => setShowFilterPanel(!showFilterPanel)}
+                  sx={{
+                    borderColor: PRIMARY,
+                    color: PRIMARY,
+                    "&:hover": { bgcolor: alpha(PRIMARY, 0.05) },
+                  }}
+                >
+                  {showFilterPanel ? "Hide Filters" : "More Filters"}
+                </Button>
+
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="text"
+                    startIcon={<Clear />}
+                    onClick={handleClearFilters}
+                    sx={{ color: "error.main" }}
+                  >
+                    Clear All
                   </Button>
-                </Stack>
+                )}
               </Stack>
 
-              {/* Advanced Filter Panel */}
-              {showFilterPanel && (
+              <Collapse in={showFilterPanel}>
                 <Paper
                   variant="outlined"
                   sx={{
                     p: 3,
                     borderRadius: 2,
-                    borderColor: "divider",
-                    bgcolor: "grey.50",
+                    borderColor: alpha(PRIMARY, 0.2),
+                    bgcolor: alpha(PRIMARY, 0.02),
                   }}
                 >
-                  <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Advanced Filters
-                  </Typography>
                   <Grid container spacing={3}>
                     <Grid item xs={12} md={4}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                        Registration Status
+                      </Typography>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Lead Status</InputLabel>
                         <Select
-                          value={leadStatusFilter}
-                          label="Lead Status"
-                          onChange={(e) => setLeadStatusFilter(e.target.value)}
+                          value={registrationStatusFilter}
+                          onChange={(e) => setRegistrationStatusFilter(e.target.value)}
                         >
-                          <MenuItem value="All">All Status</MenuItem>
-                          {LEAD_STATUS_OPTIONS.map((status) => {
-                            const config = getLeadStatusConfig(status);
+                          <MenuItem value="All">All Statuses</MenuItem>
+                          {REGISTRATION_STATUS_OPTIONS.map((status) => {
+                            const config = getRegistrationStatusConfig(status);
                             return (
                               <MenuItem key={status} value={status}>
-                                <Stack
-                                  direction="row"
-                                  alignItems="center"
-                                  spacing={1}
-                                >
+                                <Stack direction="row" alignItems="center" spacing={1}>
                                   {config.icon}
-                                  <span>{status}</span>
+                                  <span>{config.label}</span>
                                 </Stack>
                               </MenuItem>
                             );
@@ -2876,9 +3806,34 @@ export default function RegistrationPage() {
                         </Select>
                       </FormControl>
                     </Grid>
+
                     <Grid item xs={12} md={4}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                        Lead Status
+                      </Typography>
+                      <FormControl fullWidth size="small">
+                        <Select
+                          value={leadStatusFilter}
+                          onChange={(e) => setLeadStatusFilter(e.target.value)}
+                        >
+                          <MenuItem value="All">All Statuses</MenuItem>
+                          {LEAD_STATUS_OPTIONS.map((status) => (
+                            <MenuItem key={status} value={status}>
+                              <Stack direction="row" alignItems="center" spacing={1}>
+                                {getLeadStatusConfig(status).icon}
+                                <span>{status}</span>
+                              </Stack>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                        Start Date
+                      </Typography>
                       <DatePicker
-                        label="Start Date"
                         value={dateFilter.startDate}
                         onChange={(newValue) =>
                           setDateFilter((prev) => ({
@@ -2891,14 +3846,16 @@ export default function RegistrationPage() {
                             fullWidth: true,
                             size: "small",
                             error: !!dateFilterError,
-                            helperText: dateFilterError,
                           },
                         }}
                       />
                     </Grid>
+
                     <Grid item xs={12} md={4}>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                        End Date
+                      </Typography>
                       <DatePicker
-                        label="End Date"
                         value={dateFilter.endDate}
                         onChange={(newValue) =>
                           setDateFilter((prev) => ({
@@ -2916,41 +3873,21 @@ export default function RegistrationPage() {
                       />
                     </Grid>
                   </Grid>
-                  <Stack
-                    direction="row"
-                    spacing={2}
-                    justifyContent="flex-end"
-                    sx={{ mt: 3 }}
-                  >
-                    <Button
-                      variant="outlined"
-                      onClick={handleClearFilters}
-                      startIcon={<Clear />}
-                    >
-                      Clear All
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={() => setShowFilterPanel(false)}
-                      sx={{ bgcolor: PRIMARY }}
-                    >
-                      Apply Filters
-                    </Button>
-                  </Stack>
-                </Paper>
-              )}
 
-              {/* Active Filters */}
-              {(searchQuery ||
-                registrationStatusFilter !== "All" ||
-                leadStatusFilter !== "All" ||
-                dateFilter.startDate ||
-                dateFilter.endDate) && (
+                  {dateFilterError && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      {dateFilterError}
+                    </Alert>
+                  )}
+                </Paper>
+              </Collapse>
+
+              {activeFilterCount > 0 && (
                 <Box>
                   <Typography
                     variant="caption"
                     color="text.secondary"
-                    sx={{ mb: 1 }}
+                    sx={{ mb: 1, display: "block" }}
                   >
                     Active Filters:
                   </Typography>
@@ -2960,13 +3897,21 @@ export default function RegistrationPage() {
                         label={`Search: ${searchQuery}`}
                         size="small"
                         onDelete={() => setSearchQuery("")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY, 0.1),
+                          color: PRIMARY,
+                        }}
                       />
                     )}
                     {registrationStatusFilter !== "All" && (
                       <Chip
-                        label={`Reg. Status: ${getRegistrationStatusColor(registrationStatusFilter).label}`}
+                        label={`Reg Status: ${getRegistrationStatusConfig(registrationStatusFilter).label}`}
                         size="small"
                         onDelete={() => setRegistrationStatusFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY, 0.1),
+                          color: PRIMARY,
+                        }}
                       />
                     )}
                     {leadStatusFilter !== "All" && (
@@ -2974,14 +3919,15 @@ export default function RegistrationPage() {
                         label={`Lead Status: ${leadStatusFilter}`}
                         size="small"
                         onDelete={() => setLeadStatusFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY, 0.1),
+                          color: PRIMARY,
+                        }}
                       />
                     )}
                     {dateFilter.startDate && (
                       <Chip
-                        label={`From: ${format(
-                          dateFilter.startDate,
-                          "dd MMM yyyy",
-                        )}`}
+                        label={`From: ${format(dateFilter.startDate, "dd MMM yyyy")}`}
                         size="small"
                         onDelete={() =>
                           setDateFilter((prev) => ({
@@ -2989,69 +3935,74 @@ export default function RegistrationPage() {
                             startDate: null,
                           }))
                         }
+                        sx={{
+                          bgcolor: alpha(PRIMARY, 0.1),
+                          color: PRIMARY,
+                        }}
                       />
                     )}
                     {dateFilter.endDate && (
                       <Chip
-                        label={`To: ${format(
-                          dateFilter.endDate,
-                          "dd MMM yyyy",
-                        )}`}
+                        label={`To: ${format(dateFilter.endDate, "dd MMM yyyy")}`}
                         size="small"
                         onDelete={() =>
-                          setDateFilter((prev) => ({
-                            ...prev,
-                            endDate: null,
-                          }))
+                          setDateFilter((prev) => ({ ...prev, endDate: null }))
                         }
+                        sx={{
+                          bgcolor: alpha(PRIMARY, 0.1),
+                          color: PRIMARY,
+                        }}
                       />
                     )}
-                    <Chip
-                      label="Clear All"
-                      size="small"
-                      variant="outlined"
-                      onClick={handleClearFilters}
-                      deleteIcon={<Close />}
-                      onDelete={handleClearFilters}
-                    />
                   </Stack>
                 </Box>
               )}
             </Stack>
-          </CardContent>
-        </Card>
+          </Paper>
+        )}
 
-        {/* Data Table */}
-        <Card sx={{ borderRadius: 3, overflow: "hidden" }}>
-          <CardContent sx={{ p: 0 }}>
-            {/* Header */}
-            <Box
-              sx={{
-                p: 3,
-                borderBottom: 1,
-                borderColor: "divider",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 2,
-              }}
+        {/* Main Content */}
+        <Paper elevation={0} sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <Box
+            sx={{
+              p: { xs: 2, sm: 3 },
+              borderBottom: 1,
+              borderColor: "divider",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 2,
+              bgcolor: "#fff",
+            }}
+          >
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
             >
-              <Typography variant="h6" fontWeight={600}>
-                Customer Registrations ({filteredRegistrations.length})
-              </Typography>
+              Registrations
+              <Chip
+                label={`${filteredRegistrations.length} total`}
+                size="small"
+                sx={{
+                  ml: 1,
+                  bgcolor: alpha(PRIMARY, 0.1),
+                  color: PRIMARY,
+                }}
+              />
+            </Typography>
+
+            {!isMobile && (
               <Stack direction="row" spacing={2} alignItems="center">
                 <Typography variant="body2" color="text.secondary">
-                  Show:
+                  Rows per page:
                 </Typography>
                 <Select
                   size="small"
                   value={rowsPerPage}
-                  onChange={(e) => {
-                    setRowsPerPage(Number(e.target.value));
-                    setPage(0);
-                  }}
-                  sx={{ minWidth: 100 }}
+                  onChange={handleChangeRowsPerPage}
+                  sx={{ minWidth: 80 }}
                 >
                   {ITEMS_PER_PAGE_OPTIONS.map((option) => (
                     <MenuItem key={option} value={option}>
@@ -3060,79 +4011,112 @@ export default function RegistrationPage() {
                   ))}
                 </Select>
               </Stack>
-            </Box>
+            )}
+          </Box>
 
-            {/* Table Container */}
-            <TableContainer
-              sx={{
-                maxHeight: { xs: "60vh", md: "70vh" },
-                position: "relative",
-              }}
-            >
+          {viewMode === "table" && !isMobile ? (
+            <TableContainer sx={{ maxHeight: "70vh", overflow: "auto" }}>
               {loading && registrationsData.registrations.length > 0 && (
                 <LinearProgress
-                  sx={{ position: "absolute", top: 0, left: 0, right: 0 }}
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 1,
+                  }}
                 />
               )}
-
-              <Table stickyHeader size="medium">
+              <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Customer Details
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
                       <Button
-                        fullWidth
                         size="small"
-                        onClick={() => handleSort("dateOfRegistration")}
-                        startIcon={
-                          sortConfig.key === "dateOfRegistration" ? (
-                            sortConfig.direction === "asc" ? (
-                              <ArrowUpward fontSize="small" />
-                            ) : (
-                              <ArrowDownward fontSize="small" />
-                            )
-                          ) : null
-                        }
-                        sx={{
-                          justifyContent: "flex-start",
-                          fontWeight: 600,
-                          color: "text.primary",
-                        }}
+                        onClick={() => handleSort("firstName")}
+                        sx={{ textTransform: 'none', fontWeight: 600 }}
                       >
-                        Registration Date
+                        Customer
+                        {sortConfig.key === "firstName" && (
+                          sortConfig.direction === "asc" ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+                        )}
                       </Button>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Solar Requirement
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      <Button
+                        size="small"
+                        onClick={() => handleSort("dateOfRegistration")}
+                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                      >
+                        Date
+                        {sortConfig.key === "dateOfRegistration" && (
+                          sortConfig.direction === "asc" ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+                        )}
+                      </Button>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Registration Status
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Solar Requirement
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Lead Status
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      <Button
+                        size="small"
+                        onClick={() => handleSort("registrationStatus")}
+                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                      >
+                        Status
+                        {sortConfig.key === "registrationStatus" && (
+                          sortConfig.direction === "asc" ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
+                        )}
+                      </Button>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Actions
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Lead Status
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
-
                 <TableBody>
                   {paginatedRegistrations.length > 0 ? (
                     paginatedRegistrations.map((registration) => {
-                      const regStatusConfig = getRegistrationStatusColor(
+                      const regStatusConfig = getRegistrationStatusConfig(
                         registration.registrationStatus,
                       );
                       const leadStatusConfig = getLeadStatusConfig(
@@ -3140,90 +4124,42 @@ export default function RegistrationPage() {
                       );
 
                       return (
-                        <TableRow
-                          key={registration._id}
-                          hover
-                          sx={{
-                            "&:hover": {
-                              bgcolor: alpha(PRIMARY, 0.02),
-                            },
-                          }}
-                        >
-                          {/* Customer Details */}
+                        <TableRow key={registration._id} hover>
                           <TableCell>
-                            <Stack spacing={1}>
-                              <Typography variant="subtitle2" fontWeight={600}>
-                                {registration.firstName} {registration.lastName}
-                              </Typography>
-                              <Stack spacing={0.5}>
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    color: "text.secondary",
-                                  }}
-                                >
-                                  <Email fontSize="inherit" />
-                                  {registration.email || "No email"}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    color: "text.secondary",
-                                  }}
-                                >
-                                  <Phone fontSize="inherit" />
-                                  {registration.phone || "No phone"}
-                                </Typography>
-                              </Stack>
-                            </Stack>
-                          </TableCell>
-
-                          {/* Registration Date */}
-                          <TableCell>
-                            <Stack spacing={0.5}>
-                              <Typography variant="body2">
-                                {formatDate(registration.dateOfRegistration)}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <Avatar
+                                sx={{
+                                  width: 32,
+                                  height: 32,
+                                  bgcolor: PRIMARY,
+                                  fontSize: '0.875rem',
+                                }}
                               >
-                                {formatDate(
-                                  registration.createdAt,
-                                  "dd MMM yyyy",
-                                )}
-                              </Typography>
+                                {getInitials(registration.firstName, registration.lastName)}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="body2" fontWeight={500}>
+                                  {registration.firstName} {registration.lastName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {registration.phone || 'No phone'}
+                                </Typography>
+                              </Box>
                             </Stack>
                           </TableCell>
-
-                          {/* Solar Requirement */}
                           <TableCell>
-                            <Stack
-                              direction="row"
-                              alignItems="center"
-                              spacing={1}
-                            >
-                              <SolarPower fontSize="small" color="primary" />
+                            {formatDate(registration.dateOfRegistration, "dd MMM yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <SolarPower fontSize="small" sx={{ color: PRIMARY }} />
                               <Typography variant="body2">
-                                {registration.solarRequirement ||
-                                  "Not specified"}
+                                {registration.solarRequirement || "—"}
                               </Typography>
                             </Stack>
                           </TableCell>
-
-                          {/* Registration Status */}
                           <TableCell>
-                            <Tooltip
-                              title={regStatusConfig.description}
-                              arrow
-                              placement="top"
-                            >
+                            <Tooltip title={regStatusConfig.description} arrow>
                               <Chip
                                 label={regStatusConfig.label}
                                 icon={regStatusConfig.icon}
@@ -3232,20 +4168,13 @@ export default function RegistrationPage() {
                                   bgcolor: regStatusConfig.bg,
                                   color: regStatusConfig.color,
                                   fontWeight: 600,
-                                  minWidth: 100,
-                                  cursor: "pointer",
+                                  minWidth: 80,
                                 }}
                               />
                             </Tooltip>
                           </TableCell>
-
-                          {/* Lead Status */}
                           <TableCell>
-                            <Tooltip
-                              title={leadStatusConfig.description}
-                              arrow
-                              placement="top"
-                            >
+                            <Tooltip title={leadStatusConfig.description} arrow>
                               <Chip
                                 label={registration.status || "Unknown"}
                                 icon={leadStatusConfig.icon}
@@ -3254,70 +4183,46 @@ export default function RegistrationPage() {
                                   bgcolor: leadStatusConfig.bg,
                                   color: leadStatusConfig.color,
                                   fontWeight: 600,
-                                  minWidth: 120,
-                                  cursor: "pointer",
+                                  minWidth: 80,
                                 }}
                               />
                             </Tooltip>
                           </TableCell>
-
-                          {/* Actions */}
                           <TableCell>
                             <Stack direction="row" spacing={1}>
-                              <Tooltip title="View Details" arrow>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleViewClick(registration)}
+                                sx={{
+                                  bgcolor: alpha(PRIMARY, 0.1),
+                                  color: PRIMARY,
+                                }}
+                              >
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                              {userPermissions.canEdit && (
                                 <IconButton
                                   size="small"
-                                  onClick={() => handleViewClick(registration)}
+                                  onClick={() => handleEditClick(registration)}
                                   sx={{
                                     bgcolor: alpha(PRIMARY, 0.1),
                                     color: PRIMARY,
-                                    "&:hover": {
-                                      bgcolor: alpha(PRIMARY, 0.2),
-                                    },
                                   }}
                                 >
-                                  <Visibility fontSize="small" />
+                                  <Edit fontSize="small" />
                                 </IconButton>
-                              </Tooltip>
-
-                              {userPermissions.canEdit && (
-                                <Tooltip title="Edit" arrow>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() =>
-                                      handleEditClick(registration)
-                                    }
-                                    sx={{
-                                      bgcolor: alpha(PRIMARY, 0.1),
-                                      color: PRIMARY,
-                                      "&:hover": {
-                                        bgcolor: alpha(PRIMARY, 0.2),
-                                      },
-                                    }}
-                                  >
-                                    <Edit fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
                               )}
-
                               {userPermissions.canUploadDocs && (
-                                <Tooltip title="Upload Document" arrow>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() =>
-                                      handleDocumentUploadClick(registration)
-                                    }
-                                    sx={{
-                                      bgcolor: alpha(PRIMARY, 0.1),
-                                      color: PRIMARY,
-                                      "&:hover": {
-                                        bgcolor: alpha(PRIMARY, 0.2),
-                                      },
-                                    }}
-                                  >
-                                    <CloudUpload fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDocumentUploadClick(registration)}
+                                  sx={{
+                                    bgcolor: alpha(PRIMARY, 0.1),
+                                    color: PRIMARY,
+                                  }}
+                                >
+                                  <CloudUpload fontSize="small" />
+                                </IconButton>
                               )}
                             </Stack>
                           </TableCell>
@@ -3326,110 +4231,175 @@ export default function RegistrationPage() {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                        <Box sx={{ textAlign: "center" }}>
-                          <HowToReg
-                            sx={{
-                              fontSize: 64,
-                              color: "text.disabled",
-                              mb: 2,
-                            }}
-                          />
-                          <Typography
-                            variant="h6"
-                            color="text.secondary"
-                            gutterBottom
-                          >
-                            No registrations found
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {searchQuery ||
-                            registrationStatusFilter !== "All" ||
-                            leadStatusFilter !== "All" ||
-                            dateFilter.startDate ||
-                            dateFilter.endDate
-                              ? "Try adjusting your filters"
-                              : "No registrations have been submitted yet"}
-                          </Typography>
-                          {(searchQuery ||
-                            registrationStatusFilter !== "All" ||
-                            leadStatusFilter !== "All" ||
-                            dateFilter.startDate ||
-                            dateFilter.endDate) && (
-                            <Button
-                              variant="outlined"
-                              onClick={handleClearFilters}
-                              sx={{ mt: 2 }}
-                            >
-                              Clear All Filters
-                            </Button>
-                          )}
-                        </Box>
+                      <TableCell colSpan={6}>
+                        <EmptyState
+                          onClearFilters={handleClearFilters}
+                          hasFilters={activeFilterCount > 0}
+                        />
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </TableContainer>
-
-            {/* Pagination */}
-            {filteredRegistrations.length > 0 && (
-              <Box
-                sx={{
-                  p: 2,
-                  borderTop: 1,
-                  borderColor: "divider",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: 2,
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Showing{" "}
-                  {Math.min(
-                    page * rowsPerPage + 1,
-                    filteredRegistrations.length,
-                  )}{" "}
-                  to{" "}
-                  {Math.min(
-                    (page + 1) * rowsPerPage,
-                    filteredRegistrations.length,
-                  )}{" "}
-                  of {filteredRegistrations.length} entries
-                </Typography>
-                <Pagination
-                  count={totalPages}
-                  page={page + 1}
-                  onChange={(event, value) => setPage(value - 1)}
-                  color="primary"
-                  showFirstButton
-                  showLastButton
-                  siblingCount={1}
-                  boundaryCount={1}
-                  size={isSmall ? "small" : "medium"}
-                  sx={{
-                    "& .MuiPaginationItem-root": {
-                      borderRadius: 2,
-                    },
-                  }}
+          ) : (
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+              {loading && registrationsData.registrations.length > 0 && (
+                <LinearProgress sx={{ mb: 2, borderRadius: 2 }} />
+              )}
+              {paginatedRegistrations.length > 0 ? (
+                paginatedRegistrations.map((registration) => (
+                  <MobileRegistrationCard
+                    key={registration._id}
+                    registration={registration}
+                    onView={handleViewClick}
+                    onEdit={handleEditClick}
+                    onUpload={handleDocumentUploadClick}
+                    userPermissions={userPermissions}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  onClearFilters={handleClearFilters}
+                  hasFilters={activeFilterCount > 0}
                 />
-              </Box>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </Box>
+          )}
 
-        {/* Footer Note */}
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ mt: 3, display: "block", textAlign: "center" }}
+          {filteredRegistrations.length > 0 && (
+            <Box
+              sx={{
+                p: { xs: 2, sm: 3 },
+                borderTop: 1,
+                borderColor: "divider",
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+                bgcolor: "#fff",
+              }}
+            >
+              <Typography variant="body2">
+                Showing {page * rowsPerPage + 1} to{" "}
+                {Math.min((page + 1) * rowsPerPage, filteredRegistrations.length)} of{" "}
+                {filteredRegistrations.length}
+              </Typography>
+              <Pagination
+                count={totalPages}
+                page={page + 1}
+                onChange={handleChangePage}
+                color="primary"
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  "& .MuiPaginationItem-root": {
+                    borderRadius: 2,
+                    "&.Mui-selected": { bgcolor: PRIMARY, color: "#fff" },
+                  },
+                }}
+              />
+            </Box>
+          )}
+        </Paper>
+
+        {/* Footer */}
+        <Box
+          sx={{
+            mt: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
+          }}
         >
-          Last updated: {formatDate(new Date().toISOString())} •{" "}
-          {registrationsData.summary.totalRegistrations} total registrations
-        </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Last updated: {format(new Date(), "dd MMM yyyy, hh:mm a")}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {registrationsData.summary.totalRegistrations} total registrations
+          </Typography>
+        </Box>
       </Box>
+
+      {/* Mobile FAB */}
+      {isMobile && (
+        <Zoom in={true}>
+          <Fab
+            color="primary"
+            aria-label="filter"
+            onClick={() => setMobileFilterOpen(true)}
+            sx={{
+              position: "fixed",
+              bottom: 80,
+              right: 16,
+              zIndex: 1000,
+              bgcolor: PRIMARY,
+              "&:hover": { bgcolor: SECONDARY },
+              boxShadow: `0 4px 12px ${alpha(PRIMARY, 0.3)}`,
+            }}
+          >
+            <Badge
+              badgeContent={activeFilterCount}
+              color="error"
+              max={9}
+              sx={{
+                "& .MuiBadge-badge": {
+                  fontSize: "0.6rem",
+                  minWidth: 16,
+                  height: 16,
+                },
+              }}
+            >
+              <FilterAlt />
+            </Badge>
+          </Fab>
+        </Zoom>
+      )}
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            sx={{
+              height: 64,
+              "& .MuiBottomNavigationAction-root": {
+                color: "text.secondary",
+                "&.Mui-selected": { color: PRIMARY },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate("/dashboard")}
+            />
+            <BottomNavigationAction
+              label="Registrations"
+              icon={<HowToReg />}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
+            <BottomNavigationAction
+              label="Profile"
+              icon={<Person />}
+              onClick={() => navigate("/profile")}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </LocalizationProvider>
   );
 }

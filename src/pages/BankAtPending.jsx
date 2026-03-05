@@ -1,3 +1,4 @@
+// pages/BankAtPendingPage.jsx (Updated with Mobile View)
 import React, {
   useState,
   useEffect,
@@ -46,16 +47,22 @@ import {
   FormHelperText,
   Menu,
   Skeleton,
-  List,
-  ListItem,
   ListItemIcon,
   ListItemText,
+  Badge,
+  SwipeableDrawer,
+  Collapse,
+  Fab,
+  Zoom,
+  Fade,
+  Slide,
+  BottomNavigation,
+  BottomNavigationAction,
   Tab,
   Tabs,
 } from "@mui/material";
 import {
   Search,
-  Download,
   Edit,
   Visibility,
   Close,
@@ -64,23 +71,14 @@ import {
   Refresh,
   Cancel,
   PendingActions,
-  Verified,
-  FileCopy,
   FolderOpen,
-  PictureAsPdf,
-  Image as ImageIcon,
-  InsertDriveFile,
-  Launch,
-  PictureAsPdfOutlined,
-  DescriptionOutlined,
+  Description,
   GetApp,
   AccountBalance,
   Badge as BadgeIcon,
   CloudUpload,
   Delete,
   CreditCard,
-  CloudDownload,
-  Add,
   ZoomIn,
   ZoomOut,
   RotateLeft,
@@ -94,42 +92,40 @@ import {
   LocationOn,
   Note,
   Warning,
-  FilterList,
   Tune,
   ArrowUpward,
   ArrowDownward,
-  Description,
   Save,
-  ArrowForward,
-  ArrowBack,
   MoreVert,
   TrendingUp,
-  Assignment,
-  Business,
   HowToReg,
-  LocalAtm,
-  Build,
-  Error as ErrorIcon,
-  Check,
-  Home,
   ReceiptLong,
-  AttachFile,
   AccessTime,
-  Security,
   SupervisorAccount,
   Groups,
   AdminPanelSettings,
   WorkspacePremium,
   AddPhotoAlternate,
-  GppMaybe,
-  Schedule,
-  ThumbUp,
-  ThumbDown,
-  Money,
+  DateRange,
+  FilterAlt,
+  Sort,
+  ViewList,
+  ViewModule,
+  Dashboard,
+  ExpandMore,
+  ExpandLess,
+  InsertDriveFile,
+  DescriptionOutlined,
+  Image as ImageIcon,
   AccountBalanceWallet,
+  Money,
   AttachMoney,
   CreditScore,
   TrendingFlat,
+  GppMaybe,
+  ThumbUp,
+  ThumbDown,
+  FiberManualRecord,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -142,13 +138,15 @@ import {
   isWithinInterval,
   startOfDay,
   endOfDay,
+  subWeeks,
+  subMonths,
 } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import AlertTitle from "@mui/material/AlertTitle";
 
 // ========== CONSTANTS & CONFIGURATION ==========
-const PRIMARY = "#3a5ac8";
-const SECONDARY = "#2c489e";
+const PRIMARY_COLOR = "#4569ea";
+const SECONDARY_COLOR = "#1a237e";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 const DEFAULT_ITEMS_PER_PAGE = 10;
 const ALLOWED_ROLES = ["Head_office", "ZSM", "ASM", "TEAM"];
@@ -160,49 +158,71 @@ const ALLOWED_FILE_TYPES = [
   "application/pdf",
 ];
 
-// Bank Status Configuration for Bank at Pending Page
-const BANK_STATUS_OPTIONS = ["pending", "approved", "rejected"];
+// Period Options
+const PERIOD_OPTIONS = [
+  { value: "Today", label: "Today", icon: <CalendarToday /> },
+  { value: "This Week", label: "This Week", icon: <DateRange /> },
+  { value: "This Month", label: "This Month", icon: <DateRange /> },
+  { value: "All", label: "All Time", icon: <DateRange /> },
+];
+
+// Bank Status Configuration
+const BANK_STATUS_OPTIONS = ["pending", "approved", "rejected", "disbursed"];
 
 const BANK_STATUS_CONFIG = {
   pending: {
-    bg: alpha("#3a5ac8", 0.1),
-    color: "#3a5ac8",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <PendingActions sx={{ fontSize: 16 }} />,
+    label: "Pending",
     description: "Waiting for bank approval",
+    order: 1,
   },
   approved: {
-    bg: alpha("#3a5ac8", 0.1),
-    color: "#3a5ac8",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <CheckCircle sx={{ fontSize: 16 }} />,
+    label: "Approved",
     description: "Bank approval received",
+    order: 2,
   },
   rejected: {
-    bg: alpha("#3a5ac8", 0.1),
-    color: "#3a5ac8",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Cancel sx={{ fontSize: 16 }} />,
+    label: "Rejected",
     description: "Bank rejected the application",
+    order: 3,
+  },
+  disbursed: {
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
+    icon: <AttachMoney sx={{ fontSize: 16 }} />,
+    label: "Disbursed",
+    description: "Loan disbursed to customer",
+    order: 4,
   },
 };
 
-// Lead Status Configuration for Bank at Pending Page
+// Lead Status Configuration
 const LEAD_STATUS_OPTIONS = ["Bank at Pending", "Disbursement", "Missed Leads"];
 
 const LEAD_STATUS_CONFIG = {
   "Bank at Pending": {
-    bg: alpha("#3a5ac8", 0.1),
-    color: "#3a5ac8",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <AccountBalanceWallet sx={{ fontSize: 16 }} />,
     description: "Awaiting bank approval",
   },
   Disbursement: {
-    bg: alpha("#3a5ac8", 0.1),
-    color: "#3a5ac8",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Money sx={{ fontSize: 16 }} />,
     description: "Loan disbursement stage",
   },
   "Missed Leads": {
-    bg: alpha("#3a5ac8", 0.1),
-    color: "#3a5ac8",
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
     icon: <Cancel sx={{ fontSize: 16 }} />,
     description: "Lead lost or not converted",
   },
@@ -231,22 +251,22 @@ const BANK_LIST = [
 const ROLE_CONFIG = {
   Head_office: {
     label: "Head Office",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <AdminPanelSettings sx={{ fontSize: 16 }} />,
   },
   ZSM: {
     label: "Zone Sales Manager",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <WorkspacePremium sx={{ fontSize: 16 }} />,
   },
   ASM: {
     label: "Area Sales Manager",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <SupervisorAccount sx={{ fontSize: 16 }} />,
   },
   TEAM: {
     label: "Team Member",
-    color: "#3a5ac8",
+    color: PRIMARY_COLOR,
     icon: <Groups sx={{ fontSize: 16 }} />,
   },
 };
@@ -255,21 +275,25 @@ const ROLE_CONFIG = {
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
 const getUserPermissions = (userRole) => ({
-  canView: ["Head_office", "ZSM", "ASM", "TEAM"],
-  canEdit: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole), // TEAM cannot edit
+  canView: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
+  canEdit: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canDelete: userRole === "Head_office",
   canManage: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeAll: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeOwn: userRole === "TEAM",
-  canUpdateStatus: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole), // TEAM cannot update status
+  canUpdateStatus: ["Head_office", "ZSM", "ASM"].includes(userRole),
 });
 
-const getBankStatusColor = (status) => {
+const getBankStatusConfig = (status) => {
   const normalizedStatus = status?.toLowerCase();
   return (
     BANK_STATUS_CONFIG[normalizedStatus] || {
-      bg: alpha("#3a5ac8", 0.1),
-      color: "#3a5ac8",
+      bg: alpha(PRIMARY_COLOR, 0.08),
+      color: PRIMARY_COLOR,
+      icon: <PendingActions sx={{ fontSize: 16 }} />,
+      label: status || "Unknown",
+      description: "Unknown status",
+      order: 0,
     }
   );
 };
@@ -277,10 +301,11 @@ const getBankStatusColor = (status) => {
 const getLeadStatusConfig = (status) => {
   return (
     LEAD_STATUS_CONFIG[status] || {
-      bg: alpha("#3a5ac8", 0.1),
-      color: "#3a5ac8",
+      bg: alpha(PRIMARY_COLOR, 0.08),
+      color: PRIMARY_COLOR,
       icon: <Warning sx={{ fontSize: 16 }} />,
       description: "Unknown status",
+      label: status || "Unknown",
     }
   );
 };
@@ -289,7 +314,7 @@ const getRoleConfig = (role) => {
   return (
     ROLE_CONFIG[role] || {
       label: "Unknown",
-      color: "#3a5ac8",
+      color: PRIMARY_COLOR,
       icon: <Person sx={{ fontSize: 16 }} />,
     }
   );
@@ -312,27 +337,6 @@ const formatCurrency = (amount) => {
   return `₹${numAmount.toLocaleString("en-IN")}`;
 };
 
-const validateRequiredField = (value, fieldName) => {
-  if (!value?.toString().trim()) return `${fieldName} is required`;
-  return "";
-};
-
-const validateFile = (file) => {
-  if (!file) return "";
-  if (file.size > MAX_FILE_SIZE) return "File size should be less than 5MB";
-  if (!ALLOWED_FILE_TYPES.includes(file.type))
-    return "Only JPG, PNG and PDF files are allowed";
-  return "";
-};
-
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-};
-
 const formatDate = (dateString, formatStr = "dd MMM yyyy, hh:mm a") => {
   if (!dateString) return "Not set";
   try {
@@ -343,13 +347,923 @@ const formatDate = (dateString, formatStr = "dd MMM yyyy, hh:mm a") => {
   }
 };
 
-// ========== REUSABLE COMPONENTS ==========
+const getInitials = (firstName, lastName) => {
+  return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
+};
 
-// Image Viewer Modal Component
-const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
+// ========== MOBILE FILTER DRAWER ==========
+const MobileFilterDrawer = ({
+  open,
+  onClose,
+  period,
+  setPeriod,
+  bankStatusFilter,
+  setBankStatusFilter,
+  leadStatusFilter,
+  setLeadStatusFilter,
+  bankFilter,
+  setBankFilter,
+  dateFilter,
+  setDateFilter,
+  handleClearFilters,
+  dateFilterError,
+  searchQuery,
+  setSearchQuery,
+  sortConfig,
+  setSortConfig,
+  activeFilterCount,
+}) => {
+  const [expandedSection, setExpandedSection] = useState("search");
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  return (
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      onOpen={() => {}}
+      disableSwipeToOpen={false}
+      PaperProps={{
+        sx: {
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          maxHeight: "90vh",
+          overflow: "hidden",
+        },
+      }}
+    >
+      <Box sx={{ position: "relative" }}>
+        {/* Drag Handle */}
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            bgcolor: "grey.300",
+            borderRadius: 2,
+            mx: "auto",
+            my: 1.5,
+          }}
+        />
+
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 3,
+            pb: 2,
+            borderBottom: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Box>
+            <Typography variant="h6" fontWeight="700" color={PRIMARY_COLOR}>
+              Filter Bank Pending
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.1) }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Filter Content */}
+        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
+          <Stack spacing={2.5}>
+            {/* Search Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("search")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Search sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Search
+                  </Typography>
+                </Stack>
+                {expandedSection === "search" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "search"}>
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search by name, email, phone, bank..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search
+                            sx={{ color: "text.secondary", fontSize: 20 }}
+                          />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery && (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearchQuery("")}
+                          >
+                            <Close fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Period Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("period")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <DateRange sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Time Period
+                  </Typography>
+                </Stack>
+                {expandedSection === "period" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "period"}>
+                <Box sx={{ p: 2 }}>
+                  <Grid container spacing={1}>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <Grid item xs={6} key={option.value}>
+                        <Button
+                          fullWidth
+                          variant={
+                            period === option.value ? "contained" : "outlined"
+                          }
+                          onClick={() => setPeriod(option.value)}
+                          startIcon={option.icon}
+                          size="small"
+                          sx={{
+                            bgcolor:
+                              period === option.value
+                                ? PRIMARY_COLOR
+                                : "transparent",
+                            color:
+                              period === option.value ? "#fff" : PRIMARY_COLOR,
+                            borderColor: PRIMARY_COLOR,
+                            "&:hover": {
+                              bgcolor:
+                                period === option.value
+                                  ? SECONDARY_COLOR
+                                  : alpha(PRIMARY_COLOR, 0.1),
+                            },
+                          }}
+                        >
+                          {option.label}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Bank Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("bankStatus")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <AccountBalanceWallet sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Bank Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "bankStatus" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "bankStatus"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={bankStatusFilter}
+                      onChange={(e) => setBankStatusFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {BANK_STATUS_OPTIONS.map((status) => {
+                        const config = getBankStatusConfig(status);
+                        return (
+                          <MenuItem key={status} value={status}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              {config.icon}
+                              <span>{config.label}</span>
+                            </Stack>
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Lead Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("leadStatus")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TrendingUp sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Lead Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "leadStatus" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "leadStatus"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={leadStatusFilter}
+                      onChange={(e) => setLeadStatusFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {LEAD_STATUS_OPTIONS.map((status) => (
+                        <MenuItem key={status} value={status}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                          >
+                            {getLeadStatusConfig(status).icon}
+                            <span>{status}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Bank Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("bank")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <AccountBalance sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Bank
+                  </Typography>
+                </Stack>
+                {expandedSection === "bank" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "bank"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={bankFilter}
+                      onChange={(e) => setBankFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Banks</MenuItem>
+                      {BANK_LIST.map((bank) => (
+                        <MenuItem key={bank} value={bank}>
+                          {bank}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Date Range Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("date")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CalendarToday sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Custom Date Range
+                  </Typography>
+                </Stack>
+                {expandedSection === "date" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "date"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={2}>
+                    <DatePicker
+                      label="Start Date"
+                      value={dateFilter.startDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          startDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    <DatePicker
+                      label="End Date"
+                      value={dateFilter.endDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          endDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    {dateFilterError && (
+                      <Alert severity="error" sx={{ fontSize: "0.75rem" }}>
+                        {dateFilterError}
+                      </Alert>
+                    )}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Sort Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("sort")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Sort sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Sort By
+                  </Typography>
+                </Stack>
+                {expandedSection === "sort" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "sort"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={1}>
+                    {[
+                      { key: "firstName", label: "Name" },
+                      { key: "loanAmount", label: "Loan Amount" },
+                      { key: "bankAtPendingDate", label: "Pending Date" },
+                    ].map((option) => (
+                      <Button
+                        key={option.key}
+                        fullWidth
+                        variant={
+                          sortConfig.key === option.key
+                            ? "contained"
+                            : "outlined"
+                        }
+                        onClick={() =>
+                          setSortConfig((prev) => ({
+                            key: option.key,
+                            direction:
+                              prev.key === option.key &&
+                              prev.direction === "asc"
+                                ? "desc"
+                                : "asc",
+                          }))
+                        }
+                        endIcon={
+                          sortConfig.key === option.key &&
+                          (sortConfig.direction === "asc" ? (
+                            <ArrowUpward fontSize="small" />
+                          ) : (
+                            <ArrowDownward fontSize="small" />
+                          ))
+                        }
+                        sx={{
+                          justifyContent: "space-between",
+                          bgcolor:
+                            sortConfig.key === option.key
+                              ? PRIMARY_COLOR
+                              : "transparent",
+                          color:
+                            sortConfig.key === option.key
+                              ? "#fff"
+                              : PRIMARY_COLOR,
+                          borderColor: PRIMARY_COLOR,
+                        }}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+          </Stack>
+        </Box>
+
+        {/* Action Buttons */}
+        <Box
+          sx={{
+            p: 3,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            bgcolor: "#fff",
+          }}
+        >
+          <Stack direction="row" spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => {
+                handleClearFilters();
+                onClose();
+              }}
+              startIcon={<Clear />}
+              sx={{
+                borderColor: PRIMARY_COLOR,
+                color: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                },
+              }}
+            >
+              Clear All
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={onClose}
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: SECONDARY_COLOR,
+                },
+              }}
+            >
+              Apply Filters
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    </SwipeableDrawer>
+  );
+};
+
+// ========== MOBILE BANK CARD ==========
+const MobileBankCard = ({ lead, onView, onStatusUpdate, permissions }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const bankStatusConfig = getBankStatusConfig(lead.bankAtPendingStatus);
+  const leadStatusConfig = getLeadStatusConfig(lead.status);
+  const initials = getInitials(lead.firstName, lead.lastName);
+
+  return (
+    <Paper
+      sx={{
+        mb: 1.5,
+        borderRadius: 3,
+        border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+        overflow: "hidden",
+      }}
+    >
+      <Box sx={{ p: 2 }}>
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            mb: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+            <Avatar
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                color: "#fff",
+                width: 48,
+                height: 48,
+                fontWeight: 600,
+              }}
+            >
+              {initials}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="subtitle1"
+                fontWeight="700"
+                color={PRIMARY_COLOR}
+              >
+                {lead.firstName} {lead.lastName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                ID: {lead._id?.slice(-8) || "N/A"}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              transform: expanded ? "rotate(180deg)" : "none",
+              transition: "transform 0.3s",
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+            }}
+          >
+            {expanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </Box>
+
+        {/* Quick Info */}
+        <Grid container spacing={1} sx={{ mb: 1.5 }}>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Phone sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {lead.phone || "No phone"}
+              </Typography>
+            </Stack>
+          </Grid>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Email sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {lead.email || "No email"}
+              </Typography>
+            </Stack>
+          </Grid>
+        </Grid>
+
+        {/* Bank Info */}
+        <Box sx={{ mb: 1.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+            <AccountBalanceWallet
+              sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
+            />
+            <Typography variant="body2" fontWeight={500} noWrap>
+              {lead.bank || "Not specified"}
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <AttachMoney
+              sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
+            />
+            <Typography variant="body2" fontWeight={500}>
+              {formatCurrency(lead.loanAmount)}
+            </Typography>
+            <FiberManualRecord sx={{ fontSize: 4, color: "text.disabled" }} />
+            <CalendarToday
+              sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
+            />
+            <Typography variant="body2" fontWeight={500}>
+              {formatDate(lead.bankAtPendingDate, "dd MMM")}
+            </Typography>
+          </Stack>
+        </Box>
+
+        {/* Status Chips */}
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Tooltip title={bankStatusConfig.description} arrow>
+            <Chip
+              label={bankStatusConfig.label}
+              icon={bankStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: bankStatusConfig.bg,
+                color: bankStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={leadStatusConfig.description} arrow>
+            <Chip
+              label={leadStatusConfig.label}
+              icon={leadStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: leadStatusConfig.bg,
+                color: leadStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+        </Box>
+
+        {/* Expanded Details */}
+        <Collapse in={expanded}>
+          <Box
+            sx={{
+              mt: 2,
+              pt: 2,
+              borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
+          >
+            {/* Additional Info */}
+            <Grid container spacing={2}>
+              {lead.branchName && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Branch
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {lead.branchName}
+                  </Typography>
+                </Grid>
+              )}
+              {lead.loanApprovalDate && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Approval Date
+                  </Typography>
+                  <Typography variant="body2">
+                    {formatDate(lead.loanApprovalDate, "dd MMM yyyy")}
+                  </Typography>
+                </Grid>
+              )}
+              {lead.bankAtPendingNotes && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Notes
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {lead.bankAtPendingNotes}
+                  </Typography>
+                </Grid>
+              )}
+              {lead.reason && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Reason
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {lead.reason}
+                  </Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  Created
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(lead.createdAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(lead.updatedAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+            </Grid>
+
+            {/* Document Indicators */}
+            {(lead.loanDocument?.url || 
+              lead.aadhaar?.url || 
+              lead.panCard?.url || 
+              lead.passbook?.url) && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                  Documents Available:
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {lead.loanDocument?.url && (
+                    <Chip
+                      icon={<Description fontSize="small" />}
+                      label="Loan"
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: "0.7rem" }}
+                    />
+                  )}
+                  {lead.aadhaar?.url && (
+                    <Chip
+                      icon={<BadgeIcon fontSize="small" />}
+                      label="Aadhaar"
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: "0.7rem" }}
+                    />
+                  )}
+                  {lead.panCard?.url && (
+                    <Chip
+                      icon={<CreditCard fontSize="small" />}
+                      label="PAN"
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: "0.7rem" }}
+                    />
+                  )}
+                  {lead.passbook?.url && (
+                    <Chip
+                      icon={<ReceiptLong fontSize="small" />}
+                      label="Passbook"
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: "0.7rem" }}
+                    />
+                  )}
+                </Stack>
+              </Box>
+            )}
+
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="contained"
+                startIcon={<Visibility />}
+                onClick={() => onView(lead)}
+                sx={{
+                  bgcolor: PRIMARY_COLOR,
+                  "&:hover": { bgcolor: SECONDARY_COLOR },
+                }}
+              >
+                View
+              </Button>
+              {permissions.canUpdateStatus && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  startIcon={<TrendingUp />}
+                  onClick={() => onStatusUpdate(lead)}
+                  sx={{
+                    borderColor: PRIMARY_COLOR,
+                    color: PRIMARY_COLOR,
+                    "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.1) },
+                  }}
+                >
+                  Status
+                </Button>
+              )}
+            </Stack>
+          </Box>
+        </Collapse>
+      </Box>
+    </Paper>
+  );
+};
+
+// ========== IMAGE VIEWER MODAL ==========
+const ImageViewerModal = ({ open, onClose, imageUrl, title }) => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handleZoomIn = useCallback(
     () => setZoom((prev) => Math.min(prev + 0.25, 3)),
@@ -364,7 +1278,7 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
     [],
   );
   const handleRotateLeft = useCallback(
-    () => setRotation((prev) => (prev - 90) % 360),
+    () => setRotation((prev) => (prev - 90 + 360) % 360),
     [],
   );
   const handleReset = useCallback(() => {
@@ -399,12 +1313,14 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
       onClose={handleClose}
       maxWidth={fullscreen ? false : "lg"}
       fullWidth
-      fullScreen={fullscreen}
-      PaperProps={fullscreen ? { style: { margin: 0, height: "100vh" } } : {}}
+      fullScreen={fullscreen || isMobile}
+      PaperProps={fullscreen || isMobile ? { style: { margin: 0, height: "100vh" } } : {}}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
     >
       <DialogTitle
         sx={{
-          bgcolor: alpha(PRIMARY, 0.05),
+          bgcolor: alpha(PRIMARY_COLOR, 0.05),
           borderBottom: 1,
           borderColor: "divider",
           display: "flex",
@@ -414,15 +1330,17 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
           py: 1.5,
         }}
       >
-        <Typography variant="h6" fontWeight={600}>
+        <Typography variant="h6" fontWeight={600} noWrap sx={{ maxWidth: '70%' }}>
           {title || "Document Viewer"}
         </Typography>
         <Box display="flex" gap={1}>
-          <Tooltip title={fullscreen ? "Exit Fullscreen" : "Fullscreen"}>
-            <IconButton onClick={() => setFullscreen(!fullscreen)} size="small">
-              {fullscreen ? <FullscreenExit /> : <Fullscreen />}
-            </IconButton>
-          </Tooltip>
+          {!isMobile && (
+            <Tooltip title={fullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+              <IconButton onClick={() => setFullscreen(!fullscreen)} size="small">
+                {fullscreen ? <FullscreenExit /> : <Fullscreen />}
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Download">
             <IconButton onClick={handleDownload} size="small">
               <GetApp />
@@ -441,8 +1359,8 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          bgcolor: fullscreen ? "#000" : "transparent",
-          minHeight: fullscreen ? "calc(100vh - 64px)" : 400,
+          bgcolor: fullscreen || isMobile ? "#000" : "transparent",
+          minHeight: fullscreen || isMobile ? "calc(100vh - 64px)" : 400,
         }}
       >
         {isImage ? (
@@ -451,8 +1369,13 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               position: "relative",
               overflow: "auto",
               maxWidth: "100%",
-              maxHeight: fullscreen ? "100vh" : "70vh",
-              p: fullscreen ? 0 : 2,
+              maxHeight: fullscreen || isMobile ? "100vh" : "70vh",
+              p: fullscreen || isMobile ? 0 : 2,
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <img
@@ -462,9 +1385,10 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
                 transform: `scale(${zoom}) rotate(${rotation}deg)`,
                 transition: "transform 0.3s ease",
                 maxWidth: "100%",
-                maxHeight: fullscreen ? "100vh" : "70vh",
+                maxHeight: fullscreen || isMobile ? "100vh" : "70vh",
                 display: "block",
                 margin: "0 auto",
+                objectFit: 'contain',
               }}
             />
           </Box>
@@ -485,8 +1409,8 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               onClick={handleDownload}
               sx={{
                 mt: 2,
-                bgcolor: PRIMARY,
-                "&:hover": { bgcolor: SECONDARY },
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": { bgcolor: SECONDARY_COLOR },
               }}
             >
               Download Document
@@ -503,6 +1427,7 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
             justifyContent: "center",
             gap: 1,
             py: 1.5,
+            flexWrap: 'wrap',
           }}
         >
           <Tooltip title="Zoom In">
@@ -530,1146 +1455,1298 @@ const ImageViewerModal = React.memo(({ open, onClose, imageUrl, title }) => {
               <Refresh />
             </IconButton>
           </Tooltip>
-          <Typography variant="caption" sx={{ ml: 2, color: "text.secondary" }}>
+          <Typography variant="caption" sx={{ ml: { sm: 2 }, color: "text.secondary" }}>
             {Math.round(zoom * 100)}% • {rotation}°
           </Typography>
         </DialogActions>
       )}
     </Dialog>
   );
-});
+};
 
-ImageViewerModal.displayName = "ImageViewerModal";
+// ========== DOCUMENT CARD COMPONENT ==========
+const DocumentCard = ({
+  title,
+  url,
+  icon,
+  filename,
+  onView,
+  onDownload,
+}) => {
+  const handleView = useCallback(() => {
+    if (onView) onView(url, title);
+  }, [onView, url, title]);
 
-// Document Card Component
-const DocumentCard = React.memo(
-  ({ title, url, icon, filename, onView, onDownload }) => {
-    const handleView = useCallback(() => {
-      if (onView) onView(url, title);
-    }, [onView, url, title]);
+  const handleDownload = useCallback(() => {
+    if (onDownload) onDownload(url, filename);
+  }, [onDownload, url, filename]);
 
-    const handleDownload = useCallback(() => {
-      if (onDownload) onDownload(url, filename);
-    }, [onDownload, url, filename]);
-
-    return (
-      <Card
-        variant="outlined"
-        sx={{
-          p: 2,
-          borderRadius: 2,
-          height: "100%",
-          width: "350px",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-          {icon}
-          <Typography variant="body2" fontWeight={600} noWrap>
-            {title}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
-          <Button
-            fullWidth
-            size="small"
-            variant="outlined"
-            startIcon={<Visibility />}
-            onClick={handleView}
-          >
-            View
-          </Button>
-          <Button
-            fullWidth
-            size="small"
-            variant="contained"
-            startIcon={<GetApp />}
-            onClick={handleDownload}
-            sx={{ bgcolor: PRIMARY, "&:hover": { bgcolor: SECONDARY } }}
-          >
-            Download
-          </Button>
-        </Stack>
-      </Card>
-    );
-  },
-);
-
-DocumentCard.displayName = "DocumentCard";
-
-// Bank Status Update Modal - ONLY FOR Head_office, ZSM, ASM
-const BankStatusUpdateModal = React.memo(
-  ({ open, onClose, lead, onStatusUpdate, showSnackbar, userRole }) => {
-    const { fetchAPI, user } = useAuth();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-    const [loading, setLoading] = useState(false);
-    const [selectedBankStatus, setSelectedBankStatus] = useState("");
-    const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
-    const [reason, setReason] = useState("");
-    const [notes, setNotes] = useState("");
-    const [errors, setErrors] = useState({});
-
-    const bankStatusConfig = useMemo(
-      () => getBankStatusColor(lead?.bankAtPendingStatus),
-      [lead?.bankAtPendingStatus],
-    );
-
-    const leadStatusConfig = useMemo(
-      () => getLeadStatusConfig(lead?.status),
-      [lead?.status],
-    );
-
-    useEffect(() => {
-      if (open && lead) {
-        setSelectedBankStatus(lead.bankAtPendingStatus || "");
-        setSelectedLeadStatus(lead.status || "Bank at Pending");
-        setReason(lead.reason || "");
-        setNotes(lead.bankAtPendingNotes || "");
-        setErrors({});
-      }
-    }, [open, lead]);
-
-    const handleSubmit = useCallback(async () => {
-      if (!selectedBankStatus) {
-        setErrors({ bankStatus: "Please select a bank status" });
-        return;
-      }
-
-      if (!selectedLeadStatus) {
-        setErrors({ leadStatus: "Please select a lead status" });
-        return;
-      }
-
-      if (selectedBankStatus === "rejected" && !reason.trim()) {
-        setErrors({ reason: "Reason is required for rejection" });
-        return;
-      }
-
-      if (
-        selectedBankStatus === lead?.bankAtPendingStatus &&
-        selectedLeadStatus === lead?.status
-      ) {
-        onClose();
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const updateData = {
-          bankAtPendingStatus: selectedBankStatus,
-          status: selectedLeadStatus,
-          reason: selectedBankStatus === "rejected" ? reason : "",
-          bankAtPendingNotes: notes,
-          updatedBy: user?._id,
-          updatedByRole: user?.role,
-          updatedAt: new Date().toISOString(),
-        };
-
-        const response = await fetchAPI(`/lead/updateLead/${lead._id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updateData),
-        });
-
-        if (response.success) {
-          showSnackbar("Bank status updated successfully", "success");
-          onStatusUpdate(response.result);
-          onClose();
-        } else {
-          throw new Error(response.message || "Failed to update status");
-        }
-      } catch (error) {
-        console.error("Error updating bank status:", error);
-        setErrors({ submit: error.message });
-        showSnackbar(error.message || "Failed to update status", "error");
-      } finally {
-        setLoading(false);
-      }
-    }, [
-      selectedBankStatus,
-      selectedLeadStatus,
-      reason,
-      notes,
-      lead,
-      user,
-      fetchAPI,
-      showSnackbar,
-      onStatusUpdate,
-      onClose,
-    ]);
-
-    const handleClose = useCallback(() => {
-      setSelectedBankStatus("");
-      setSelectedLeadStatus("");
-      setReason("");
-      setNotes("");
-      setErrors({});
-      onClose();
-    }, [onClose]);
-
-    const availableBankStatuses = useMemo(
-      () =>
-        BANK_STATUS_OPTIONS.filter(
-          (status) => status !== lead?.bankAtPendingStatus,
-        ),
-      [lead?.bankAtPendingStatus],
-    );
-
-    const getLeadStatusOptions = useMemo(() => {
-      switch (selectedBankStatus) {
-        case "approved":
-          return ["Disbursement"];
-        case "rejected":
-          return ["Missed Leads", "Document Submission"];
-        case "pending":
-          return ["Bank at Pending"];
-        case "disbursed":
-          return ["Disbursement"];
-        default:
-          return LEAD_STATUS_OPTIONS;
-      }
-    }, [selectedBankStatus]);
-
-    if (!lead) return null;
-
-    return (
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3 } }}
-      >
-        <DialogTitle sx={{ bgcolor: alpha(PRIMARY, 0.05), pb: 2 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 2,
-                  bgcolor: alpha(PRIMARY, 0.15),
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: PRIMARY,
-                }}
-              >
-                <AccountBalanceWallet sx={{ fontSize: 28 }} />
-              </Box>
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  Update Bank Status
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {lead?.firstName} {lead?.lastName}
-                </Typography>
-                <Chip
-                  label={getRoleConfig(userRole).label}
-                  icon={getRoleConfig(userRole).icon}
-                  size="small"
-                  sx={{
-                    bgcolor: alpha(PRIMARY, 0.15),
-                    color: PRIMARY,
-                    fontWeight: 600,
-                    mt: 1,
-                  }}
-                />
-              </Box>
-            </Box>
-            <IconButton onClick={handleClose} size="medium">
-              <Close />
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-
-        <DialogContent sx={{ py: 3 }}>
-          <Stack spacing={3}>
-            {errors.submit && (
-              <Alert severity="error" sx={{ borderRadius: 2 }}>
-                {errors.submit}
-              </Alert>
-            )}
-
-            <Box>
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-                gutterBottom
-                sx={{ mt: 2 }}
-              >
-                Current Bank Status
-              </Typography>
-              <Chip
-                label={lead.bankAtPendingStatus}
-                icon={bankStatusConfig.icon}
-                sx={{
-                  bgcolor: bankStatusConfig.bg,
-                  color: bankStatusConfig.color,
-                  fontWeight: 600,
-                  fontSize: "0.875rem",
-                  px: 1,
-                }}
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 1, display: "block" }}
-              >
-                {bankStatusConfig.description}
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                Current Lead Status
-              </Typography>
-              <Chip
-                label={lead.status}
-                icon={leadStatusConfig.icon}
-                sx={{
-                  bgcolor: leadStatusConfig.bg,
-                  color: leadStatusConfig.color,
-                  fontWeight: 600,
-                  fontSize: "0.875rem",
-                  px: 1,
-                }}
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 1, display: "block" }}
-              >
-                {leadStatusConfig.description}
-              </Typography>
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                New Bank Status *
-              </Typography>
-              <FormControl fullWidth size="small" error={!!errors.bankStatus}>
-                <Select
-                  value={selectedBankStatus}
-                  onChange={(e) => {
-                    setSelectedBankStatus(e.target.value);
-                    // Auto-set lead status based on bank status
-                    switch (e.target.value) {
-                      case "approved":
-                        setSelectedLeadStatus("Disbursement");
-                        break;
-                      case "rejected":
-                        setSelectedLeadStatus("Missed Leads");
-                        break;
-                      case "pending":
-                        setSelectedLeadStatus("Bank at Pending");
-                        break;
-                      case "disbursed":
-                        setSelectedLeadStatus("Disbursement");
-                        break;
-                      default:
-                        setSelectedLeadStatus("Bank at Pending");
-                    }
-                  }}
-                  displayEmpty
-                >
-                  <MenuItem value="" disabled>
-                    Select bank status
-                  </MenuItem>
-                  {availableBankStatuses.map((status) => {
-                    const config = getBankStatusColor(status);
-                    return (
-                      <MenuItem key={status} value={status}>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={1.5}
-                        >
-                          {config.icon}
-                          <Box>
-                            <Typography variant="body2">
-                              {config.label}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {config.description}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </MenuItem>
-                    );
-                  })}
-                </Select>
-                {errors.bankStatus && (
-                  <FormHelperText>{errors.bankStatus}</FormHelperText>
-                )}
-              </FormControl>
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                Lead Status *
-              </Typography>
-              <FormControl fullWidth size="small" error={!!errors.leadStatus}>
-                <Select
-                  value={selectedLeadStatus}
-                  onChange={(e) => setSelectedLeadStatus(e.target.value)}
-                  displayEmpty
-                  disabled={!selectedBankStatus}
-                >
-                  <MenuItem value="" disabled>
-                    Select lead status
-                  </MenuItem>
-                  {getLeadStatusOptions.map((status) => {
-                    const config = getLeadStatusConfig(status);
-                    return (
-                      <MenuItem key={status} value={status}>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={1.5}
-                        >
-                          {config.icon}
-                          <Box>
-                            <Typography variant="body2">{status}</Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {config.description}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </MenuItem>
-                    );
-                  })}
-                </Select>
-                {errors.leadStatus && (
-                  <FormHelperText>{errors.leadStatus}</FormHelperText>
-                )}
-              </FormControl>
-            </Box>
-
-            {selectedBankStatus === "rejected" && (
-              <Box>
-                <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                  Reason for Rejection *
-                </Typography>
-                <TextField
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="Enter the reason for rejection..."
-                  size="small"
-                  error={!!errors.reason}
-                  helperText={errors.reason}
-                />
-              </Box>
-            )}
-
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                Status Notes
-              </Typography>
-              <TextField
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                fullWidth
-                multiline
-                rows={3}
-                placeholder="Add notes about this status update..."
-                size="small"
-              />
-            </Box>
-
-            {selectedBankStatus && (
-              <Alert severity="info" sx={{ mt: 1 }}>
-                <Typography variant="body2">
-                  {selectedBankStatus === "approved"
-                    ? "When approved, lead will move to Disbursement stage."
-                    : selectedBankStatus === "rejected"
-                      ? "When rejected, lead will move to Missed Leads or Document Submission stage."
-                      : selectedBankStatus === "pending"
-                        ? "When pending, lead will stay in Bank at Pending stage."
-                        : "When disbursed, lead will stay in Disbursement stage."}
-                </Typography>
-              </Alert>
-            )}
-          </Stack>
-        </DialogContent>
-
-        <DialogActions
-          sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}
-        >
-          <Button onClick={handleClose} variant="outlined" size="large">
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            size="large"
-            disabled={
-              loading ||
-              !selectedBankStatus ||
-              !selectedLeadStatus ||
-              (selectedBankStatus === lead?.bankAtPendingStatus &&
-                selectedLeadStatus === lead?.status)
-            }
-            startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-            sx={{ bgcolor: PRIMARY, px: 4, "&:hover": { bgcolor: SECONDARY } }}
-          >
-            {loading ? "Updating..." : "Update Status"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  },
-);
-
-BankStatusUpdateModal.displayName = "BankStatusUpdateModal";
-
-// View Lead Modal with Tabs
-const ViewLeadModal = React.memo(
-  ({ open, onClose, lead, userRole, showSnackbar, handleViewDocument }) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-    const [activeTab, setActiveTab] = useState(0);
-    const [loadingDetails, setLoadingDetails] = useState(false);
-    const [leadDetails, setLeadDetails] = useState(null);
-
-    const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
-
-    useEffect(() => {
-      if (open && lead?._id && !leadDetails) {
-        fetchLeadDetails();
-      }
-    }, [open, lead?._id]);
-
-    const fetchLeadDetails = async () => {
-      if (!lead?._id) return;
-
-      setLoadingDetails(true);
-      try {
-        setLeadDetails(lead);
-      } catch (error) {
-        console.error("Error fetching lead details:", error);
-        showSnackbar("Failed to load lead details", "error");
-      } finally {
-        setLoadingDetails(false);
-      }
-    };
-
-    const handleTabChange = (event, newValue) => {
-      setActiveTab(newValue);
-    };
-
-    const handleDownload = (url, filename) => {
-      if (!url) {
-        showSnackbar("No document available to download", "error");
-        return;
-      }
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename || "document";
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    };
-
-    if (!lead) return null;
-
-    const displayData = leadDetails || lead;
-
-    const tabs = [
-      {
-        label: "Bank Info",
-        icon: <AccountBalanceWallet />,
-        content: (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ borderRadius: 2, width: "450px" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      marginBottom: "20px",
-                      color: PRIMARY,
-                    }}
-                  >
-                    <AccountBalanceWallet /> Bank Information
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Bank
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600}>
-                        {displayData.bank || "Not specified"}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Branch Name
-                      </Typography>
-                      <Typography variant="body1">
-                        {displayData.branchName || "Not specified"}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Loan Amount
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600}>
-                        {formatCurrency(displayData.loanAmount)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Loan Approval Date
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(displayData.loanApprovalDate)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6} sx={{ width: "450px" }}>
-              <Card sx={{ borderRadius: 2 }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      marginBottom: "20px",
-                      color: PRIMARY,
-                    }}
-                  >
-                    <GppMaybe /> Status Information
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Bank Status
-                      </Typography>
-                      <Chip
-                        label={
-                          getBankStatusColor(displayData.bankAtPendingStatus)
-                            .label
-                        }
-                        icon={
-                          getBankStatusColor(displayData.bankAtPendingStatus)
-                            .icon
-                        }
-                        size="small"
-                        sx={{
-                          bgcolor: getBankStatusColor(
-                            displayData.bankAtPendingStatus,
-                          ).bg,
-                          color: getBankStatusColor(
-                            displayData.bankAtPendingStatus,
-                          ).color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Lead Status
-                      </Typography>
-                      <Chip
-                        label={displayData.status || "Unknown"}
-                        icon={getLeadStatusConfig(displayData.status).icon}
-                        size="small"
-                        sx={{
-                          bgcolor: getLeadStatusConfig(displayData.status).bg,
-                          color: getLeadStatusConfig(displayData.status).color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Bank at Pending Date
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(displayData.bankAtPendingDate)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Last Updated
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(displayData.updatedAt)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        ),
-      },
-      {
-        label: "Customer",
-        icon: <Person />,
-        content: (
-          <Card sx={{ borderRadius: 2, width: "450px" }}>
-            <CardContent>
-              <Typography
-                variant="h6"
-                gutterBottom
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  marginBottom: "20px",
-                  color: PRIMARY,
-                }}
-              >
-                <Person /> Customer Information
-              </Typography>
-              <Stack spacing={2}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Full Name
-                  </Typography>
-                  <Typography variant="body1" fontWeight={600}>
-                    {displayData.firstName} {displayData.lastName}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Email
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.email || "Not set"}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Phone
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.phone || "Not set"}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Address
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.address || "Not set"}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    City
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.city || "Not set"}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Solar Requirement
-                  </Typography>
-                  <Typography variant="body1">
-                    {displayData.solarRequirement || "Not specified"}
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        ),
-      },
-      {
-        label: "Documents",
-        icon: <FolderOpen />,
-        content: (
-          <Box>
-            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-              Bank Documents
-            </Typography>
-            <Grid container spacing={2}>
-              {displayData.loanDocument?.url && (
-                <Grid item xs={12} sm={6} md={4}>
-                  <DocumentCard
-                    title="Loan Document"
-                    url={displayData.loanDocument.url}
-                    icon={<Description sx={{ color: PRIMARY }} />}
-                    filename="loan-document"
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              )}
-              {displayData.aadhaar?.url && (
-                <Grid item xs={12} sm={6} md={4}>
-                  <DocumentCard
-                    title="Aadhaar Card"
-                    url={displayData.aadhaar.url}
-                    icon={<BadgeIcon sx={{ color: PRIMARY }} />}
-                    filename="aadhaar-card"
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              )}
-              {displayData.panCard?.url && (
-                <Grid item xs={12} sm={6} md={4}>
-                  <DocumentCard
-                    title="PAN Card"
-                    url={displayData.panCard.url}
-                    icon={<CreditCard sx={{ color: PRIMARY }} />}
-                    filename="pan-card"
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              )}
-              {displayData.passbook?.url && (
-                <Grid item xs={12} sm={6} md={4}>
-                  <DocumentCard
-                    title="Bank Passbook"
-                    url={displayData.passbook.url}
-                    icon={<ReceiptLong sx={{ color: PRIMARY }} />}
-                    filename="passbook"
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              )}
-              {displayData.otherDocuments?.map((doc, index) => (
-                <Grid item xs={12} sm={6} md={4} key={index}>
-                  <DocumentCard
-                    title={doc.name || `Document ${index + 1}`}
-                    url={doc.url}
-                    icon={<InsertDriveFile sx={{ color: PRIMARY }} />}
-                    filename={doc.name}
-                    onView={handleViewDocument}
-                    onDownload={handleDownload}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-            {!displayData.loanDocument?.url &&
-              !displayData.aadhaar?.url &&
-              !displayData.panCard?.url &&
-              !displayData.passbook?.url &&
-              (!displayData.otherDocuments ||
-                displayData.otherDocuments.length === 0) && (
-                <Box sx={{ textAlign: "center", py: 8 }}>
-                  <FolderOpen
-                    sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
-                  />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    No Documents Uploaded
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    No documents have been uploaded for this loan yet.
-                  </Typography>
-                </Box>
-              )}
-          </Box>
-        ),
-      },
-      {
-        label: "Notes",
-        icon: <Note />,
-        content: (
-          <Card sx={{ borderRadius: 2, width: "450px" }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Bank Pending Notes
-              </Typography>
-              {displayData.bankAtPendingNotes ? (
-                <Paper
-                  sx={{
-                    p: 3,
-                    bgcolor: "grey.50",
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "grey.300",
-                  }}
-                >
-                  <Typography
-                    variant="body1"
-                    style={{ whiteSpace: "pre-wrap" }}
-                  >
-                    {displayData.bankAtPendingNotes}
-                  </Typography>
-                </Paper>
-              ) : (
-                <Box sx={{ textAlign: "center", py: 8 }}>
-                  <Note sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    No Notes Available
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    No notes have been added for this bank pending lead.
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        ),
-      },
-    ];
-
-    return (
-      <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="lg"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3, maxHeight: "90vh" } }}
-      >
-        <DialogTitle
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+        {icon}
+        <Typography variant="body2" fontWeight={600} noWrap>
+          {title}
+        </Typography>
+      </Box>
+      <Stack direction="row" spacing={1} sx={{ mt: "auto" }}>
+        <Button
+          fullWidth
+          size="small"
+          variant="outlined"
+          startIcon={<Visibility />}
+          onClick={handleView}
           sx={{
-            bgcolor: PRIMARY,
-            color: "white",
-            pb: 2,
+            borderColor: PRIMARY_COLOR,
+            color: PRIMARY_COLOR,
+            "&:hover": {
+              borderColor: PRIMARY_COLOR,
+              bgcolor: alpha(PRIMARY_COLOR, 0.05),
+            },
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
+          View
+        </Button>
+        <Button
+          fullWidth
+          size="small"
+          variant="contained"
+          startIcon={<GetApp />}
+          onClick={handleDownload}
+          sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
+        >
+          Download
+        </Button>
+      </Stack>
+    </Card>
+  );
+};
+
+// ========== BANK STATUS UPDATE MODAL ==========
+const BankStatusUpdateModal = ({
+  open,
+  onClose,
+  lead,
+  onStatusUpdate,
+  showSnackbar,
+  userRole,
+}) => {
+  const { fetchAPI, user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const [loading, setLoading] = useState(false);
+  const [selectedBankStatus, setSelectedBankStatus] = useState("");
+  const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [errors, setErrors] = useState({});
+
+  const bankStatusConfig = useMemo(
+    () => getBankStatusConfig(lead?.bankAtPendingStatus),
+    [lead?.bankAtPendingStatus],
+  );
+
+  const leadStatusConfig = useMemo(
+    () => getLeadStatusConfig(lead?.status),
+    [lead?.status],
+  );
+
+  useEffect(() => {
+    if (open && lead) {
+      setSelectedBankStatus(lead.bankAtPendingStatus || "");
+      setSelectedLeadStatus(lead.status || "Bank at Pending");
+      setReason(lead.reason || "");
+      setNotes(lead.bankAtPendingNotes || "");
+      setErrors({});
+    }
+  }, [open, lead]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!selectedBankStatus) {
+      setErrors({ bankStatus: "Please select a bank status" });
+      return;
+    }
+
+    if (!selectedLeadStatus) {
+      setErrors({ leadStatus: "Please select a lead status" });
+      return;
+    }
+
+    if (selectedBankStatus === "rejected" && !reason.trim()) {
+      setErrors({ reason: "Reason is required for rejection" });
+      return;
+    }
+
+    if (
+      selectedBankStatus === lead?.bankAtPendingStatus &&
+      selectedLeadStatus === lead?.status
+    ) {
+      onClose();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updateData = {
+        bankAtPendingStatus: selectedBankStatus,
+        status: selectedLeadStatus,
+        reason: selectedBankStatus === "rejected" ? reason : "",
+        bankAtPendingNotes: notes,
+        updatedBy: user?._id,
+        updatedByRole: user?.role,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const response = await fetchAPI(`/lead/updateLead/${lead._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      if (response.success) {
+        showSnackbar("Bank status updated successfully", "success");
+        onStatusUpdate(response.result);
+        onClose();
+      } else {
+        throw new Error(response.message || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Error updating bank status:", error);
+      setErrors({ submit: error.message });
+      showSnackbar(error.message || "Failed to update status", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    selectedBankStatus,
+    selectedLeadStatus,
+    reason,
+    notes,
+    lead,
+    user,
+    fetchAPI,
+    showSnackbar,
+    onStatusUpdate,
+    onClose,
+  ]);
+
+  const handleClose = useCallback(() => {
+    setSelectedBankStatus("");
+    setSelectedLeadStatus("");
+    setReason("");
+    setNotes("");
+    setErrors({});
+    onClose();
+  }, [onClose]);
+
+  const availableBankStatuses = useMemo(
+    () =>
+      BANK_STATUS_OPTIONS.filter(
+        (status) => status !== lead?.bankAtPendingStatus,
+      ),
+    [lead?.bankAtPendingStatus],
+  );
+
+  const getLeadStatusOptions = useMemo(() => {
+    switch (selectedBankStatus) {
+      case "approved":
+        return ["Disbursement"];
+      case "rejected":
+        return ["Missed Leads"];
+      case "pending":
+        return ["Bank at Pending"];
+      case "disbursed":
+        return ["Disbursement"];
+      default:
+        return LEAD_STATUS_OPTIONS;
+    }
+  }, [selectedBankStatus]);
+
+  if (!lead) return null;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: alpha(PRIMARY_COLOR, 0.05),
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box
+              sx={{
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                borderRadius: 2,
+                bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: PRIMARY_COLOR,
+              }}
+            >
+              <AccountBalanceWallet sx={{ fontSize: { xs: 24, sm: 28 } }} />
+            </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                Update Bank Status
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
+                {lead.firstName} {lead.lastName}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={handleClose} size="small" disabled={loading}>
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <Stack spacing={3}>
+          {errors.submit && (
+            <Alert severity="error" sx={{ borderRadius: 2 }}>
+              {errors.submit}
+            </Alert>
+          )}
+
+          <Box>
+            <Typography
+              variant="subtitle2"
+              fontWeight={600}
+              gutterBottom
+            >
+              Current Bank Status
+            </Typography>
+            <Chip
+              label={lead.bankAtPendingStatus || "Not set"}
+              icon={bankStatusConfig.icon}
+              sx={{
+                bgcolor: bankStatusConfig.bg,
+                color: bankStatusConfig.color,
+                fontWeight: 600,
+                fontSize: "0.875rem",
+                px: 1,
+              }}
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 1, display: "block" }}
+            >
+              {bankStatusConfig.description}
+            </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Current Lead Status
+            </Typography>
+            <Chip
+              label={lead.status || "Unknown"}
+              icon={leadStatusConfig.icon}
+              sx={{
+                bgcolor: leadStatusConfig.bg,
+                color: leadStatusConfig.color,
+                fontWeight: 600,
+                fontSize: "0.875rem",
+                px: 1,
+              }}
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ mt: 1, display: "block" }}
+            >
+              {leadStatusConfig.description}
+            </Typography>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              New Bank Status *
+            </Typography>
+            <FormControl fullWidth size="small" error={!!errors.bankStatus}>
+              <Select
+                value={selectedBankStatus}
+                onChange={(e) => {
+                  setSelectedBankStatus(e.target.value);
+                  switch (e.target.value) {
+                    case "approved":
+                      setSelectedLeadStatus("Disbursement");
+                      break;
+                    case "rejected":
+                      setSelectedLeadStatus("Missed Leads");
+                      break;
+                    case "pending":
+                      setSelectedLeadStatus("Bank at Pending");
+                      break;
+                    case "disbursed":
+                      setSelectedLeadStatus("Disbursement");
+                      break;
+                    default:
+                      setSelectedLeadStatus("Bank at Pending");
+                  }
+                }}
+                displayEmpty
+                disabled={loading}
+              >
+                <MenuItem value="" disabled>
+                  Select bank status
+                </MenuItem>
+                {availableBankStatuses.map((status) => {
+                  const config = getBankStatusConfig(status);
+                  return (
+                    <MenuItem key={status} value={status}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={1.5}
+                      >
+                        {config.icon}
+                        <Box>
+                          <Typography variant="body2">
+                            {config.label}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            {config.description}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+              {errors.bankStatus && (
+                <FormHelperText>{errors.bankStatus}</FormHelperText>
+              )}
+            </FormControl>
+          </Box>
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Lead Status *
+            </Typography>
+            <FormControl fullWidth size="small" error={!!errors.leadStatus}>
+              <Select
+                value={selectedLeadStatus}
+                onChange={(e) => setSelectedLeadStatus(e.target.value)}
+                displayEmpty
+                disabled={!selectedBankStatus || loading}
+              >
+                <MenuItem value="" disabled>
+                  Select lead status
+                </MenuItem>
+                {getLeadStatusOptions.map((status) => {
+                  const config = getLeadStatusConfig(status);
+                  return (
+                    <MenuItem key={status} value={status}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={1.5}
+                      >
+                        {config.icon}
+                        <Box>
+                          <Typography variant="body2">{status}</Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            {config.description}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+              {errors.leadStatus && (
+                <FormHelperText>{errors.leadStatus}</FormHelperText>
+              )}
+            </FormControl>
+          </Box>
+
+          {selectedBankStatus === "rejected" && (
+            <Box>
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                Reason for Rejection *
+              </Typography>
+              <TextField
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                fullWidth
+                multiline
+                rows={isMobile ? 2 : 3}
+                placeholder="Enter the reason for rejection..."
+                size="small"
+                error={!!errors.reason}
+                helperText={errors.reason}
+                disabled={loading}
+              />
+            </Box>
+          )}
+
+          <Box>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Status Notes
+            </Typography>
+            <TextField
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              fullWidth
+              multiline
+              rows={isMobile ? 2 : 3}
+              placeholder="Add notes about this status update..."
+              size="small"
+              disabled={loading}
+            />
+          </Box>
+
+          {selectedBankStatus && (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              <Typography variant="body2">
+                {selectedBankStatus === "approved"
+                  ? "When approved, lead will move to Disbursement stage."
+                  : selectedBankStatus === "rejected"
+                    ? "When rejected, lead will move to Missed Leads stage."
+                    : selectedBankStatus === "pending"
+                      ? "When pending, lead will stay in Bank at Pending stage."
+                      : selectedBankStatus === "disbursed"
+                        ? "When disbursed, lead will stay in Disbursement stage."
+                        : ""}
+              </Typography>
+            </Alert>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
+      >
+        <Button
+          onClick={handleClose}
+          variant="outlined"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={loading}
+          sx={{
+            borderColor: PRIMARY_COLOR,
+            color: PRIMARY_COLOR,
+            "&:hover": {
+              borderColor: PRIMARY_COLOR,
+              bgcolor: alpha(PRIMARY_COLOR, 0.05),
+            },
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={
+            loading ||
+            !selectedBankStatus ||
+            !selectedLeadStatus ||
+            (selectedBankStatus === lead?.bankAtPendingStatus &&
+              selectedLeadStatus === lead?.status)
+          }
+          startIcon={
+            loading ? (
+              <CircularProgress size={20} sx={{ color: "#fff" }} />
+            ) : (
+              <Save />
+            )
+          }
+          sx={{
+            bgcolor: PRIMARY_COLOR,
+            px: 4,
+            "&:hover": { bgcolor: SECONDARY_COLOR },
+            "&.Mui-disabled": {
+              bgcolor: "#ccc",
+            },
+          }}
+        >
+          {loading ? "Updating..." : "Update Status"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ========== VIEW LEAD MODAL ==========
+const ViewLeadModal = ({
+  open,
+  onClose,
+  lead,
+  userRole,
+  showSnackbar,
+  handleViewDocument,
+}) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [activeTab, setActiveTab] = useState(0);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [leadDetails, setLeadDetails] = useState(null);
+
+  const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
+
+  useEffect(() => {
+    if (open && lead?._id) {
+      setLeadDetails(lead);
+    }
+  }, [open, lead]);
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const handleDownload = (url, filename) => {
+    if (!url) {
+      showSnackbar("No document available to download", "error");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename || "document";
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (!lead) return null;
+
+  const displayData = leadDetails || lead;
+
+  const tabs = [
+    {
+      label: "Bank Info",
+      icon: <AccountBalanceWallet />,
+      content: (
+        <Stack spacing={2.5}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+              border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
           >
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: "white", color: PRIMARY }}>
-                {displayData.firstName?.[0] || "B"}
-              </Avatar>
-              <Box>
-                <Typography variant="h6" fontWeight={700}>
-                  {displayData.firstName} {displayData.lastName}
+            <Typography
+              variant="subtitle2"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY_COLOR,
+                fontWeight: 600,
+              }}
+            >
+              <AccountBalanceWallet sx={{ fontSize: 20 }} /> Bank Information
+            </Typography>
+            <Stack spacing={2}>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Bank
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                  Bank Pending Details •{" "}
+                <Typography variant="body2" fontWeight={600}>
+                  {displayData.bank || "Not specified"}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Branch Name
+                </Typography>
+                <Typography variant="body2">
+                  {displayData.branchName || "Not specified"}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Loan Amount
+                </Typography>
+                <Typography variant="body2" fontWeight={600}>
                   {formatCurrency(displayData.loanAmount)}
                 </Typography>
               </Box>
-            </Box>
-            <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
-              <Close />
-            </IconButton>
-          </Stack>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 0 }}>
-          <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Tabs
-              value={activeTab}
-              onChange={handleTabChange}
-              variant="scrollable"
-              scrollButtons="auto"
-              sx={{
-                "& .MuiTab-root": {
-                  minHeight: 64,
-                  py: 1.5,
-                },
-              }}
-            >
-              {tabs.map((tab, index) => (
-                <Tab
-                  key={index}
-                  icon={tab.icon}
-                  label={tab.label}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    fontSize: "0.875rem",
-                  }}
-                />
-              ))}
-            </Tabs>
-          </Box>
-
-          <Box sx={{ p: 3, maxHeight: "60vh", overflow: "auto" }}>
-            {loadingDetails ? (
-              <Box
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                minHeight={200}
-              >
-                <CircularProgress sx={{ color: PRIMARY }} />
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Loan Approval Date
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(displayData.loanApprovalDate)}
+                </Typography>
               </Box>
-            ) : (
-              tabs[activeTab].content
-            )}
-          </Box>
-        </DialogContent>
+            </Stack>
+          </Paper>
 
-        <DialogActions
-          sx={{ p: 3, pt: 0, borderTop: 1, borderColor: "divider" }}
-        >
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            width="100%"
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+              border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
           >
-            <Chip
-              label={userRoleConfig.label}
-              icon={userRoleConfig.icon}
-              size="small"
+            <Typography
+              variant="subtitle2"
               sx={{
-                bgcolor: alpha(PRIMARY, 0.15),
-                color: PRIMARY,
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY_COLOR,
                 fontWeight: 600,
               }}
-            />
-            <Button
-              onClick={onClose}
-              variant="contained"
+            >
+              <GppMaybe sx={{ fontSize: 20 }} /> Status Information
+            </Typography>
+            <Stack spacing={2}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Bank Status
+                </Typography>
+                <Chip
+                  label={getBankStatusConfig(displayData.bankAtPendingStatus).label}
+                  icon={getBankStatusConfig(displayData.bankAtPendingStatus).icon}
+                  size="small"
+                  sx={{
+                    bgcolor: getBankStatusConfig(displayData.bankAtPendingStatus).bg,
+                    color: getBankStatusConfig(displayData.bankAtPendingStatus).color,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Lead Status
+                </Typography>
+                <Chip
+                  label={displayData.status || "Unknown"}
+                  icon={getLeadStatusConfig(displayData.status).icon}
+                  size="small"
+                  sx={{
+                    bgcolor: getLeadStatusConfig(displayData.status).bg,
+                    color: getLeadStatusConfig(displayData.status).color,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Bank at Pending Date
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(displayData.bankAtPendingDate)}
+                </Typography>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(displayData.updatedAt)}
+                </Typography>
+              </Box>
+            </Stack>
+          </Paper>
+        </Stack>
+      ),
+    },
+    {
+      label: "Customer",
+      icon: <Person />,
+      content: (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            bgcolor: alpha(PRIMARY_COLOR, 0.02),
+            border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: 2.5,
+              color: PRIMARY_COLOR,
+              fontWeight: 600,
+            }}
+          >
+            <Person sx={{ fontSize: 20 }} /> Customer Information
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Full Name
+              </Typography>
+              <Typography variant="body2" fontWeight={600}>
+                {displayData.firstName} {displayData.lastName}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Email
+              </Typography>
+              <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
+                {displayData.email || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Phone
+              </Typography>
+              <Typography variant="body2">
+                {displayData.phone || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Address
+              </Typography>
+              <Typography variant="body2">
+                {displayData.address || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                City
+              </Typography>
+              <Typography variant="body2">
+                {displayData.city || "Not set"}
+              </Typography>
+            </Box>
+            <Divider />
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Solar Requirement
+              </Typography>
+              <Typography variant="body2">
+                {displayData.solarRequirement || "Not specified"}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      ),
+    },
+    {
+      label: "Documents",
+      icon: <FolderOpen />,
+      content: (
+        <Box>
+          <Typography variant="h6" gutterBottom sx={{ mb: 3, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+            Bank Documents
+          </Typography>
+          <Grid container spacing={2}>
+            {displayData.loanDocument?.url && (
+              <Grid item xs={12}>
+                <DocumentCard
+                  title="Loan Document"
+                  url={displayData.loanDocument.url}
+                  icon={<Description sx={{ color: PRIMARY_COLOR }} />}
+                  filename="loan-document"
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            )}
+            {displayData.aadhaar?.url && (
+              <Grid item xs={12}>
+                <DocumentCard
+                  title="Aadhaar Card"
+                  url={displayData.aadhaar.url}
+                  icon={<BadgeIcon sx={{ color: PRIMARY_COLOR }} />}
+                  filename="aadhaar-card"
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            )}
+            {displayData.panCard?.url && (
+              <Grid item xs={12}>
+                <DocumentCard
+                  title="PAN Card"
+                  url={displayData.panCard.url}
+                  icon={<CreditCard sx={{ color: PRIMARY_COLOR }} />}
+                  filename="pan-card"
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            )}
+            {displayData.passbook?.url && (
+              <Grid item xs={12}>
+                <DocumentCard
+                  title="Bank Passbook"
+                  url={displayData.passbook.url}
+                  icon={<ReceiptLong sx={{ color: PRIMARY_COLOR }} />}
+                  filename="passbook"
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            )}
+            {displayData.otherDocuments?.map((doc, index) => (
+              <Grid item xs={12} key={index}>
+                <DocumentCard
+                  title={doc.name || `Document ${index + 1}`}
+                  url={doc.url}
+                  icon={<InsertDriveFile sx={{ color: PRIMARY_COLOR }} />}
+                  filename={doc.name}
+                  onView={handleViewDocument}
+                  onDownload={handleDownload}
+                />
+              </Grid>
+            ))}
+          </Grid>
+          {!displayData.loanDocument?.url &&
+            !displayData.aadhaar?.url &&
+            !displayData.panCard?.url &&
+            !displayData.passbook?.url &&
+            (!displayData.otherDocuments || displayData.otherDocuments.length === 0) && (
+              <Box sx={{ textAlign: "center", py: 8 }}>
+                <FolderOpen sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No Documents Uploaded
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  No documents have been uploaded for this loan yet.
+                </Typography>
+              </Box>
+            )}
+        </Box>
+      ),
+    },
+    {
+      label: "Notes",
+      icon: <Note />,
+      content: (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            bgcolor: alpha(PRIMARY_COLOR, 0.02),
+            border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Typography
+            variant="subtitle2"
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: 2.5,
+              color: PRIMARY_COLOR,
+              fontWeight: 600,
+            }}
+          >
+            <Note sx={{ fontSize: 20 }} /> Bank Pending Notes
+          </Typography>
+          {displayData.bankAtPendingNotes ? (
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              {displayData.bankAtPendingNotes}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No notes available
+            </Typography>
+          )}
+        </Paper>
+      ),
+    },
+  ];
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          maxHeight: isMobile ? "100%" : "90vh",
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: PRIMARY_COLOR,
+          color: "white",
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar
               sx={{
-                borderRadius: 2,
-                mt: 2,
-                bgcolor: PRIMARY,
-                "&:hover": { bgcolor: SECONDARY },
+                bgcolor: "white",
+                color: PRIMARY_COLOR,
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                fontWeight: 600,
               }}
             >
-              Close
-            </Button>
+              {getInitials(displayData.firstName, displayData.lastName)}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                {displayData.firstName} {displayData.lastName}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  opacity: 0.9,
+                  fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                }}
+              >
+                Bank Pending Details • {formatCurrency(displayData.loanAmount)}
+              </Typography>
+            </Box>
           </Box>
-        </DialogActions>
-      </Dialog>
-    );
-  },
+          <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent sx={{ p: 0 }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              "& .MuiTab-root": {
+                minHeight: { xs: 48, sm: 56 },
+                py: 1,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              },
+            }}
+          >
+            {tabs.map((tab, index) => (
+              <Tab
+                key={index}
+                icon={React.cloneElement(tab.icon, {
+                  sx: { fontSize: { xs: 18, sm: 20 } },
+                })}
+                label={tab.label}
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              />
+            ))}
+          </Tabs>
+        </Box>
+
+        <Box
+          sx={{
+            p: { xs: 2, sm: 3 },
+            maxHeight: { xs: "calc(100vh - 180px)", sm: "60vh" },
+            overflow: "auto",
+          }}
+        >
+          {loadingDetails ? (
+            <Box
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              minHeight={200}
+            >
+              <CircularProgress sx={{ color: PRIMARY_COLOR }} />
+            </Box>
+          ) : (
+            tabs[activeTab].content
+          )}
+        </Box>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+        }}
+      >
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+        >
+          <Chip
+            label={userRoleConfig.label}
+            icon={userRoleConfig.icon}
+            size="small"
+            sx={{
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+              color: PRIMARY_COLOR,
+              fontWeight: 600,
+              height: { xs: 24, sm: 28 },
+              fontSize: { xs: "0.65rem", sm: "0.75rem" },
+            }}
+          />
+          <Button
+            onClick={onClose}
+            variant="contained"
+            size={isMobile ? "small" : "medium"}
+            sx={{
+              borderRadius: 2,
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
+            }}
+          >
+            Close
+          </Button>
+        </Box>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ========== LOADING SKELETON ==========
+const LoadingSkeleton = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4].map((item) => (
+          <Grid item xs={6} sm={6} md={3} key={item}>
+            <Skeleton
+              variant="rectangular"
+              height={isMobile ? 90 : 120}
+              sx={{ borderRadius: 3 }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      {isMobile && (
+        <Skeleton
+          variant="rectangular"
+          height={56}
+          sx={{ borderRadius: 2, mb: 2 }}
+        />
+      )}
+      <Skeleton
+        variant="rectangular"
+        height={isMobile ? 500 : 400}
+        sx={{ borderRadius: 3, mb: 2 }}
+      />
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+    </Box>
+  );
+};
+
+// ========== EMPTY STATE ==========
+const EmptyState = ({ onClearFilters, hasFilters }) => (
+  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
+    <Box
+      sx={{
+        width: 120,
+        height: 120,
+        borderRadius: "50%",
+        bgcolor: alpha(PRIMARY_COLOR, 0.1),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        mx: "auto",
+        mb: 3,
+      }}
+    >
+      <AccountBalanceWallet sx={{ fontSize: 48, color: PRIMARY_COLOR }} />
+    </Box>
+    <Typography variant="h6" fontWeight={600} gutterBottom>
+      No bank pending leads found
+    </Typography>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+    >
+      {hasFilters
+        ? "No leads match your current filters. Try adjusting your search criteria."
+        : "No leads are currently pending bank approval."}
+    </Typography>
+    {hasFilters && (
+      <Button
+        variant="contained"
+        onClick={onClearFilters}
+        startIcon={<Clear />}
+        sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
+      >
+        Clear All Filters
+      </Button>
+    )}
+  </Box>
 );
 
-ViewLeadModal.displayName = "ViewLeadModal";
-
-// Loading Skeletons
-const LoadingSkeleton = () => (
-  <Box sx={{ p: 3 }}>
-    <Grid container spacing={2} sx={{ mb: 3 }}>
-      {[1, 2, 3, 4].map((item) => (
-        <Grid item xs={6} sm={3} key={item}>
-          <Skeleton
-            variant="rectangular"
-            height={120}
-            sx={{ borderRadius: 2 }}
-          />
-        </Grid>
-      ))}
-    </Grid>
-    <Skeleton
-      variant="rectangular"
-      height={400}
-      sx={{ borderRadius: 2, mb: 2 }}
-    />
-    <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
-  </Box>
+// ========== SUMMARY CARD ==========
+const SummaryCard = ({ card, index }) => (
+  <Fade in={true} timeout={500 + index * 100}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: 3,
+        border: `1px solid ${alpha(card.color, 0.1)}`,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        transition: "transform 0.2s",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+        },
+      }}
+    >
+      <Stack spacing={1}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box
+            sx={{
+              width: { xs: 32, sm: 40, md: 48 },
+              height: { xs: 32, sm: 40, md: 48 },
+              borderRadius: { xs: 1.5, sm: 2 },
+              bgcolor: alpha(card.color, 0.1),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: card.color,
+            }}
+          >
+            {React.cloneElement(card.icon, {
+              sx: { fontSize: { xs: 16, sm: 20, md: 24 } },
+            })}
+          </Box>
+          <Typography
+            variant="h4"
+            fontWeight={700}
+            sx={{
+              color: card.color,
+              fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
+            }}
+          >
+            {card.value}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            fontWeight={600}
+            sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+          >
+            {card.label}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontSize: { xs: "0.6rem", sm: "0.7rem" } }}
+          >
+            {card.subText}
+          </Typography>
+        </Box>
+      </Stack>
+    </Paper>
+  </Fade>
 );
 
 // ========== MAIN COMPONENT ==========
@@ -1683,8 +2760,7 @@ export default function BankAtPendingPage() {
     [userRole],
   );
 
-  const isXSmall = useMediaQuery(theme.breakpoints.down("sm"));
-  const isSmall = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // State Management
   const [period, setPeriod] = useState("Today");
@@ -1716,6 +2792,7 @@ export default function BankAtPendingPage() {
   const [leadStatusFilter, setLeadStatusFilter] = useState("All");
   const [bankFilter, setBankFilter] = useState("All");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState({
     startDate: null,
     endDate: null,
@@ -1725,7 +2802,9 @@ export default function BankAtPendingPage() {
   // Sorting & Pagination
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+  const [rowsPerPage, setRowsPerPage] = useState(
+    isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE,
+  );
 
   // Modal States
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -1735,6 +2814,9 @@ export default function BankAtPendingPage() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
   const [selectedActionLead, setSelectedActionLead] = useState(null);
+
+  // Refs
+  const containerRef = useRef(null);
 
   // Snackbar Handler
   const showSnackbar = useCallback((message, severity = "success") => {
@@ -1754,13 +2836,11 @@ export default function BankAtPendingPage() {
         params.append("startDate", format(today, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Week") {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgo = subWeeks(today, 1);
         params.append("startDate", format(weekAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Month") {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const monthAgo = subMonths(today, 1);
         params.append("startDate", format(monthAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       }
@@ -1768,87 +2848,86 @@ export default function BankAtPendingPage() {
       // Add status filter to only get bank pending leads
       params.append("status", "Bank at Pending");
 
-      // Try the specific endpoint first
-      try {
-        const response = await fetchAPI(
-          `/lead/bankingAtPending?${params.toString()}`,
-        );
+      const response = await fetchAPI(
+        `/lead/bankingAtPending?${params.toString()}`,
+      );
 
-        if (response?.success) {
-          const data = response.result || {};
-          processLeadsData(data.leads || []);
-          return;
+      if (response?.success) {
+        const data = response.result || {};
+        const rawLeads = data.leads || [];
+
+        let filteredLeads = rawLeads;
+        if (userRole === "TEAM" && user?._id) {
+          filteredLeads = rawLeads.filter(
+            (lead) =>
+              lead.assignedTo === user._id ||
+              lead.assignedManager === user._id ||
+              lead.assignedUser === user._id ||
+              lead.assignedUser?._id === user._id ||
+              lead.createdBy === user._id,
+          );
         }
-      } catch (endpointError) {
-        console.log("Specific endpoint failed, trying alternative...");
+
+        const totalLeads = filteredLeads.length;
+        const pendingLeads = filteredLeads.filter(
+          (lead) => lead.bankAtPendingStatus?.toLowerCase() === "pending",
+        ).length;
+        const approvedLeads = filteredLeads.filter(
+          (lead) => lead.bankAtPendingStatus?.toLowerCase() === "approved",
+        ).length;
+        const rejectedLeads = filteredLeads.filter(
+          (lead) => lead.bankAtPendingStatus?.toLowerCase() === "rejected",
+        ).length;
+        const disbursedLeads = filteredLeads.filter(
+          (lead) => lead.bankAtPendingStatus?.toLowerCase() === "disbursed",
+        ).length;
+        const totalLoanAmount = filteredLeads.reduce(
+          (sum, lead) => sum + (parseFloat(lead.loanAmount) || 0),
+          0,
+        );
+        const avgLoanAmount = totalLeads > 0 ? totalLoanAmount / totalLeads : 0;
+
+        setBankPendingData({
+          leads: filteredLeads,
+          summary: {
+            totalLeads,
+            pendingLeads,
+            approvedLeads,
+            rejectedLeads,
+            disbursedLeads,
+            totalLoanAmount,
+            avgLoanAmount,
+          },
+        });
+      } else {
+        throw new Error(response?.message || "Failed to fetch bank pending data");
       }
     } catch (err) {
       console.error("Error fetching bank pending data:", err);
       setError(err.message || "Network error. Please try again.");
       showSnackbar(err.message || "Failed to fetch bank pending data", "error");
+      setBankPendingData({
+        leads: [],
+        summary: {
+          totalLeads: 0,
+          pendingLeads: 0,
+          approvedLeads: 0,
+          rejectedLeads: 0,
+          disbursedLeads: 0,
+          totalLoanAmount: 0,
+          avgLoanAmount: 0,
+        },
+      });
     } finally {
       setLoading(false);
     }
   }, [period, fetchAPI, userRole, user, showSnackbar]);
-
-  // Helper function to process leads data
-  const processLeadsData = useCallback(
-    (rawLeads) => {
-      let filteredLeads = rawLeads;
-
-      // Filter by user role if TEAM
-      if (userRole === "TEAM" && user?._id) {
-        filteredLeads = rawLeads.filter(
-          (lead) =>
-            lead.assignedTo === user._id ||
-            lead.assignedManager === user._id ||
-            lead.assignedUser === user._id ||
-            lead.assignedUser?._id === user._id ||
-            lead.createdBy === user._id,
-        );
-      }
-
-      const totalLeads = filteredLeads.length;
-      const pendingLeads = filteredLeads.filter(
-        (lead) => lead.bankAtPendingStatus?.toLowerCase() === "pending",
-      ).length;
-      const approvedLeads = filteredLeads.filter(
-        (lead) => lead.bankAtPendingStatus?.toLowerCase() === "approved",
-      ).length;
-      const rejectedLeads = filteredLeads.filter(
-        (lead) => lead.bankAtPendingStatus?.toLowerCase() === "rejected",
-      ).length;
-      const disbursedLeads = filteredLeads.filter(
-        (lead) => lead.bankAtPendingStatus?.toLowerCase() === "disbursed",
-      ).length;
-      const totalLoanAmount = filteredLeads.reduce(
-        (sum, lead) => sum + (parseFloat(lead.loanAmount) || 0),
-        0,
-      );
-      const avgLoanAmount = totalLeads > 0 ? totalLoanAmount / totalLeads : 0;
-
-      setBankPendingData({
-        leads: filteredLeads,
-        summary: {
-          totalLeads,
-          pendingLeads,
-          approvedLeads,
-          rejectedLeads,
-          disbursedLeads,
-          totalLoanAmount,
-          avgLoanAmount,
-        },
-      });
-    },
-    [userRole, user],
-  );
 
   // Apply Filters
   const applyFilters = useCallback(() => {
     try {
       let filtered = [...bankPendingData.leads];
 
-      // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(
@@ -1862,24 +2941,20 @@ export default function BankAtPendingPage() {
         );
       }
 
-      // Bank Status filter
       if (bankStatusFilter !== "All") {
         filtered = filtered.filter(
           (lead) => lead.bankAtPendingStatus === bankStatusFilter,
         );
       }
 
-      // Lead Status filter
       if (leadStatusFilter !== "All") {
         filtered = filtered.filter((lead) => lead.status === leadStatusFilter);
       }
 
-      // Bank filter
       if (bankFilter !== "All") {
         filtered = filtered.filter((lead) => lead.bank === bankFilter);
       }
 
-      // Date filter
       if (
         dateFilter.startDate &&
         isValid(dateFilter.startDate) &&
@@ -1906,7 +2981,6 @@ export default function BankAtPendingPage() {
         });
       }
 
-      // Sorting
       if (sortConfig.key) {
         filtered.sort((a, b) => {
           let aVal = a[sortConfig.key];
@@ -1967,6 +3041,68 @@ export default function BankAtPendingPage() {
       setDateFilterError("");
     }
   }, [dateFilter.startDate, dateFilter.endDate]);
+
+  useEffect(() => {
+    setRowsPerPage(isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE);
+  }, [isMobile]);
+
+  // Memoized Computed Values
+  const filteredLeads = useMemo(() => applyFilters(), [applyFilters]);
+
+  const paginatedLeads = useMemo(() => {
+    const start = page * rowsPerPage;
+    return filteredLeads.slice(start, start + rowsPerPage);
+  }, [filteredLeads, page, rowsPerPage]);
+
+  const totalPages = useMemo(
+    () => Math.ceil(filteredLeads.length / rowsPerPage),
+    [filteredLeads.length, rowsPerPage],
+  );
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (bankStatusFilter !== "All") count++;
+    if (leadStatusFilter !== "All") count++;
+    if (bankFilter !== "All") count++;
+    if (dateFilter.startDate) count++;
+    if (dateFilter.endDate) count++;
+    return count;
+  }, [searchQuery, bankStatusFilter, leadStatusFilter, bankFilter, dateFilter]);
+
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: "Total Pending",
+        value: bankPendingData.summary.totalLeads,
+        color: PRIMARY_COLOR,
+        icon: <AccountBalanceWallet />,
+        subText: "All bank pending leads",
+      },
+      {
+        label: "Pending",
+        value: bankPendingData.summary.pendingLeads,
+        color: PRIMARY_COLOR,
+        icon: <PendingActions />,
+        subText: "Awaiting approval",
+      },
+      {
+        label: "Approved",
+        value: bankPendingData.summary.approvedLeads,
+        color: PRIMARY_COLOR,
+        icon: <CheckCircle />,
+        subText: "Bank approved",
+      },
+      {
+        label: "Rejected",
+        value: bankPendingData.summary.rejectedLeads,
+        color: PRIMARY_COLOR,
+        icon: <Cancel />,
+        subText: "Bank rejected",
+      },
+    ],
+    [bankPendingData.summary],
+  );
 
   // Handlers
   const handleSort = useCallback((key) => {
@@ -2083,52 +3219,17 @@ export default function BankAtPendingPage() {
     if (showFilterPanel) setShowFilterPanel(false);
   }, [showFilterPanel]);
 
-  // Memoized Computed Values
-  const filteredLeads = useMemo(() => applyFilters(), [applyFilters]);
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
-  const paginatedLeads = useMemo(() => {
-    const start = page * rowsPerPage;
-    return filteredLeads.slice(start, start + rowsPerPage);
-  }, [filteredLeads, page, rowsPerPage]);
-
-  const totalPages = useMemo(
-    () => Math.ceil(filteredLeads.length / rowsPerPage),
-    [filteredLeads.length, rowsPerPage],
-  );
-
-  const summaryCards = useMemo(
-    () => [
-      {
-        label: "Total Pending",
-        value: bankPendingData.summary.totalLeads,
-        color: PRIMARY,
-        icon: <AccountBalanceWallet />,
-        subText: "All bank pending leads",
-      },
-      {
-        label: "Pending",
-        value: bankPendingData.summary.pendingLeads,
-        color: PRIMARY,
-        icon: <PendingActions />,
-        subText: "Awaiting approval",
-      },
-      {
-        label: "Approved",
-        value: bankPendingData.summary.approvedLeads,
-        color: PRIMARY,
-        icon: <CheckCircle />,
-        subText: "Bank approved",
-      },
-      {
-        label: "Rejected",
-        value: bankPendingData.summary.rejectedLeads,
-        color: PRIMARY,
-        icon: <Cancel />,
-        subText: "Bank rejected",
-      },
-    ],
-    [bankPendingData.summary],
-  );
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   // Access Check
   if (!hasAccess(userRole)) {
@@ -2143,7 +3244,7 @@ export default function BankAtPendingPage() {
           justifyContent: "center",
         }}
       >
-        <Alert severity="error" sx={{ maxWidth: 500 }}>
+        <Alert severity="error" sx={{ maxWidth: 500, borderRadius: 3 }}>
           <AlertTitle>Access Denied</AlertTitle>
           You don't have permission to access this page.
           <Button
@@ -2167,8 +3268,14 @@ export default function BankAtPendingPage() {
       <Box sx={{ p: 3, maxWidth: 600, mx: "auto" }}>
         <Alert
           severity="error"
+          sx={{ borderRadius: 3 }}
           action={
-            <Button color="inherit" size="small" onClick={fetchBankPendingData}>
+            <Button
+              color="inherit"
+              size="small"
+              onClick={fetchBankPendingData}
+              sx={{ color: PRIMARY_COLOR }}
+            >
               Retry
             </Button>
           }
@@ -2208,18 +3315,44 @@ export default function BankAtPendingPage() {
         userRole={userRole}
       />
 
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        open={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+        period={period}
+        setPeriod={setPeriod}
+        bankStatusFilter={bankStatusFilter}
+        setBankStatusFilter={setBankStatusFilter}
+        leadStatusFilter={leadStatusFilter}
+        setLeadStatusFilter={setLeadStatusFilter}
+        bankFilter={bankFilter}
+        setBankFilter={setBankFilter}
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        handleClearFilters={handleClearFilters}
+        dateFilterError={dateFilterError}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortConfig={sortConfig}
+        setSortConfig={setSortConfig}
+        activeFilterCount={activeFilterCount}
+      />
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
       >
         <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", color: "#fff" }}
+          sx={{ width: "100%", borderRadius: 2 , color:"#fff"}}
         >
           {snackbar.message}
         </Alert>
@@ -2242,285 +3375,306 @@ export default function BankAtPendingPage() {
           <ListItemIcon>
             <Visibility fontSize="small" />
           </ListItemIcon>
-          View Details
+          <ListItemText>View Details</ListItemText>
         </MenuItem>
         {userPermissions.canUpdateStatus && (
           <MenuItem onClick={() => handleActionSelect("update_status")}>
             <ListItemIcon>
               <TrendingUp fontSize="small" />
             </ListItemIcon>
-            Update Status
+            <ListItemText>Update Status</ListItemText>
           </MenuItem>
         )}
       </Menu>
 
       {/* Main Content */}
-      <Box sx={{ p: { xs: 2, sm: 3 }, minHeight: "100vh" }}>
-        {/* Header */}
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          sx={{ mb: 4 }}
-          justifyContent="space-between"
-          alignItems={{ xs: "stretch", sm: "center" }}
+      <Box
+        ref={containerRef}
+        sx={{
+          p: { xs: 1.5, sm: 2, md: 3 },
+          minHeight: "100vh",
+          pb: { xs: 8, sm: 3 },
+          bgcolor: "#f8fafc",
+        }}
+      >
+        {/* Header with Gradient Background */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            mb: 3,
+            borderRadius: 3,
+            background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${SECONDARY_COLOR} 100%)`,
+            color: "#fff",
+          }}
         >
-          <Box>
-            <Typography variant="h5" fontWeight={700} gutterBottom>
-              Bank at Pending Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Track and manage all bank approval pending leads and their status
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={fetchBankPendingData}
-              disabled={loading}
-            >
-              Refresh
-            </Button>
-            <Chip
-              label={getRoleConfig(userRole).label}
-              icon={getRoleConfig(userRole).icon}
-              size="medium"
-              sx={{
-                bgcolor: alpha(PRIMARY, 0.15),
-                color: PRIMARY,
-                fontWeight: 600,
-              }}
-            />
-          </Box>
-        </Stack>
-
-        {/* Summary Cards */}
-        <Grid container spacing={2} sx={{ mb: 4 }}>
-          {summaryCards.map((card, index) => (
-            <Grid item xs={6} sm={6} md={3} key={index}>
-              <Card
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+          >
+            <Box>
+              <Typography
+                variant={isMobile ? "h6" : "h5"}
+                fontWeight={700}
+                gutterBottom
+              >
+                Bank at Pending Management
+              </Typography>
+              <Typography
+                variant="body2"
                 sx={{
-                  borderRadius: 3,
-                  overflow: "visible",
-                  position: "relative",
-                  border: `1px solid ${alpha(card.color, 0.1)}`,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                  opacity: 0.9,
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
                 }}
               >
-                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                  <Stack spacing={1}>
-                    <Box
+                Track and manage all bank approval pending leads
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", gap: 1 }}>
+              {isMobile && (
+                <Button
+                  variant="contained"
+                  startIcon={<FilterAlt />}
+                  onClick={() => setMobileFilterOpen(true)}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                    position: "relative",
+                  }}
+                >
+                  Filter
+                  {activeFilterCount > 0 && (
+                    <Badge
+                      badgeContent={activeFilterCount}
+                      color="error"
                       sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        position: "absolute",
+                        top: -8,
+                        right: -8,
+                        "& .MuiBadge-badge": {
+                          fontSize: "0.6rem",
+                          minWidth: 16,
+                          height: 16,
+                        },
                       }}
-                    >
-                      <Box
-                        sx={{
-                          width: { xs: 40, sm: 48 },
-                          height: { xs: 40, sm: 48 },
-                          borderRadius: 2,
-                          bgcolor: alpha(card.color, 0.1),
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: card.color,
-                        }}
-                      >
-                        {React.cloneElement(card.icon, {
-                          sx: { fontSize: { xs: 20, sm: 24 } },
-                        })}
-                      </Box>
-                      <Typography
-                        variant="h4"
-                        fontWeight={700}
-                        sx={{
-                          color: card.color,
-                          fontSize: { xs: "1.5rem", sm: "2rem" },
-                        }}
-                      >
-                        {card.value}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        {card.label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {card.subText}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
+                    />
+                  )}
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                startIcon={<Refresh />}
+                onClick={fetchBankPendingData}
+                disabled={loading}
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                }}
+              >
+                Refresh
+              </Button>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Summary Cards */}
+        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+          {summaryCards.map((card, index) => (
+            <Grid item xs={6} sm={6} md={3} key={card.label}>
+              <SummaryCard card={card} index={index} />
             </Grid>
           ))}
         </Grid>
 
-        {/* Filters Card */}
-        <Card sx={{ borderRadius: 3, mb: 4, overflow: "visible" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Stack spacing={3}>
-              {/* Top Filters Row */}
+        {/* Mobile Search Bar */}
+        {isMobile && (
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by name, email, phone, bank..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery("")}>
+                      <Close />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+        )}
+
+        {/* Desktop Search and Filters */}
+        {!isMobile && (
+          <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+            <Stack spacing={2.5}>
               <Stack
                 direction={{ xs: "column", md: "row" }}
                 spacing={2}
-                justifyContent="space-between"
                 alignItems={{ xs: "stretch", md: "center" }}
               >
-                <Box sx={{ width: { xs: "100%", md: 300 } }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search by name, email, phone, bank..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery && (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            <Close />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search by name, email, phone, bank..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ color: "text.secondary" }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <Close />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ maxWidth: 400 }}
+                />
 
-                <Stack direction="row" spacing={2} flexWrap="wrap">
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Period</InputLabel>
-                    <Select
-                      value={period}
-                      label="Period"
-                      onChange={(e) => setPeriod(e.target.value)}
-                    >
-                      <MenuItem value="Today">Today</MenuItem>
-                      <MenuItem value="This Week">This Week</MenuItem>
-                      <MenuItem value="This Month">This Month</MenuItem>
-                      <MenuItem value="All">All Time</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Bank Status</InputLabel>
-                    <Select
-                      value={bankStatusFilter}
-                      label="Bank Status"
-                      onChange={(e) => setBankStatusFilter(e.target.value)}
-                    >
-                      <MenuItem value="All">All Status</MenuItem>
-                      {BANK_STATUS_OPTIONS.map((status) => {
-                        const config = getBankStatusColor(status);
-                        return (
-                          <MenuItem key={status} value={status}>
-                            <Stack
-                              direction="row"
-                              alignItems="center"
-                              spacing={1.5}
-                            >
-                              {config.icon}
-                              <Typography variant="body2">
-                                {config.label}
-                              </Typography>
-                            </Stack>
-                          </MenuItem>
-                        );
-                      })}
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<Tune />}
-                    onClick={() => setShowFilterPanel(!showFilterPanel)}
-                    size="small"
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Period</InputLabel>
+                  <Select
+                    value={period}
+                    label="Period"
+                    onChange={(e) => setPeriod(e.target.value)}
                   >
-                    {showFilterPanel ? "Hide Filters" : "More Filters"}
-                  </Button>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {option.icon}
+                          <span>{option.label}</span>
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    startIcon={<Clear />}
-                    onClick={handleClearFilters}
-                    size="small"
-                    disabled={
-                      !searchQuery &&
-                      bankStatusFilter === "All" &&
-                      leadStatusFilter === "All" &&
-                      bankFilter === "All" &&
-                      !dateFilter.startDate &&
-                      !dateFilter.endDate
-                    }
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Bank Status</InputLabel>
+                  <Select
+                    value={bankStatusFilter}
+                    label="Bank Status"
+                    onChange={(e) => setBankStatusFilter(e.target.value)}
                   >
-                    Clear
-                  </Button>
-                </Stack>
-              </Stack>
+                    <MenuItem value="All">All Status</MenuItem>
+                    {BANK_STATUS_OPTIONS.map((status) => {
+                      const config = getBankStatusConfig(status);
+                      return (
+                        <MenuItem key={status} value={status}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            {config.icon}
+                            <span>{config.label}</span>
+                          </Stack>
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
 
-              {/* Expanded Filter Panel */}
-              {showFilterPanel && (
-                <Box
+                <Button
+                  variant="outlined"
+                  startIcon={<Tune />}
+                  onClick={() => setShowFilterPanel(!showFilterPanel)}
                   sx={{
-                    p: 3,
-                    bgcolor: "grey.50",
-                    borderRadius: 2,
-                    border: "1px solid",
-                    borderColor: "divider",
+                    borderColor: PRIMARY_COLOR,
+                    color: PRIMARY_COLOR,
+                    "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.05) },
                   }}
                 >
-                  <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Advanced Filters
-                  </Typography>
+                  {showFilterPanel ? "Hide Filters" : "More Filters"}
+                </Button>
+
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="text"
+                    startIcon={<Clear />}
+                    onClick={handleClearFilters}
+                    sx={{ color: "error.main" }}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </Stack>
+
+              <Collapse in={showFilterPanel}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 3,
+                    borderRadius: 2,
+                    borderColor: alpha(PRIMARY_COLOR, 0.2),
+                    bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  }}
+                >
                   <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Lead Status
+                      </Typography>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Lead Status</InputLabel>
                         <Select
                           value={leadStatusFilter}
-                          label="Lead Status"
                           onChange={(e) => setLeadStatusFilter(e.target.value)}
+                          displayEmpty
                         >
-                          <MenuItem value="All">All Status</MenuItem>
-                          {LEAD_STATUS_OPTIONS.map((status) => {
-                            const config = getLeadStatusConfig(status);
-                            return (
-                              <MenuItem key={status} value={status}>
-                                <Stack
-                                  direction="row"
-                                  alignItems="center"
-                                  spacing={1.5}
-                                >
-                                  {config.icon}
-                                  <Typography variant="body2">
-                                    {status}
-                                  </Typography>
-                                </Stack>
-                              </MenuItem>
-                            );
-                          })}
+                          <MenuItem value="All">All Statuses</MenuItem>
+                          {LEAD_STATUS_OPTIONS.map((status) => (
+                            <MenuItem key={status} value={status}>
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                              >
+                                {getLeadStatusConfig(status).icon}
+                                <span>{status}</span>
+                              </Stack>
+                            </MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Bank
+                      </Typography>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Bank</InputLabel>
                         <Select
                           value={bankFilter}
-                          label="Bank"
                           onChange={(e) => setBankFilter(e.target.value)}
+                          displayEmpty
                         >
                           <MenuItem value="All">All Banks</MenuItem>
                           {BANK_LIST.map((bank) => (
@@ -2532,14 +3686,20 @@ export default function BankAtPendingPage() {
                       </FormControl>
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Start Date
+                      </Typography>
                       <DatePicker
-                        label="From Date"
                         value={dateFilter.startDate}
-                        onChange={(date) =>
+                        onChange={(newValue) =>
                           setDateFilter((prev) => ({
                             ...prev,
-                            startDate: date,
+                            startDate: newValue,
                           }))
                         }
                         slotProps={{
@@ -2547,337 +3707,474 @@ export default function BankAtPendingPage() {
                             fullWidth: true,
                             size: "small",
                             error: !!dateFilterError,
-                            helperText: dateFilterError || " ",
                           },
                         }}
                       />
                     </Grid>
 
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        End Date
+                      </Typography>
                       <DatePicker
-                        label="To Date"
                         value={dateFilter.endDate}
-                        onChange={(date) =>
-                          setDateFilter((prev) => ({ ...prev, endDate: date }))
+                        onChange={(newValue) =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            endDate: newValue,
+                          }))
                         }
                         slotProps={{
                           textField: {
                             fullWidth: true,
                             size: "small",
                             error: !!dateFilterError,
-                            helperText: dateFilterError || " ",
                           },
                         }}
                       />
                     </Grid>
                   </Grid>
+
+                  {dateFilterError && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      {dateFilterError}
+                    </Alert>
+                  )}
+                </Paper>
+              </Collapse>
+
+              {activeFilterCount > 0 && (
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mb: 1, display: "block" }}
+                  >
+                    Active Filters:
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {searchQuery && (
+                      <Chip
+                        label={`Search: ${searchQuery}`}
+                        size="small"
+                        onDelete={() => setSearchQuery("")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {bankStatusFilter !== "All" && (
+                      <Chip
+                        label={`Bank Status: ${getBankStatusConfig(bankStatusFilter).label}`}
+                        size="small"
+                        onDelete={() => setBankStatusFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {leadStatusFilter !== "All" && (
+                      <Chip
+                        label={`Lead Status: ${leadStatusFilter}`}
+                        size="small"
+                        onDelete={() => setLeadStatusFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {bankFilter !== "All" && (
+                      <Chip
+                        label={`Bank: ${bankFilter}`}
+                        size="small"
+                        onDelete={() => setBankFilter("All")}
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {dateFilter.startDate && (
+                      <Chip
+                        label={`From: ${format(dateFilter.startDate, "dd MMM yyyy")}`}
+                        size="small"
+                        onDelete={() =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            startDate: null,
+                          }))
+                        }
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                    {dateFilter.endDate && (
+                      <Chip
+                        label={`To: ${format(dateFilter.endDate, "dd MMM yyyy")}`}
+                        size="small"
+                        onDelete={() =>
+                          setDateFilter((prev) => ({
+                            ...prev,
+                            endDate: null,
+                          }))
+                        }
+                        sx={{
+                          bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                          color: PRIMARY_COLOR,
+                        }}
+                      />
+                    )}
+                  </Stack>
                 </Box>
               )}
             </Stack>
-          </CardContent>
-        </Card>
+          </Paper>
+        )}
 
-        {/* Data Table */}
-        <Card sx={{ borderRadius: 3, overflow: "hidden" }}>
-          <Box sx={{ overflowX: "auto" }}>
-            <TableContainer>
-              <Table>
+        {/* Main Content */}
+        <Paper elevation={0} sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <Box
+            sx={{
+              p: { xs: 2, sm: 3 },
+              borderBottom: 1,
+              borderColor: "divider",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 2,
+              bgcolor: "#fff",
+            }}
+          >
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+            >
+              Bank Pending Leads
+              <Chip
+                label={`${filteredLeads.length} total`}
+                size="small"
+                sx={{
+                  ml: 1,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                  color: PRIMARY_COLOR,
+                }}
+              />
+            </Typography>
+
+            {!isMobile && (
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Typography variant="body2" color="text.secondary">
+                  Rows per page:
+                </Typography>
+                <Select
+                  size="small"
+                  value={rowsPerPage}
+                  onChange={handleChangeRowsPerPage}
+                  sx={{ minWidth: 80 }}
+                >
+                  {ITEMS_PER_PAGE_OPTIONS.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </Stack>
+            )}
+          </Box>
+
+          {!isMobile ? (
+            <TableContainer
+              sx={{ maxHeight: "70vh", overflow: "auto", position: "relative" }}
+            >
+              {loading && bankPendingData.leads.length > 0 && (
+                <LinearProgress
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    "& .MuiLinearProgress-bar": {
+                      bgcolor: PRIMARY_COLOR,
+                    },
+                  }}
+                />
+              )}
+
+              <Table stickyHeader size="medium">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: alpha(PRIMARY, 0.05) }}>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Customer
-                      </Typography>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Customer
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
                       <Button
-                        fullWidth
                         size="small"
                         onClick={() => handleSort("bank")}
-                        startIcon={
+                        endIcon={
                           sortConfig.key === "bank" ? (
                             sortConfig.direction === "asc" ? (
-                              <ArrowUpward />
+                              <ArrowUpward fontSize="small" />
                             ) : (
-                              <ArrowDownward />
+                              <ArrowDownward fontSize="small" />
                             )
                           ) : null
                         }
                         sx={{
                           justifyContent: "flex-start",
                           fontWeight: 600,
-                          textTransform: "none",
-                          color: "text.primary",
+                          color: "inherit",
+                          "&:hover": {
+                            bgcolor: "transparent",
+                          },
                         }}
                       >
                         Bank
                       </Button>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
                       <Button
-                        fullWidth
                         size="small"
                         onClick={() => handleSort("loanAmount")}
-                        startIcon={
+                        endIcon={
                           sortConfig.key === "loanAmount" ? (
                             sortConfig.direction === "asc" ? (
-                              <ArrowUpward />
+                              <ArrowUpward fontSize="small" />
                             ) : (
-                              <ArrowDownward />
+                              <ArrowDownward fontSize="small" />
                             )
                           ) : null
                         }
                         sx={{
                           justifyContent: "flex-start",
                           fontWeight: 600,
-                          textTransform: "none",
-                          color: "text.primary",
+                          color: "inherit",
+                          "&:hover": {
+                            bgcolor: "transparent",
+                          },
                         }}
                       >
                         Loan Amount
                       </Button>
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Bank Status
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Bank Status
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Lead Status
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Lead Status
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
                       <Button
-                        fullWidth
                         size="small"
                         onClick={() => handleSort("bankAtPendingDate")}
-                        startIcon={
+                        endIcon={
                           sortConfig.key === "bankAtPendingDate" ? (
                             sortConfig.direction === "asc" ? (
-                              <ArrowUpward />
+                              <ArrowUpward fontSize="small" />
                             ) : (
-                              <ArrowDownward />
+                              <ArrowDownward fontSize="small" />
                             )
                           ) : null
                         }
                         sx={{
                           justifyContent: "flex-start",
                           fontWeight: 600,
-                          textTransform: "none",
-                          color: "text.primary",
+                          color: "inherit",
+                          "&:hover": {
+                            bgcolor: "transparent",
+                          },
                         }}
                       >
                         Pending Date
                       </Button>
                     </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Actions
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
 
                 <TableBody>
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, index) => (
-                      <TableRow key={index}>
-                        {Array.from({ length: 7 }).map((_, cellIndex) => (
-                          <TableCell key={cellIndex}>
-                            <Skeleton variant="text" height={40} />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
-                  ) : paginatedLeads.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                        <Box sx={{ textAlign: "center" }}>
-                          <AccountBalanceWallet
-                            sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
-                          />
-                          <Typography
-                            variant="h6"
-                            color="text.secondary"
-                            gutterBottom
-                          >
-                            No Bank Pending Leads Found
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {filteredLeads.length === 0
-                              ? "No bank pending leads in the system"
-                              : "No leads match the current filters"}
-                          </Typography>
-                          {filteredLeads.length === 0 &&
-                            userPermissions.canManage && (
-                              <Button
-                                variant="contained"
-                                sx={{
-                                  mt: 2,
-                                  bgcolor: PRIMARY,
-                                  "&:hover": { bgcolor: SECONDARY },
-                                }}
-                                onClick={() => navigate("/leads/create")}
-                              >
-                                Create New Lead
-                              </Button>
-                            )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
+                  {paginatedLeads.length > 0 ? (
                     paginatedLeads.map((lead) => {
-                      const bankStatusConfig = getBankStatusColor(
+                      const bankStatusConfig = getBankStatusConfig(
                         lead.bankAtPendingStatus,
                       );
-                      const leadStatusConfig = getLeadStatusConfig(lead.status);
+                      const leadStatusConfig = getLeadStatusConfig(
+                        lead.status,
+                      );
 
                       return (
                         <TableRow
                           key={lead._id}
                           hover
                           sx={{
-                            "&:hover": { bgcolor: alpha(PRIMARY, 0.02) },
-                            cursor: "pointer",
+                            "&:hover": {
+                              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                            },
                           }}
                         >
                           <TableCell>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 2,
-                              }}
-                            >
+                            <Stack direction="row" alignItems="center" spacing={1}>
                               <Avatar
                                 sx={{
-                                  bgcolor: alpha(PRIMARY, 0.1),
-                                  color: PRIMARY,
-                                  fontWeight: 600,
+                                  width: 32,
+                                  height: 32,
+                                  bgcolor: PRIMARY_COLOR,
+                                  fontSize: '0.875rem',
                                 }}
                               >
-                                {lead.firstName?.[0] || "C"}
+                                {getInitials(lead.firstName, lead.lastName)}
                               </Avatar>
                               <Box>
-                                <Typography variant="body1" fontWeight={600}>
+                                <Typography variant="body2" fontWeight={500}>
                                   {lead.firstName} {lead.lastName}
                                 </Typography>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  {lead.phone || "No phone"}
+                                <Typography variant="caption" color="text.secondary">
+                                  {lead.phone || 'No phone'}
                                 </Typography>
                               </Box>
-                            </Box>
+                            </Stack>
                           </TableCell>
-
                           <TableCell>
                             <Box>
-                              <Typography variant="body2" fontWeight={600}>
+                              <Typography variant="body2">
                                 {lead.bank || "Not specified"}
                               </Typography>
                               {lead.branchName && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
+                                <Typography variant="caption" color="text.secondary">
                                   {lead.branchName}
                                 </Typography>
                               )}
                             </Box>
                           </TableCell>
-
                           <TableCell>
-                            <Typography variant="body1" fontWeight={600}>
+                            <Typography variant="body2" fontWeight={600}>
                               {formatCurrency(lead.loanAmount)}
                             </Typography>
-                            {lead.loanApprovalDate && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {formatDate(
-                                  lead.loanApprovalDate,
-                                  "dd MMM yyyy",
-                                )}
-                              </Typography>
-                            )}
                           </TableCell>
-
                           <TableCell>
-                            <Chip
-                              label={lead.bankAtPendingStatus}
-                              icon={bankStatusConfig.icon}
-                              size="small"
-                              sx={{
-                                bgcolor: bankStatusConfig.bg,
-                                color: bankStatusConfig.color,
-                                fontWeight: 600,
-                                minWidth: 100,
-                              }}
-                            />
+                            <Tooltip title={bankStatusConfig.description} arrow>
+                              <Chip
+                                label={bankStatusConfig.label}
+                                icon={bankStatusConfig.icon}
+                                size="small"
+                                sx={{
+                                  bgcolor: bankStatusConfig.bg,
+                                  color: bankStatusConfig.color,
+                                  fontWeight: 600,
+                                  minWidth: 80,
+                                }}
+                              />
+                            </Tooltip>
                           </TableCell>
-
                           <TableCell>
-                            <Chip
-                              label={lead.status || "Unknown"}
-                              icon={leadStatusConfig.icon}
-                              size="small"
-                              sx={{
-                                bgcolor: leadStatusConfig.bg,
-                                color: leadStatusConfig.color,
-                                fontWeight: 600,
-                              }}
-                            />
+                            <Tooltip title={leadStatusConfig.description} arrow>
+                              <Chip
+                                label={lead.status || "Unknown"}
+                                icon={leadStatusConfig.icon}
+                                size="small"
+                                sx={{
+                                  bgcolor: leadStatusConfig.bg,
+                                  color: leadStatusConfig.color,
+                                  fontWeight: 600,
+                                  minWidth: 80,
+                                }}
+                              />
+                            </Tooltip>
                           </TableCell>
-
                           <TableCell>
                             <Box>
                               <Typography variant="body2">
-                                {formatDate(
-                                  lead.bankAtPendingDate,
-                                  "dd MMM yyyy",
-                                )}
+                                {formatDate(lead.bankAtPendingDate, "dd MMM yyyy")}
                               </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
+                              <Typography variant="caption" color="text.secondary">
                                 {formatDate(lead.bankAtPendingDate, "hh:mm a")}
                               </Typography>
                             </Box>
                           </TableCell>
-
-                          <TableCell align="center">
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              justifyContent="center"
-                            >
-                              <Tooltip title="View Details">
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              <Tooltip title="View Details" arrow>
                                 <IconButton
                                   size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleViewClick(lead);
+                                  onClick={() => handleViewClick(lead)}
+                                  sx={{
+                                    bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                                    color: PRIMARY_COLOR,
+                                    "&:hover": {
+                                      bgcolor: alpha(PRIMARY_COLOR, 0.2),
+                                    },
                                   }}
-                                  sx={{ color: PRIMARY }}
                                 >
                                   <Visibility fontSize="small" />
                                 </IconButton>
                               </Tooltip>
 
                               {userPermissions.canUpdateStatus && (
-                                <Tooltip title="Update Bank Status">
+                                <Tooltip title="Update Bank Status" arrow>
                                   <IconButton
                                     size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusUpdateClick(lead);
+                                    onClick={() => handleStatusUpdateClick(lead)}
+                                    sx={{
+                                      bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                                      color: PRIMARY_COLOR,
+                                      "&:hover": {
+                                        bgcolor: alpha(PRIMARY_COLOR, 0.2),
+                                      },
                                     }}
-                                    sx={{ color: PRIMARY }}
                                   >
                                     <TrendingUp fontSize="small" />
                                   </IconButton>
@@ -2888,88 +4185,187 @@ export default function BankAtPendingPage() {
                         </TableRow>
                       );
                     })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <EmptyState
+                          onClearFilters={handleClearFilters}
+                          hasFilters={activeFilterCount > 0}
+                        />
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
             </TableContainer>
-          </Box>
+          ) : (
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+              {loading && bankPendingData.leads.length > 0 && (
+                <LinearProgress
+                  sx={{
+                    mb: 2,
+                    borderRadius: 2,
+                    "& .MuiLinearProgress-bar": {
+                      bgcolor: PRIMARY_COLOR,
+                    },
+                  }}
+                />
+              )}
+              {paginatedLeads.length > 0 ? (
+                paginatedLeads.map((lead) => (
+                  <MobileBankCard
+                    key={lead._id}
+                    lead={lead}
+                    onView={handleViewClick}
+                    onStatusUpdate={handleStatusUpdateClick}
+                    permissions={userPermissions}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  onClearFilters={handleClearFilters}
+                  hasFilters={activeFilterCount > 0}
+                />
+              )}
+            </Box>
+          )}
 
-          {/* Pagination */}
-          {paginatedLeads.length > 0 && (
+          {filteredLeads.length > 0 && (
             <Box
               sx={{
-                p: 2,
+                p: { xs: 2, sm: 3 },
                 borderTop: 1,
                 borderColor: "divider",
                 display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
                 justifyContent: "space-between",
                 alignItems: "center",
-                flexWrap: "wrap",
                 gap: 2,
+                bgcolor: "#fff",
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Showing {page * rowsPerPage + 1} to{" "}
-                  {Math.min((page + 1) * rowsPerPage, filteredLeads.length)} of{" "}
-                  {filteredLeads.length} leads
-                </Typography>
-                <FormControl size="small" sx={{ minWidth: 100 }}>
-                  <Select
-                    value={rowsPerPage}
-                    onChange={(e) => {
-                      setRowsPerPage(parseInt(e.target.value, 10));
-                      setPage(0);
-                    }}
-                  >
-                    {ITEMS_PER_PAGE_OPTIONS.map((option) => (
-                      <MenuItem key={option} value={option}>
-                        {option} per page
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-
+              <Typography variant="body2">
+                Showing {page * rowsPerPage + 1} to{" "}
+                {Math.min((page + 1) * rowsPerPage, filteredLeads.length)} of{" "}
+                {filteredLeads.length}
+              </Typography>
               <Pagination
                 count={totalPages}
                 page={page + 1}
-                onChange={(e, newPage) => setPage(newPage - 1)}
+                onChange={handleChangePage}
                 color="primary"
-                showFirstButton
-                showLastButton
-                siblingCount={1}
-                boundaryCount={1}
+                size={isMobile ? "small" : "medium"}
                 sx={{
                   "& .MuiPaginationItem-root": {
                     borderRadius: 2,
+                    "&.Mui-selected": {
+                      bgcolor: PRIMARY_COLOR,
+                      color: "#fff",
+                    },
                   },
                 }}
               />
             </Box>
           )}
-        </Card>
+        </Paper>
 
-        {/* Loading Overlay */}
-        {loading && (
-          <Box
+        {/* Footer */}
+        <Box
+          sx={{
+            mt: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Last updated: {format(new Date(), "dd MMM yyyy, hh:mm a")}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {bankPendingData.summary.totalLeads} total leads • Total Loan: {formatCurrency(bankPendingData.summary.totalLoanAmount)}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Mobile FAB */}
+      {isMobile && (
+        <Zoom in={true}>
+          <Fab
+            color="primary"
+            aria-label="filter"
+            onClick={() => setMobileFilterOpen(true)}
             sx={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              bgcolor: "rgba(255, 255, 255, 0.7)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10,
+              position: "fixed",
+              bottom: 80,
+              right: 16,
+              zIndex: 1000,
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
+              boxShadow: `0 4px 12px ${alpha(PRIMARY_COLOR, 0.3)}`,
             }}
           >
-            <CircularProgress sx={{ color: PRIMARY }} />
-          </Box>
-        )}
-      </Box>
+            <Badge
+              badgeContent={activeFilterCount}
+              color="error"
+              max={9}
+              sx={{
+                "& .MuiBadge-badge": {
+                  fontSize: "0.6rem",
+                  minWidth: 16,
+                  height: 16,
+                },
+              }}
+            >
+              <FilterAlt />
+            </Badge>
+          </Fab>
+        </Zoom>
+      )}
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            sx={{
+              height: 64,
+              "& .MuiBottomNavigationAction-root": {
+                color: "text.secondary",
+                "&.Mui-selected": { color: PRIMARY_COLOR },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate("/dashboard")}
+            />
+            <BottomNavigationAction
+              label="Bank Pending"
+              icon={<AccountBalanceWallet />}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
+            <BottomNavigationAction
+              label="Profile"
+              icon={<Person />}
+              onClick={() => navigate("/profile")}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </LocalizationProvider>
   );
 }

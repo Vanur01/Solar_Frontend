@@ -1,3 +1,4 @@
+// pages/InputLeadsPage.jsx (Updated with Mobile View)
 import React, {
   useState,
   useRef,
@@ -25,6 +26,18 @@ import {
   AlertTitle,
   Avatar,
   alpha,
+  Paper,
+  InputLabel,
+  Badge,
+  Fade,
+  Zoom,
+  Fab,
+  BottomNavigation,
+  BottomNavigationAction,
+  Tooltip,
+  Divider,
+  Skeleton,
+  Chip,
 } from "@mui/material";
 import {
   Add,
@@ -38,19 +51,206 @@ import {
   TrendingUp,
   Warning,
   Refresh,
+  Dashboard,
+  Person,
+  Schedule,
+  DateRange,
+  FilterAlt,
+  Clear,
+  Info,
+  CheckCircle,
+  Error,
+  FileDownload,
+  InsertDriveFile,
+  TableChart,
+  BarChart,
+  Assessment,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
-const PRIMARY = "#3a5ac8"; // Updated primary color
+const PRIMARY = "#4569ea";
+const SECONDARY = "#1a237e";
 const API_BASE = (
-  process.env.REACT_APP_API_URL || "https://backend.sunergytechsolar.com/api/v1"
+  process.env.REACT_APP_API_URL || "http://localhost:9001/api/v1"
 ).replace(/\/+$/, "");
 
 // Role-based access control
 const ALLOWED_ROLES = ["ASM", "ZSM", "Head_office", "TEAM"];
 
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
+
+// Role Configuration
+const ROLE_CONFIG = {
+  Head_office: {
+    label: "Head Office",
+    color: PRIMARY,
+    icon: <Person sx={{ fontSize: 16 }} />,
+  },
+  ZSM: {
+    label: "Zone Sales Manager",
+    color: PRIMARY,
+    icon: <Person sx={{ fontSize: 16 }} />,
+  },
+  ASM: {
+    label: "Area Sales Manager",
+    color: PRIMARY,
+    icon: <Person sx={{ fontSize: 16 }} />,
+  },
+  TEAM: {
+    label: "Team Member",
+    color: PRIMARY,
+    icon: <Person sx={{ fontSize: 16 }} />,
+  },
+};
+
+const getRoleConfig = (role) => {
+  return (
+    ROLE_CONFIG[role] || {
+      label: role || "User",
+      color: PRIMARY,
+      icon: <Person sx={{ fontSize: 16 }} />,
+    }
+  );
+};
+
+// Summary Card Component
+const SummaryCard = ({ card, index }) => (
+  <Fade in={true} timeout={500 + index * 100}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: 3,
+        border: `1px solid ${alpha(card.color, 0.1)}`,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+        transition: "transform 0.2s",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+        },
+      }}
+    >
+      <Stack spacing={1}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box
+            sx={{
+              width: { xs: 32, sm: 40, md: 48 },
+              height: { xs: 32, sm: 40, md: 48 },
+              borderRadius: { xs: 1.5, sm: 2 },
+              bgcolor: alpha(card.color, 0.1),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: card.color,
+            }}
+          >
+            {React.cloneElement(card.icon, {
+              sx: { fontSize: { xs: 16, sm: 20, md: 24 } },
+            })}
+          </Box>
+          <Typography
+            variant="h4"
+            fontWeight={700}
+            sx={{
+              color: card.color,
+              fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
+            }}
+          >
+            {card.value}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            fontWeight={600}
+            sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+          >
+            {card.label}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontSize: { xs: "0.6rem", sm: "0.7rem" } }}
+          >
+            {card.subText}
+          </Typography>
+        </Box>
+        <Typography
+          variant="caption"
+          sx={{
+            color: card.color,
+            fontWeight: 500,
+            display: "block",
+            fontSize: { xs: "0.6rem", sm: "0.7rem" },
+          }}
+        >
+          {card.trend}
+        </Typography>
+      </Stack>
+    </Paper>
+  </Fade>
+);
+
+// Mobile Option Card Component
+const MobileOptionCard = ({
+  icon,
+  title,
+  description,
+  buttonText,
+  onClick,
+  color = PRIMARY,
+}) => (
+  <Paper
+    elevation={0}
+    sx={{
+      p: 2.5,
+      borderRadius: 3,
+      border: `2px dashed ${alpha(color, 0.3)}`,
+      bgcolor: alpha(color, 0.02),
+      textAlign: "center",
+    }}
+  >
+    <Avatar
+      sx={{
+        width: 56,
+        height: 56,
+        bgcolor: alpha(color, 0.1),
+        color: color,
+        mx: "auto",
+        mb: 2,
+      }}
+    >
+      {icon}
+    </Avatar>
+    <Typography variant="h6" fontWeight={600} gutterBottom>
+      {title}
+    </Typography>
+    <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+      {description}
+    </Typography>
+    <Button
+      onClick={onClick}
+      variant="contained"
+      startIcon={icon}
+      fullWidth
+      sx={{
+        bgcolor: color,
+        borderRadius: 2,
+        py: 1.2,
+        "&:hover": { bgcolor: SECONDARY },
+      }}
+    >
+      {buttonText}
+    </Button>
+  </Paper>
+);
 
 export default function InputLeadsPage() {
   const [filter, setFilter] = useState("Today");
@@ -111,7 +311,7 @@ export default function InputLeadsPage() {
         label: "Converted",
         value: leadsData.convertedLeads,
         color: PRIMARY,
-        icon: <People />,
+        icon: <CheckCircle />,
         subText: "Successfully converted",
         trend: `${leadsData.conversionRate}% rate`,
       },
@@ -119,7 +319,7 @@ export default function InputLeadsPage() {
         label: "This Month",
         value: leadsData.thisMonthLeads,
         color: PRIMARY,
-        icon: <TrendingUp />,
+        icon: <BarChart />,
         subText: "Monthly performance",
         trend:
           leadsData.thisWeekLeads > 0
@@ -305,6 +505,38 @@ export default function InputLeadsPage() {
     showSnackbar("Template download started", "info");
   }, [showSnackbar]);
 
+  // Loading skeleton
+  if (loading) {
+    return (
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+          {[1, 2, 3, 4].map((item) => (
+            <Grid item xs={6} sm={6} md={3} key={item}>
+              <Skeleton
+                variant="rectangular"
+                height={isMobile ? 90 : 120}
+                sx={{ borderRadius: 3 }}
+              />
+            </Grid>
+          ))}
+        </Grid>
+        {isMobile && (
+          <Skeleton
+            variant="rectangular"
+            height={56}
+            sx={{ borderRadius: 2, mb: 2 }}
+          />
+        )}
+        <Skeleton
+          variant="rectangular"
+          height={isMobile ? 500 : 400}
+          sx={{ borderRadius: 3, mb: 2 }}
+        />
+        <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+      </Box>
+    );
+  }
+
   // Check if user has access to this page
   if (!canImportLeads) {
     return (
@@ -318,7 +550,7 @@ export default function InputLeadsPage() {
           justifyContent: "center",
         }}
       >
-        <Alert severity="warning" sx={{ maxWidth: 500, borderRadius: 2 }}>
+        <Alert severity="warning" sx={{ maxWidth: 500, borderRadius: 3 }}>
           <AlertTitle>Access Restricted</AlertTitle>
           Only ASM, ZSM, and Head Office can import leads.
           <br />
@@ -329,6 +561,7 @@ export default function InputLeadsPage() {
             sx={{ mt: 2 }}
             variant="contained"
             onClick={() => navigate("/dashboard")}
+            style={{ backgroundColor: PRIMARY }}
           >
             Go to Dashboard
           </Button>
@@ -337,27 +570,13 @@ export default function InputLeadsPage() {
     );
   }
 
-  // Loading state
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "60vh",
-        }}
-      >
-        <CircularProgress size={60} sx={{ color: PRIMARY }} />
-      </Box>
-    );
-  }
-
   return (
     <Box
       sx={{
         minHeight: "100vh",
-        p: { xs: 1, sm: 2, md: 3 },
+        p: { xs: 1.5, sm: 2, md: 3 },
+        pb: { xs: 8, sm: 3 },
+        bgcolor: "#f8fafc",
       }}
     >
       {/* Snackbar for notifications */}
@@ -365,245 +584,178 @@ export default function InputLeadsPage() {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
       >
         <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
-          sx={{ width: "100%", borderRadius: 1 }}
+          variant="filled"
+          sx={{ width: "100%", borderRadius: 2, color: "#fff" }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
 
-      {/* Header */}
-      <Box
+      {/* Header with Gradient Background */}
+      <Paper
+        elevation={0}
         sx={{
-          display: "flex",
-          flexDirection: { xs: "column", sm: "row" },
-          justifyContent: "space-between",
-          alignItems: { xs: "flex-start", sm: "center" },
-          gap: 2,
-          mb: 4,
+          p: { xs: 2, sm: 3 },
+          mb: 3,
+          borderRadius: 3,
+          background: `linear-gradient(135deg, ${PRIMARY} 0%, ${SECONDARY} 100%)`,
+          color: "#fff",
         }}
       >
-        <Box>
-          <Typography
-            variant={isMobile ? "h5" : "h4"}
-            fontWeight="bold"
-            color="#1a1a1a"
-            gutterBottom
-          >
-            Lead Management
-          </Typography>
-          <Typography color="text.secondary">
-            Import and manage leads - Access: {userRole}
-          </Typography>
-        </Box>
-
         <Stack
-          direction="row"
-          spacing={1}
-          sx={{ width: { xs: "100%", sm: "auto" } }}
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
         >
-          <FormControl sx={{ minWidth: { xs: "100%", sm: 140 } }}>
-            <Select
-              value={filter}
-              onChange={handleFilterChange}
-              sx={{ bgcolor: "white", borderRadius: 2, height: 40 }}
-              size="small"
+          <Box>
+            <Typography
+              variant={isMobile ? "h6" : "h5"}
+              fontWeight={700}
+              gutterBottom
             >
-              <MenuItem value="Today">Today</MenuItem>
-              <MenuItem value="Week">This Week</MenuItem>
-              <MenuItem value="Month">This Month</MenuItem>
-              <MenuItem value="Year">This Year</MenuItem>
-            </Select>
-          </FormControl>
-          <Button
-            startIcon={<Refresh />}
-            onClick={fetchLeadsStats}
-            variant="outlined"
-            sx={{ borderRadius: 2, height: 40 }}
-          >
-            Refresh
-          </Button>
-        </Stack>
-      </Box>
-
-      {/* Stats Cards */}
-      <Grid container spacing={{ xs: 2, sm: 3, md: 4 }} mb={6}>
-        {statsCards.map((stat, i) => (
-          <Grid item xs={12} sm={6} md={3} key={i}>
-            <Card
+              Import Leads
+            </Typography>
+            <Typography
+              variant="body2"
               sx={{
-                p: 3,
-                borderRadius: 2,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                bgcolor: "white",
-                width: "265px",
-                height: "100%",
-                borderLeft: `4px solid ${stat.color}`,
-                transition: "all 0.2s",
-                "&:hover": {
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                },
+                opacity: 0.9,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
               }}
             >
-              <Box
+              Import and manage leads • Role: {getRoleConfig(userRole).label}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <FormControl size="small" sx={{ minWidth: { xs: 120, sm: 140 } }}>
+              <Select
+                value={filter}
+                onChange={handleFilterChange}
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  mb: 2,
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  borderRadius: 2,
+                  height: 40,
+                  "& .MuiSvgIcon-root": { color: "#fff" },
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.3)",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.5)",
+                  },
                 }}
               >
-                <Box
-                  sx={{
-                    p: 1,
-                    borderRadius: 2,
-                    bgcolor: alpha(stat.color, 0.1),
-                    color: stat.color,
-                  }}
-                >
-                  {stat.icon}
-                </Box>
-              </Box>
-              <Typography
-                variant="h3"
-                fontWeight="bold"
-                sx={{ fontSize: { xs: "1.5rem", sm: "2rem" } }}
-              >
-                {stat.value}
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                fontWeight={500}
-                sx={{ mb: 0.5 }}
-              >
-                {stat.label}
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block" }}
-              >
-                {stat.subText}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: stat.color,
-                  fontWeight: 500,
-                  display: "block",
-                  mt: 1,
-                }}
-              >
-                {stat.trend}
-              </Typography>
-            </Card>
+                <MenuItem value="Today">Today</MenuItem>
+                <MenuItem value="Week">This Week</MenuItem>
+                <MenuItem value="Month">This Month</MenuItem>
+                <MenuItem value="Year">This Year</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              startIcon={<Refresh />}
+              onClick={fetchLeadsStats}
+              variant="contained"
+              size={isMobile ? "small" : "medium"}
+              sx={{
+                bgcolor: "rgba(255,255,255,0.2)",
+                color: "#fff",
+                borderRadius: 2,
+                height: 40,
+                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+              }}
+            >
+              Refresh
+            </Button>
+          </Box>
+        </Stack>
+      </Paper>
+
+      {/* Stats Cards */}
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 4 }}>
+        {statsCards.map((card, index) => (
+          <Grid item xs={6} sm={6} md={3} key={card.label}>
+            <SummaryCard card={card} index={index} />
           </Grid>
         ))}
       </Grid>
 
       {/* Add Leads Section */}
-      <Card
+      <Paper
+        elevation={0}
         sx={{
-          borderRadius: 2,
-          p: { xs: 3, sm: 4 },
-          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+          borderRadius: 3,
+          p: { xs: 2.5, sm: 4 },
           border: "1px solid",
           borderColor: "divider",
-          bgcolor: "white",
+          bgcolor: "#fff",
         }}
       >
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
+        <Typography
+          variant={isMobile ? "h6" : "h5"}
+          fontWeight="bold"
+          gutterBottom
+        >
           Import New Leads
         </Typography>
-        <Typography color="text.secondary" sx={{ mb: 4 }}>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
           Bulk import leads from Excel/CSV files or add manually
         </Typography>
 
         {/* Two Options: Manual Add & Bulk Import */}
-        <Grid container spacing={4}>
+        <Grid container spacing={3}>
           {/* Manual Add Option */}
           <Grid item xs={12} md={6}>
-            <Card
-              sx={{
-                p: 3,
-                borderRadius: 2,
-                border: "2px dashed",
-                width: "530px",
-                borderColor: alpha(PRIMARY, 0.3),
-                bgcolor: alpha(PRIMARY, 0.02),
-                height: "100%",
-                textAlign: "center",
-              }}
-            >
-              <Avatar
-                sx={{
-                  width: 60,
-                  height: 60,
-                  bgcolor: alpha(PRIMARY, 0.1),
-                  color: PRIMARY,
-                  mx: "auto",
-                  mb: 2,
-                }}
-              >
-                <Add />
-              </Avatar>
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                Add Single Lead
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Add individual leads with detailed information
-              </Typography>
-              <Button
-                onClick={addLead}
-                variant="contained"
-                startIcon={<Add />}
-                fullWidth
-                sx={{
-                  background: "#4569ea",
-                  borderRadius: 2,
-                }}
-              >
-                Add New Lead
-              </Button>
-            </Card>
+            <MobileOptionCard
+              icon={<Add />}
+              title="Add Single Lead"
+              description="Add individual leads with detailed information"
+              buttonText="Add New Lead"
+              onClick={addLead}
+              color={PRIMARY}
+            />
           </Grid>
 
           {/* Bulk Import Option */}
           <Grid item xs={12} md={6}>
-            <Card
+            <Paper
+              elevation={0}
               sx={{
-                p: 3,
-                borderRadius: 2,
-                border: "2px dashed",
-                borderColor: alpha(PRIMARY, 0.3),
+                p: { xs: 2.5, sm: 3 },
+                borderRadius: 3,
+                border: `2px dashed ${alpha(PRIMARY, 0.3)}`,
                 bgcolor: alpha(PRIMARY, 0.02),
-                height: "100%",
-                width: "530px",
                 textAlign: "center",
               }}
             >
               <Avatar
                 sx={{
-                  width: 60,
-                  height: 60,
+                  width: { xs: 52, sm: 60 },
+                  height: { xs: 52, sm: 60 },
                   bgcolor: alpha(PRIMARY, 0.1),
                   color: PRIMARY,
                   mx: "auto",
                   mb: 2,
                 }}
               >
-                <CloudUpload />
+                <CloudUpload sx={{ fontSize: { xs: 28, sm: 32 } }} />
               </Avatar>
               <Typography variant="h6" fontWeight={600} gutterBottom>
                 Bulk Import
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 2.5 }}
+              >
                 Import multiple leads from Excel/CSV file
               </Typography>
 
@@ -625,10 +777,10 @@ export default function InputLeadsPage() {
                       startIcon={<Upload />}
                       fullWidth
                       sx={{
-                        background: "#4569ea",
-                        "&:hover": { bgcolor: "#2d4ab5" },
+                        bgcolor: PRIMARY,
                         borderRadius: 2,
-                        mb: 2,
+                        py: 1.2,
+                        "&:hover": { bgcolor: SECONDARY },
                       }}
                     >
                       Select File
@@ -641,17 +793,17 @@ export default function InputLeadsPage() {
                     p: 2,
                     borderRadius: 2,
                     bgcolor: "action.hover",
-                    mb: 2,
                   }}
                 >
                   <Stack
                     direction="row"
                     alignItems="center"
                     justifyContent="space-between"
+                    sx={{ mb: 2 }}
                   >
                     <Stack direction="row" alignItems="center" spacing={1.5}>
                       <Description sx={{ color: PRIMARY }} />
-                      <Box>
+                      <Box sx={{ maxWidth: { xs: 150, sm: 200 } }}>
                         <Typography fontWeight={600} noWrap>
                           {selectedFile.name}
                         </Typography>
@@ -669,16 +821,23 @@ export default function InputLeadsPage() {
                     onClick={handleImportLeads}
                     disabled={uploading}
                     fullWidth
-                    sx={{ mt: 2, borderRadius: 2, bgcolor: "#4569ea" }}
+                    sx={{
+                      bgcolor: PRIMARY,
+                      borderRadius: 2,
+                      py: 1.2,
+                      "&:hover": { bgcolor: SECONDARY },
+                    }}
                     startIcon={
-                      uploading ? <CircularProgress size={20} /> : null
+                      uploading ? (
+                        <CircularProgress size={20} sx={{ color: "#fff" }} />
+                      ) : null
                     }
                   >
                     {uploading ? "Importing..." : "Import Leads"}
                   </Button>
                 </Box>
               )}
-            </Card>
+            </Paper>
           </Grid>
         </Grid>
 
@@ -686,11 +845,11 @@ export default function InputLeadsPage() {
         <Box
           sx={{
             mt: 4,
-            p: 3,
-            bgcolor: "grey.50",
+            p: { xs: 2, sm: 3 },
+            bgcolor: alpha(PRIMARY, 0.02),
             borderRadius: 2,
             border: "1px solid",
-            borderColor: "divider",
+            borderColor: alpha(PRIMARY, 0.2),
           }}
         >
           <Typography
@@ -701,26 +860,47 @@ export default function InputLeadsPage() {
           >
             📋 Import Instructions
           </Typography>
-          <Stack spacing={1} sx={{ pl: 2 }}>
-            <Typography variant="body2">
+          <Stack spacing={1.5} sx={{ pl: { xs: 0, sm: 2 } }}>
+            <Typography
+              variant="body2"
+              sx={{ display: "flex", alignItems: "center", gap: 1 }}
+            >
+              <Info fontSize="small" sx={{ color: PRIMARY }} />
               1. Use the template with required columns:{" "}
               <strong>name, phone, email, source, status</strong>
             </Typography>
-            <Typography variant="body2">
+            <Typography
+              variant="body2"
+              sx={{ display: "flex", alignItems: "center", gap: 1 }}
+            >
+              <Info fontSize="small" sx={{ color: PRIMARY }} />
               2. Save file as <strong>.xlsx</strong> or <strong>.csv</strong>{" "}
               format
             </Typography>
-            <Typography variant="body2">
+            <Typography
+              variant="body2"
+              sx={{ display: "flex", alignItems: "center", gap: 1 }}
+            >
+              <Info fontSize="small" sx={{ color: PRIMARY }} />
               3. Maximum file size: <strong>10MB</strong>
             </Typography>
-            <Typography variant="body2">
+            <Typography
+              variant="body2"
+              sx={{ display: "flex", alignItems: "center", gap: 1 }}
+            >
+              <Info fontSize="small" sx={{ color: PRIMARY }} />
               4. Required permissions: <strong>ASM, ZSM, or Head Office</strong>
             </Typography>
             <Button
               onClick={downloadTemplate}
               variant="text"
-              startIcon={<Download />}
-              sx={{ mt: 1, alignSelf: "flex-start", color: PRIMARY }}
+              startIcon={<FileDownload />}
+              sx={{
+                mt: 1,
+                alignSelf: "flex-start",
+                color: PRIMARY,
+                "&:hover": { bgcolor: alpha(PRIMARY, 0.1) },
+              }}
             >
               Download Template
             </Button>
@@ -731,22 +911,65 @@ export default function InputLeadsPage() {
         <Box
           sx={{
             mt: 3,
-            p: 2,
-            bgcolor: alpha(PRIMARY, 0.1),
+            p: { xs: 1.5, sm: 2 },
+            bgcolor: alpha(PRIMARY, 0.08),
             borderRadius: 2,
             border: "1px solid",
             borderColor: alpha(PRIMARY, 0.3),
           }}
         >
           <Stack direction="row" spacing={1} alignItems="center">
-            <Warning sx={{ color: PRIMARY }} />
+            <Warning sx={{ color: PRIMARY, fontSize: { xs: 18, sm: 20 } }} />
             <Typography variant="body2">
               <strong>Tip:</strong> Ensure phone numbers are in correct format
               (10 digits). Invalid data may be skipped during import.
             </Typography>
           </Stack>
         </Box>
-      </Card>
+      </Paper>
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            sx={{
+              height: 64,
+              "& .MuiBottomNavigationAction-root": {
+                color: "text.secondary",
+                "&.Mui-selected": { color: PRIMARY },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate("/dashboard")}
+            />
+            <BottomNavigationAction
+              label="Leads"
+              icon={<People />}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
+            <BottomNavigationAction
+              label="Profile"
+              icon={<Person />}
+              onClick={() => navigate("/profile")}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </Box>
   );
 }

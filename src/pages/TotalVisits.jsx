@@ -1,3 +1,4 @@
+// pages/TotalVisitsPage.jsx (Bug-Free Version)
 import React, {
   useState,
   useEffect,
@@ -48,12 +49,17 @@ import {
   Tab,
   Tabs,
   Skeleton,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  FormHelperText,Pagination,
-  TablePagination,
+  FormHelperText,
+  Pagination,
+  SwipeableDrawer,
+  Badge,
+  Fab,
+  Zoom,
+  Fade,
+  Slide,
+  Collapse,
+  BottomNavigation,
+  BottomNavigationAction,
 } from "@mui/material";
 import {
   Edit,
@@ -78,29 +84,27 @@ import {
   TrendingUp,
   Warning,
   Info,
-  FirstPage,
-  LastPage,
   LocationOn,
   Notes,
   CalendarToday,
   AccessTime,
   Person,
-  Business,
   HowToReg,
-  Assignment,
   SupervisorAccount,
   AdminPanelSettings,
   WorkspacePremium,
   Groups,
-  ArrowForward,
-  ArrowBack,
-  MoreVert,
-  Add,
-  Delete,
-  Save,
+  ExpandMore,
+  ExpandLess,
+  Dashboard,
+  FilterAlt,
+  Sort,
+  ViewList,
+  ViewModule,
   DateRange,
   KeyboardArrowLeft,
   KeyboardArrowRight,
+  FiberManualRecord,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -112,15 +116,16 @@ import {
   parseISO,
   startOfDay,
   endOfDay,
+  subDays,
+  subWeeks,
+  subMonths,
 } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import Save from "@mui/icons-material/Save";
 
 // ========== CONSTANTS & CONFIGURATION ==========
 const PRIMARY_COLOR = "#4569ea";
 const SECONDARY_COLOR = "#1a237e";
-const SUCCESS_COLOR = "#4caf50";
-const WARNING_COLOR = "#ff9800";
-const ERROR_COLOR = "#f44336";
 const ITEMS_PER_PAGE_OPTIONS = [10, 20, 50, 100];
 const DEFAULT_ITEMS_PER_PAGE = 20;
 
@@ -128,61 +133,72 @@ const DEFAULT_ITEMS_PER_PAGE = 20;
 const ALLOWED_ROLES = ["Head_office", "ZSM", "ASM", "TEAM"];
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
-// Enhanced Status Configuration - All using single color
+// Enhanced Status Configuration
 const STATUS_CONFIG = {
   "Not Assigned": {
-    bg: alpha(PRIMARY_COLOR, 0.1),
+    bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <PendingActions sx={{ fontSize: 16 }} />,
+    label: "Not Assigned",
     description: "Visit not yet assigned or scheduled",
     order: 1,
+    progress: 0,
   },
   Scheduled: {
-    bg: alpha(PRIMARY_COLOR, 0.1),
+    bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <Schedule sx={{ fontSize: 16 }} />,
+    label: "Scheduled",
     description: "Visit scheduled for future date",
     order: 2,
+    progress: 25,
   },
   Completed: {
-    bg: alpha(PRIMARY_COLOR, 0.1),
+    bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <CheckCircleOutline sx={{ fontSize: 16 }} />,
+    label: "Completed",
     description: "Visit successfully completed",
     order: 3,
+    progress: 100,
   },
   Cancelled: {
-    bg: alpha(PRIMARY_COLOR, 0.1),
+    bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <Cancel sx={{ fontSize: 16 }} />,
+    label: "Cancelled",
     description: "Visit cancelled or postponed",
     order: 4,
+    progress: 0,
   },
 };
 
-// Lead Status Configuration - All using single color
+// Lead Status Configuration
 const LEAD_STATUS_CONFIG = {
   Visit: {
-    bg: alpha(PRIMARY_COLOR, 0.1),
+    bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <Person sx={{ fontSize: 16 }} />,
+    label: "Visit",
     description: "Visit scheduled or completed",
   },
   Registration: {
-    bg: alpha(PRIMARY_COLOR, 0.1),
+    bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <HowToReg sx={{ fontSize: 16 }} />,
+    label: "Registration",
     description: "Lead registered after visit",
   },
   "Missed Leads": {
-    bg: alpha(PRIMARY_COLOR, 0.1),
+    bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <Warning sx={{ fontSize: 16 }} />,
+    label: "Missed",
     description: "Lead missed or lost",
   },
 };
 
-// Role Configuration - All using single color
+// Role Configuration
 const ROLE_CONFIG = {
   Head_office: {
     label: "Head Office",
@@ -206,14 +222,25 @@ const ROLE_CONFIG = {
   },
 };
 
+// Period Options
+const PERIOD_OPTIONS = [
+  { value: "Today", label: "Today", icon: <CalendarToday /> },
+  { value: "This Week", label: "This Week", icon: <DateRange /> },
+  { value: "This Month", label: "This Month", icon: <DateRange /> },
+  { value: "All", label: "All Time", icon: <DateRange /> },
+];
+
 // ========== HELPER FUNCTIONS ==========
 const getStatusConfig = (status) => {
   return (
     STATUS_CONFIG[status] || {
-      bg: alpha(PRIMARY_COLOR, 0.1),
+      bg: alpha(PRIMARY_COLOR, 0.08),
       color: PRIMARY_COLOR,
       icon: <PendingActions sx={{ fontSize: 16 }} />,
+      label: status || "Unknown",
       description: "Unknown status",
+      order: 5,
+      progress: 0,
     }
   );
 };
@@ -221,9 +248,10 @@ const getStatusConfig = (status) => {
 const getLeadStatusConfig = (status) => {
   return (
     LEAD_STATUS_CONFIG[status] || {
-      bg: alpha(PRIMARY_COLOR, 0.1),
+      bg: alpha(PRIMARY_COLOR, 0.08),
       color: PRIMARY_COLOR,
       icon: <Info sx={{ fontSize: 16 }} />,
+      label: status || "Unknown",
       description: "Unknown lead status",
     }
   );
@@ -254,15 +282,865 @@ const formatTime = (timeString) => {
   return timeString;
 };
 
+const formatRelativeTime = (dateString) => {
+  if (!dateString) return "";
+  try {
+    const date = parseISO(dateString);
+    if (!isValid(date)) return "";
+
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 60) return "Just now";
+    if (diffInSeconds < 3600)
+      return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400)
+      return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800)
+      return `${Math.floor(diffInSeconds / 86400)} days ago`;
+
+    return format(date, "dd MMM yyyy");
+  } catch {
+    return "";
+  }
+};
+
+const getInitials = (firstName, lastName) => {
+  return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
+};
+
 // ========== REUSABLE COMPONENTS ==========
 
-// Enhanced View Details Modal with Tabs
+// Mobile Filter Drawer
+const MobileFilterDrawer = ({
+  open,
+  onClose,
+  period,
+  setPeriod,
+  statusFilter,
+  setStatusFilter,
+  dateFilter,
+  setDateFilter,
+  selectedStatuses,
+  handleStatusCheckboxChange,
+  handleClearFilters,
+  dateFilterError,
+  searchQuery,
+  setSearchQuery,
+  sortConfig,
+  setSortConfig,
+  viewMode,
+  setViewMode,
+  activeFilterCount,
+}) => {
+  const [expandedSection, setExpandedSection] = useState("search");
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  return (
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      onOpen={() => {}}
+      disableSwipeToOpen={false}
+      PaperProps={{
+        sx: {
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          maxHeight: "90vh",
+          overflow: "hidden",
+        },
+      }}
+    >
+      <Box sx={{ position: "relative" }}>
+        {/* Drag Handle */}
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            bgcolor: "grey.300",
+            borderRadius: 2,
+            mx: "auto",
+            my: 1.5,
+          }}
+        />
+
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 3,
+            pb: 2,
+            borderBottom: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+        >
+          <Box>
+            <Typography variant="h6" fontWeight="700" color={PRIMARY_COLOR}>
+              Filter Visits
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.1) }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Filter Content */}
+        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
+          <Stack spacing={2.5}>
+            {/* Search Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("search")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Search sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Search
+                  </Typography>
+                </Stack>
+                {expandedSection === "search" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "search"}>
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search by name, email, phone, location..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search
+                            sx={{ color: "text.secondary", fontSize: 20 }}
+                          />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery && (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearchQuery("")}
+                          >
+                            <Close fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Period Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("period")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <DateRange sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Time Period
+                  </Typography>
+                </Stack>
+                {expandedSection === "period" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "period"}>
+                <Box sx={{ p: 2 }}>
+                  <Grid container spacing={1}>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <Grid item xs={6} key={option.value}>
+                        <Button
+                          fullWidth
+                          variant={
+                            period === option.value ? "contained" : "outlined"
+                          }
+                          onClick={() => setPeriod(option.value)}
+                          startIcon={option.icon}
+                          size="small"
+                          sx={{
+                            bgcolor:
+                              period === option.value
+                                ? PRIMARY_COLOR
+                                : "transparent",
+                            color:
+                              period === option.value ? "#fff" : PRIMARY_COLOR,
+                            borderColor: PRIMARY_COLOR,
+                            "&:hover": {
+                              bgcolor:
+                                period === option.value
+                                  ? SECONDARY_COLOR
+                                  : alpha(PRIMARY_COLOR, 0.1),
+                            },
+                          }}
+                        >
+                          {option.label}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("status")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <FilterAlt sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Visit Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "status" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "status"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                    <Select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="All">All Statuses</MenuItem>
+                      {Object.keys(STATUS_CONFIG).map((status) => (
+                        <MenuItem key={status} value={status}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                          >
+                            {getStatusConfig(status).icon}
+                            <span>{status}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    gutterBottom
+                  >
+                    Or select multiple:
+                  </Typography>
+                  <Grid container spacing={1}>
+                    {Object.keys(STATUS_CONFIG).map((status) => (
+                      <Grid item xs={6} key={status}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={selectedStatuses[status]}
+                              onChange={() =>
+                                handleStatusCheckboxChange(status)
+                              }
+                              size="small"
+                              sx={{
+                                color: PRIMARY_COLOR,
+                                "&.Mui-checked": {
+                                  color: PRIMARY_COLOR,
+                                },
+                              }}
+                            />
+                          }
+                          label={
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={0.5}
+                            >
+                              {getStatusConfig(status).icon}
+                              <Typography variant="caption">
+                                {status}
+                              </Typography>
+                            </Stack>
+                          }
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Date Range Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("date")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CalendarToday sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Custom Date Range
+                  </Typography>
+                </Stack>
+                {expandedSection === "date" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "date"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={2}>
+                    <DatePicker
+                      label="Start Date"
+                      value={dateFilter.startDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          startDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    <DatePicker
+                      label="End Date"
+                      value={dateFilter.endDate}
+                      onChange={(newValue) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          endDate: newValue,
+                        }))
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          error: !!dateFilterError,
+                        },
+                      }}
+                    />
+                    {dateFilterError && (
+                      <Alert severity="error" sx={{ fontSize: "0.75rem" }}>
+                        {dateFilterError}
+                      </Alert>
+                    )}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Sort Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("sort")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Sort sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Sort By
+                  </Typography>
+                </Stack>
+                {expandedSection === "sort" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "sort"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack spacing={1}>
+                    {[
+                      { key: "firstName", label: "Name" },
+                      { key: "visitDate", label: "Visit Date" },
+                      { key: "visitStatus", label: "Status" },
+                    ].map((option) => (
+                      <Button
+                        key={option.key}
+                        fullWidth
+                        variant={
+                          sortConfig.key === option.key
+                            ? "contained"
+                            : "outlined"
+                        }
+                        onClick={() =>
+                          setSortConfig((prev) => ({
+                            key: option.key,
+                            direction:
+                              prev.key === option.key &&
+                              prev.direction === "asc"
+                                ? "desc"
+                                : "asc",
+                          }))
+                        }
+                        endIcon={
+                          sortConfig.key === option.key &&
+                          (sortConfig.direction === "asc" ? (
+                            <ArrowUpward fontSize="small" />
+                          ) : (
+                            <ArrowDownward fontSize="small" />
+                          ))
+                        }
+                        sx={{
+                          justifyContent: "space-between",
+                          bgcolor:
+                            sortConfig.key === option.key
+                              ? PRIMARY_COLOR
+                              : "transparent",
+                          color:
+                            sortConfig.key === option.key
+                              ? "#fff"
+                              : PRIMARY_COLOR,
+                          borderColor: PRIMARY_COLOR,
+                        }}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* View Mode Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("view")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {viewMode === "card" ? <ViewModule /> : <ViewList />}
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    View Mode
+                  </Typography>
+                </Stack>
+                {expandedSection === "view" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "view"}>
+                <Box sx={{ p: 2 }}>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      fullWidth
+                      variant={viewMode === "card" ? "contained" : "outlined"}
+                      onClick={() => setViewMode("card")}
+                      startIcon={<ViewModule />}
+                      sx={{
+                        bgcolor:
+                          viewMode === "card" ? PRIMARY_COLOR : "transparent",
+                        color: viewMode === "card" ? "#fff" : PRIMARY_COLOR,
+                        borderColor: PRIMARY_COLOR,
+                      }}
+                    >
+                      Card View
+                    </Button>
+                    <Button
+                      fullWidth
+                      variant={viewMode === "table" ? "contained" : "outlined"}
+                      onClick={() => setViewMode("table")}
+                      startIcon={<ViewList />}
+                      sx={{
+                        bgcolor:
+                          viewMode === "table" ? PRIMARY_COLOR : "transparent",
+                        color: viewMode === "table" ? "#fff" : PRIMARY_COLOR,
+                        borderColor: PRIMARY_COLOR,
+                      }}
+                    >
+                      List View
+                    </Button>
+                  </Stack>
+                </Box>
+              </Collapse>
+            </Paper>
+          </Stack>
+        </Box>
+
+        {/* Action Buttons */}
+        <Box
+          sx={{
+            p: 3,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            bgcolor: "#fff",
+          }}
+        >
+          <Stack direction="row" spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => {
+                handleClearFilters();
+                onClose();
+              }}
+              startIcon={<Clear />}
+              sx={{
+                borderColor: PRIMARY_COLOR,
+                color: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                },
+              }}
+            >
+              Clear All
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={onClose}
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": {
+                  bgcolor: SECONDARY_COLOR,
+                },
+              }}
+            >
+              Apply Filters
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    </SwipeableDrawer>
+  );
+};
+
+// Mobile Visit Card
+const MobileVisitCard = ({ visit, onView, onEdit }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const visitStatusConfig = getStatusConfig(visit.visitStatus);
+  const leadStatusConfig = getLeadStatusConfig(visit.status);
+  const initials = getInitials(visit.firstName, visit.lastName);
+
+  return (
+    <Paper
+      sx={{
+        mb: 1.5,
+        borderRadius: 3,
+        border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+        overflow: "hidden",
+      }}
+    >
+      <Box sx={{ p: 2 }}>
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            mb: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+            <Avatar
+              sx={{
+                bgcolor: PRIMARY_COLOR,
+                color: "#fff",
+                width: 48,
+                height: 48,
+                fontWeight: 600,
+              }}
+            >
+              {initials}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="subtitle1"
+                fontWeight="700"
+                color={PRIMARY_COLOR}
+              >
+                {visit.firstName} {visit.lastName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                ID: {visit._id?.slice(-8) || "N/A"}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setExpanded(!expanded)}
+            sx={{
+              transform: expanded ? "rotate(180deg)" : "none",
+              transition: "transform 0.3s",
+              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+            }}
+          >
+            {expanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </Box>
+
+        {/* Quick Info */}
+        <Grid container spacing={1} sx={{ mb: 1.5 }}>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Phone sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {visit.phone || "No phone"}
+              </Typography>
+            </Stack>
+          </Grid>
+          <Grid item xs={6}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Email sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }} />
+              <Typography variant="caption" noWrap>
+                {visit.email || "No email"}
+              </Typography>
+            </Stack>
+          </Grid>
+        </Grid>
+
+        {/* Visit Info */}
+        <Box sx={{ mb: 1.5 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ mb: 0.5 }}
+          >
+            <CalendarToday
+              sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
+            />
+            <Typography variant="body2" fontWeight={500}>
+              {formatDate(visit.visitDate, "dd MMM yyyy")}
+            </Typography>
+            <FiberManualRecord sx={{ fontSize: 4, color: "text.disabled" }} />
+            <AccessTime
+              sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
+            />
+            <Typography variant="body2" fontWeight={500}>
+              {formatTime(visit.visitTime)}
+            </Typography>
+          </Stack>
+          {visit.visitLocation && (
+            <Stack direction="row" spacing={0.5} alignItems="flex-start">
+              <LocationOn
+                sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6), mt: 0.3 }}
+              />
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {visit.visitLocation}
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+
+        {/* Status Chips */}
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Tooltip title={visitStatusConfig.description} arrow>
+            <Chip
+              label={visitStatusConfig.label}
+              icon={visitStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: visitStatusConfig.bg,
+                color: visitStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={leadStatusConfig.description} arrow>
+            <Chip
+              label={leadStatusConfig.label}
+              icon={leadStatusConfig.icon}
+              size="small"
+              sx={{
+                bgcolor: leadStatusConfig.bg,
+                color: leadStatusConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Tooltip>
+        </Box>
+
+        {/* Expanded Details */}
+        <Collapse in={expanded}>
+          <Box
+            sx={{
+              mt: 2,
+              pt: 2,
+              borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
+          >
+            {/* Additional Info */}
+            <Grid container spacing={2}>
+              {visit.visitNotes && (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    Notes
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                    {visit.visitNotes}
+                  </Typography>
+                </Grid>
+              )}
+              <Grid item xs={6}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  Created
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(visit.createdAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  Last Updated
+                </Typography>
+                <Typography variant="body2">
+                  {formatDate(visit.updatedAt, "dd MMM yyyy")}
+                </Typography>
+              </Grid>
+            </Grid>
+
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="contained"
+                startIcon={<Visibility />}
+                onClick={() => onView(visit)}
+                sx={{
+                  bgcolor: PRIMARY_COLOR,
+                  "&:hover": { bgcolor: SECONDARY_COLOR },
+                }}
+              >
+                View
+              </Button>
+              <Button
+                fullWidth
+                size="small"
+                variant="outlined"
+                startIcon={<Edit />}
+                onClick={() => onEdit(visit)}
+                sx={{
+                  borderColor: PRIMARY_COLOR,
+                  color: PRIMARY_COLOR,
+                  "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.1) },
+                }}
+              >
+                Edit
+              </Button>
+            </Stack>
+          </Box>
+        </Collapse>
+      </Box>
+    </Paper>
+  );
+};
+
+// View Details Modal
 const ViewVisitModal = React.memo(
   ({ open, onClose, visit, userRole, showSnackbar }) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
     const [activeTab, setActiveTab] = useState(0);
-    const [loadingDetails, setLoadingDetails] = useState(false);
 
     const userRoleConfig = useMemo(() => getRoleConfig(userRole), [userRole]);
     const visitStatusConfig = useMemo(
@@ -285,251 +1163,271 @@ const ViewVisitModal = React.memo(
         label: "Basic Info",
         icon: <Person />,
         content: (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ boxShadow: "none", height: "100%" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 3,
-                      color: PRIMARY_COLOR,
-                    }}
-                  >
-                    <Person /> Personal Information
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Full Name
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600}>
-                        {visit.firstName} {visit.lastName}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Email
-                      </Typography>
-                      <Typography variant="body1">
-                        {visit.email || "Not set"}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Phone
-                      </Typography>
-                      <Typography variant="body1">
-                        {visit.phone || "Not set"}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Address
-                      </Typography>
-                      <Typography variant="body1">
-                        {visit.address || "Not set"}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ boxShadow: "none", height: "100%" }}>
-                <CardContent>
-                  <Typography
-                    variant="h6"
-                    gutterBottom
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mb: 3,
-                      color: PRIMARY_COLOR,
-                    }}
-                  >
-                    <CalendarToday /> Visit Information
-                  </Typography>
-                  <Stack spacing={2}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Visit Status
-                      </Typography>
-                      <Chip
-                        label={visit.visitStatus || "Not Assigned"}
-                        icon={visitStatusConfig.icon}
-                        size="small"
-                        sx={{
-                          bgcolor: visitStatusConfig.bg,
-                          color: visitStatusConfig.color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Lead Status
-                      </Typography>
-                      <Chip
-                        label={visit.status || "Unknown"}
-                        icon={leadStatusConfig.icon}
-                        size="small"
-                        sx={{
-                          bgcolor: leadStatusConfig.bg,
-                          color: leadStatusConfig.color,
-                          fontWeight: 600,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Visit Date
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(visit.visitDate, "dd MMM yyyy")}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Visit Time
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatTime(visit.visitTime)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        ),
-      },
-      {
-        label: "Visit Details",
-        icon: <LocationOn />,
-        content: (
-          <Card sx={{ boxShadow: "none" }}>
-            <CardContent>
+          <Stack spacing={2.5}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: 3,
+                bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+              }}
+            >
               <Typography
-                variant="h6"
-                gutterBottom
+                variant="subtitle2"
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   gap: 1,
-                  mb: 3,
+                  mb: 2.5,
                   color: PRIMARY_COLOR,
+                  fontWeight: 600,
                 }}
               >
-                <LocationOn /> Location & Notes
+                <Person sx={{ fontSize: 20 }} /> Personal Information
               </Typography>
-              <Stack spacing={3}>
-                {visit.visitLocation && (
-                  <Paper sx={{ p: 3, bgcolor: "grey.50", borderRadius: 2 }}>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Visit Location
-                    </Typography>
-                    <Typography variant="body1">
-                      {visit.visitLocation}
-                    </Typography>
-                  </Paper>
-                )}
-                {visit.visitNotes && (
-                  <Paper sx={{ p: 3, bgcolor: "grey.50", borderRadius: 2 }}>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      <Stack direction="row" alignItems="center" gap={1}>
-                        <Notes />
-                        Visit Notes
-                      </Stack>
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      style={{ whiteSpace: "pre-wrap" }}
-                    >
-                      {visit.visitNotes}
-                    </Typography>
-                  </Paper>
-                )}
+              <Stack spacing={2}>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Full Name
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {visit.firstName} {visit.lastName}
+                  </Typography>
+                </Box>
+                <Divider />
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Email
+                  </Typography>
+                  <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
+                    {visit.email || "Not set"}
+                  </Typography>
+                </Box>
+                <Divider />
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Phone
+                  </Typography>
+                  <Typography variant="body2">
+                    {visit.phone || "Not set"}
+                  </Typography>
+                </Box>
               </Stack>
-            </CardContent>
-          </Card>
+            </Paper>
+
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: 3,
+                bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  mb: 2.5,
+                  color: PRIMARY_COLOR,
+                  fontWeight: 600,
+                }}
+              >
+                <CalendarToday sx={{ fontSize: 20 }} /> Visit Information
+              </Typography>
+              <Stack spacing={2}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Visit Status
+                  </Typography>
+                  <Chip
+                    label={visitStatusConfig.label}
+                    icon={visitStatusConfig.icon}
+                    size="small"
+                    sx={{
+                      bgcolor: visitStatusConfig.bg,
+                      color: visitStatusConfig.color,
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+                <Divider />
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Lead Status
+                  </Typography>
+                  <Chip
+                    label={leadStatusConfig.label}
+                    icon={leadStatusConfig.icon}
+                    size="small"
+                    sx={{
+                      bgcolor: leadStatusConfig.bg,
+                      color: leadStatusConfig.color,
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+                <Divider />
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Visit Date
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500}>
+                    {formatDate(visit.visitDate, "dd MMM yyyy")}
+                  </Typography>
+                </Box>
+                <Divider />
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Visit Time
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500}>
+                    {formatTime(visit.visitTime)}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          </Stack>
+        ),
+      },
+      {
+        label: "Location & Notes",
+        icon: <LocationOn />,
+        content: (
+          <Stack spacing={2.5}>
+            {visit.visitLocation && (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 3,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                }}
+              >
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 2,
+                    color: PRIMARY_COLOR,
+                    fontWeight: 600,
+                  }}
+                >
+                  <LocationOn sx={{ fontSize: 20 }} /> Visit Location
+                </Typography>
+                <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                  {visit.visitLocation}
+                </Typography>
+              </Paper>
+            )}
+            {visit.visitNotes && (
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 3,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                  border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                }}
+              >
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: 2,
+                    color: PRIMARY_COLOR,
+                    fontWeight: 600,
+                  }}
+                >
+                  <Notes sx={{ fontSize: 20 }} /> Visit Notes
+                </Typography>
+                <Typography
+                  variant="body2"
+                  style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                >
+                  {visit.visitNotes}
+                </Typography>
+              </Paper>
+            )}
+          </Stack>
+        ),
+      },
+      {
+        label: "Timeline",
+        icon: <AccessTime />,
+        content: (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: 3,
+              bgcolor: alpha(PRIMARY_COLOR, 0.02),
+              border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 2.5,
+                color: PRIMARY_COLOR,
+                fontWeight: 600,
+              }}
+            >
+              <AccessTime sx={{ fontSize: 20 }} /> Activity Timeline
+            </Typography>
+            <Stack spacing={2}>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Created
+                </Typography>
+                <Stack alignItems="flex-end">
+                  <Typography variant="body2" fontWeight={500}>
+                    {formatDate(visit.createdAt, "dd MMM yyyy")}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatDate(visit.createdAt, "hh:mm a")}
+                  </Typography>
+                </Stack>
+              </Box>
+              <Divider />
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Last Updated
+                </Typography>
+                <Stack alignItems="flex-end">
+                  <Typography variant="body2" fontWeight={500}>
+                    {formatDate(visit.updatedAt, "dd MMM yyyy")}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatDate(visit.updatedAt, "hh:mm a")}
+                  </Typography>
+                </Stack>
+              </Box>
+            </Stack>
+          </Paper>
         ),
       },
     ];
@@ -541,24 +1439,57 @@ const ViewVisitModal = React.memo(
         maxWidth="lg"
         fullWidth
         fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3, maxHeight: "90vh" } }}
+        PaperProps={{
+          sx: {
+            borderRadius: isMobile ? 0 : 4,
+            maxHeight: isMobile ? "100%" : "90vh",
+            margin: isMobile ? 0 : 24,
+          },
+        }}
+        TransitionComponent={isMobile ? Slide : Fade}
+        transitionDuration={300}
       >
-        <DialogTitle sx={{ bgcolor: PRIMARY_COLOR, color: "white", pb: 2 }}>
+        <DialogTitle
+          sx={{
+            bgcolor: PRIMARY_COLOR,
+            color: "white",
+            pb: 2,
+            px: { xs: 2, sm: 3 },
+          }}
+        >
           <Stack
             direction="row"
             alignItems="center"
             justifyContent="space-between"
           >
             <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: "white", color: PRIMARY_COLOR }}>
-                {visit.firstName?.[0] || "V"}
+              <Avatar
+                sx={{
+                  bgcolor: "white",
+                  color: PRIMARY_COLOR,
+                  width: { xs: 40, sm: 48 },
+                  height: { xs: 40, sm: 48 },
+                  fontWeight: 600,
+                }}
+              >
+                {getInitials(visit.firstName, visit.lastName)}
               </Avatar>
               <Box>
-                <Typography variant="h6" fontWeight={700}>
+                <Typography
+                  variant="h6"
+                  fontWeight={700}
+                  sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+                >
                   {visit.firstName} {visit.lastName}
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                  Visit Details • Complete Information
+                <Typography
+                  variant="caption"
+                  sx={{
+                    opacity: 0.9,
+                    fontSize: { xs: "0.7rem", sm: "0.75rem" },
+                  }}
+                >
+                  Visit Details • ID: {visit._id?.slice(-8)}
                 </Typography>
               </Box>
             </Box>
@@ -577,44 +1508,43 @@ const ViewVisitModal = React.memo(
               scrollButtons="auto"
               sx={{
                 "& .MuiTab-root": {
-                  minHeight: 64,
-                  py: 1.5,
+                  minHeight: { xs: 48, sm: 56 },
+                  py: 1,
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
                 },
               }}
             >
               {tabs.map((tab, index) => (
                 <Tab
                   key={index}
-                  icon={tab.icon}
+                  icon={React.cloneElement(tab.icon, {
+                    sx: { fontSize: { xs: 18, sm: 20 } },
+                  })}
                   label={tab.label}
-                  sx={{
-                    textTransform: "none",
-                    fontWeight: 600,
-                    fontSize: "0.875rem",
-                  }}
+                  sx={{ textTransform: "none", fontWeight: 600 }}
                 />
               ))}
             </Tabs>
           </Box>
 
-          <Box sx={{ p: 3, maxHeight: "60vh", overflow: "auto" }}>
-            {loadingDetails ? (
-              <Box
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                minHeight={200}
-              >
-                <CircularProgress sx={{ color: PRIMARY_COLOR }} />
-              </Box>
-            ) : (
-              tabs[activeTab].content
-            )}
+          <Box
+            sx={{
+              p: { xs: 2, sm: 3 },
+              maxHeight: { xs: "calc(100vh - 180px)", sm: "60vh" },
+              overflow: "auto",
+            }}
+          >
+            {tabs[activeTab].content}
           </Box>
         </DialogContent>
 
         <DialogActions
-          sx={{ p: 3, pt: 0, borderTop: 1, borderColor: "divider" }}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            pt: { xs: 1.5, sm: 2 },
+            borderTop: 1,
+            borderColor: "divider",
+          }}
         >
           <Box
             display="flex"
@@ -630,12 +1560,19 @@ const ViewVisitModal = React.memo(
                 bgcolor: alpha(PRIMARY_COLOR, 0.1),
                 color: PRIMARY_COLOR,
                 fontWeight: 600,
+                height: { xs: 24, sm: 28 },
+                fontSize: { xs: "0.65rem", sm: "0.75rem" },
               }}
             />
             <Button
               onClick={onClose}
               variant="contained"
-              sx={{ borderRadius: 2, bgcolor: PRIMARY_COLOR }}
+              size={isMobile ? "small" : "medium"}
+              sx={{
+                borderRadius: 2,
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": { bgcolor: SECONDARY_COLOR },
+              }}
             >
               Close
             </Button>
@@ -648,7 +1585,7 @@ const ViewVisitModal = React.memo(
 
 ViewVisitModal.displayName = "ViewVisitModal";
 
-// Enhanced Edit Modal
+// Edit Modal
 const EditVisitModal = React.memo(
   ({ open, onClose, visit, onSave, userRole, showSnackbar, updating }) => {
     const theme = useTheme();
@@ -770,9 +1707,22 @@ const EditVisitModal = React.memo(
         maxWidth="sm"
         fullWidth
         fullScreen={isMobile}
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{
+          sx: {
+            borderRadius: isMobile ? 0 : 4,
+            margin: isMobile ? 0 : 24,
+          },
+        }}
+        TransitionComponent={isMobile ? Slide : Fade}
+        transitionDuration={300}
       >
-        <DialogTitle sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.05), pb: 2 }}>
+        <DialogTitle
+          sx={{
+            bgcolor: alpha(PRIMARY_COLOR, 0.05),
+            pb: 2,
+            px: { xs: 2, sm: 3 },
+          }}
+        >
           <Stack
             direction="row"
             alignItems="center"
@@ -781,8 +1731,8 @@ const EditVisitModal = React.memo(
             <Box display="flex" alignItems="center" gap={2}>
               <Box
                 sx={{
-                  width: 48,
-                  height: 48,
+                  width: { xs: 40, sm: 48 },
+                  height: { xs: 40, sm: 48 },
                   borderRadius: 2,
                   bgcolor: alpha(PRIMARY_COLOR, 0.1),
                   display: "flex",
@@ -791,25 +1741,33 @@ const EditVisitModal = React.memo(
                   color: PRIMARY_COLOR,
                 }}
               >
-                <Edit sx={{ fontSize: 28 }} />
+                <Edit sx={{ fontSize: { xs: 24, sm: 28 } }} />
               </Box>
               <Box>
-                <Typography variant="h6" fontWeight={700}>
+                <Typography
+                  variant="h6"
+                  fontWeight={700}
+                  sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+                >
                   Edit Visit
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+                >
                   {visit.firstName} {visit.lastName}
                 </Typography>
               </Box>
             </Box>
-            <IconButton onClick={onClose} size="medium">
+            <IconButton onClick={onClose} size="small">
               <Close />
             </IconButton>
           </Stack>
         </DialogTitle>
 
-        <DialogContent sx={{ py: 3 }}>
-          <Stack spacing={3} sx={{ mt: 3 }}>
+        <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
             <FormControl
               fullWidth
               size="small"
@@ -867,9 +1825,10 @@ const EditVisitModal = React.memo(
               value={editForm.visitLocation}
               onChange={handleChange("visitLocation")}
               multiline
-              rows={2}
+              rows={isMobile ? 2 : 3}
               fullWidth
               size="small"
+              placeholder="Enter visit location address"
             />
 
             <TextField
@@ -877,10 +1836,10 @@ const EditVisitModal = React.memo(
               value={editForm.visitNotes}
               onChange={handleChange("visitNotes")}
               multiline
-              rows={3}
+              rows={isMobile ? 2 : 3}
               fullWidth
               size="small"
-              helperText="Add any notes related to this visit"
+              placeholder="Add any notes related to this visit"
             />
 
             <FormControl fullWidth size="small">
@@ -904,19 +1863,24 @@ const EditVisitModal = React.memo(
         </DialogContent>
 
         <DialogActions
-          sx={{ p: 3, pt: 2, borderTop: 1, borderColor: "divider", gap: 2 }}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            pt: { xs: 1.5, sm: 2 },
+            borderTop: 1,
+            borderColor: "divider",
+            gap: 1.5,
+            flexDirection: { xs: "column", sm: "row" },
+          }}
         >
-          <Button 
-            onClick={onClose} 
-            variant="outlined" 
-            size="large" 
-            sx={{ 
-              bgcolor: "#fff", 
-              color: PRIMARY_COLOR, 
+          <Button
+            onClick={onClose}
+            variant="outlined"
+            fullWidth={isMobile}
+            size={isMobile ? "medium" : "large"}
+            sx={{
               borderColor: PRIMARY_COLOR,
-              "&:hover": {
-                bgcolor: alpha(PRIMARY_COLOR, 0.05),
-              }
+              color: PRIMARY_COLOR,
+              "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.05) },
             }}
           >
             Cancel
@@ -924,15 +1888,19 @@ const EditVisitModal = React.memo(
           <Button
             onClick={handleSubmit}
             variant="contained"
-            size="large"
+            fullWidth={isMobile}
+            size={isMobile ? "medium" : "large"}
             disabled={updating}
-            startIcon={updating ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : <Save />}
+            startIcon={
+              updating ? (
+                <CircularProgress size={20} sx={{ color: "#fff" }} />
+              ) : (
+                <Save />
+              )
+            }
             sx={{
-              background: "#4569ea",
-              color: "#fff",
-              "&:hover": {
-                bgcolor: SECONDARY_COLOR,
-              },
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
             }}
           >
             {updating ? "Saving..." : "Save Changes"}
@@ -946,25 +1914,80 @@ const EditVisitModal = React.memo(
 EditVisitModal.displayName = "EditVisitModal";
 
 // Loading Skeleton
-const LoadingSkeleton = () => (
-  <Box sx={{ p: { xs: 2, sm: 3 } }}>
-    <Grid container spacing={2} sx={{ mb: 3 }}>
-      {[1, 2, 3, 4].map((item) => (
-        <Grid item xs={6} sm={3} key={item}>
-          <Skeleton
-            variant="rectangular"
-            height={120}
-            sx={{ borderRadius: 2 }}
-          />
-        </Grid>
-      ))}
-    </Grid>
-    <Skeleton
-      variant="rectangular"
-      height={400}
-      sx={{ borderRadius: 2, mb: 2 }}
-    />
-    <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+const LoadingSkeleton = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  return (
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4].map((item) => (
+          <Grid item xs={6} sm={6} md={3} key={item}>
+            <Skeleton
+              variant="rectangular"
+              height={isMobile ? 90 : 120}
+              sx={{ borderRadius: 3 }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      {isMobile && (
+        <Skeleton
+          variant="rectangular"
+          height={56}
+          sx={{ borderRadius: 2, mb: 2 }}
+        />
+      )}
+      <Skeleton
+        variant="rectangular"
+        height={isMobile ? 500 : 400}
+        sx={{ borderRadius: 3, mb: 2 }}
+      />
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+    </Box>
+  );
+};
+
+// Empty State
+const EmptyState = ({ onClearFilters, hasFilters }) => (
+  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
+    <Box
+      sx={{
+        width: 120,
+        height: 120,
+        borderRadius: "50%",
+        bgcolor: alpha(PRIMARY_COLOR, 0.1),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        mx: "auto",
+        mb: 3,
+      }}
+    >
+      <Search sx={{ fontSize: 48, color: PRIMARY_COLOR }} />
+    </Box>
+    <Typography variant="h6" fontWeight={600} gutterBottom>
+      No visits found
+    </Typography>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+    >
+      {hasFilters
+        ? "No visits match your current filters. Try adjusting your search criteria."
+        : "No visits have been scheduled yet."}
+    </Typography>
+    {hasFilters && (
+      <Button
+        variant="contained"
+        onClick={onClearFilters}
+        startIcon={<Clear />}
+        sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
+      >
+        Clear All Filters
+      </Button>
+    )}
   </Box>
 );
 
@@ -976,8 +1999,7 @@ export default function TotalVisitsPage() {
   const userRole = getUserRole();
 
   // Media queries
-  const isXSmall = useMediaQuery(theme.breakpoints.down("sm"));
-  const isSmall = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // State Management
   const [period, setPeriod] = useState("Today");
@@ -1003,6 +2025,7 @@ export default function TotalVisitsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState({
     startDate: null,
     endDate: null,
@@ -1018,13 +2041,21 @@ export default function TotalVisitsPage() {
   // Sorting & Pagination
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+  const [rowsPerPage, setRowsPerPage] = useState(
+    isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE,
+  );
 
   // Modal States
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState(null);
   const [updating, setUpdating] = useState(false);
+
+  // View Mode
+  const [viewMode, setViewMode] = useState(isMobile ? "card" : "table");
+
+  // Refs
+  const containerRef = useRef(null);
 
   // Snackbar Handler
   const showSnackbar = useCallback((message, severity = "success") => {
@@ -1044,13 +2075,11 @@ export default function TotalVisitsPage() {
         params.append("startDate", format(today, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Week") {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgo = subWeeks(today, 1);
         params.append("startDate", format(weekAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       } else if (period === "This Month") {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        const monthAgo = subMonths(today, 1);
         params.append("startDate", format(monthAgo, "yyyy-MM-dd"));
         params.append("endDate", format(today, "yyyy-MM-dd"));
       }
@@ -1062,7 +2091,6 @@ export default function TotalVisitsPage() {
       if (response?.success) {
         const visits = response.result?.visits || response.result || [];
 
-        // Calculate summary
         const totalVisits = visits.length;
         const completedVisits = visits.filter(
           (v) => v.visitStatus === "Completed",
@@ -1071,8 +2099,7 @@ export default function TotalVisitsPage() {
           (v) => v.visitStatus === "Scheduled",
         ).length;
 
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgo = subWeeks(new Date(), 1);
         weekAgo.setHours(0, 0, 0, 0);
 
         const thisWeekVisits = visits.filter((v) => {
@@ -1123,7 +2150,6 @@ export default function TotalVisitsPage() {
     try {
       let filtered = [...allVisits];
 
-      // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         filtered = filtered.filter(
@@ -1136,14 +2162,12 @@ export default function TotalVisitsPage() {
         );
       }
 
-      // Status filter
       if (statusFilter !== "All") {
         filtered = filtered.filter(
           (visit) => visit.visitStatus === statusFilter,
         );
       }
 
-      // Date filter
       if (dateFilter.startDate && isValid(dateFilter.startDate)) {
         const start = startOfDay(new Date(dateFilter.startDate));
         filtered = filtered.filter((visit) => {
@@ -1170,7 +2194,6 @@ export default function TotalVisitsPage() {
         });
       }
 
-      // Status checkboxes
       const activeStatuses = Object.keys(selectedStatuses).filter(
         (status) => selectedStatuses[status],
       );
@@ -1180,7 +2203,6 @@ export default function TotalVisitsPage() {
         );
       }
 
-      // Sorting
       if (sortConfig.key) {
         filtered.sort((a, b) => {
           let aVal = a[sortConfig.key];
@@ -1228,6 +2250,17 @@ export default function TotalVisitsPage() {
     return filteredVisits.slice(start, start + rowsPerPage);
   }, [filteredVisits, page, rowsPerPage]);
 
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (statusFilter !== "All") count++;
+    if (dateFilter.startDate) count++;
+    if (dateFilter.endDate) count++;
+    if (Object.values(selectedStatuses).some((v) => !v)) count++;
+    return count;
+  }, [searchQuery, statusFilter, dateFilter, selectedStatuses]);
+
   // Effects
   useEffect(() => {
     if (hasAccess(userRole)) {
@@ -1245,6 +2278,14 @@ export default function TotalVisitsPage() {
       setDateFilterError("");
     }
   }, [dateFilter.startDate, dateFilter.endDate]);
+
+  useEffect(() => {
+    setRowsPerPage(isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE);
+  }, [isMobile]);
+
+  useEffect(() => {
+    setViewMode(isMobile ? "card" : "table");
+  }, [isMobile]);
 
   // Handlers
   const handleSort = useCallback((key) => {
@@ -1296,10 +2337,7 @@ export default function TotalVisitsPage() {
   }, []);
 
   const handleStatusCheckboxChange = useCallback((status) => {
-    setSelectedStatuses((prev) => ({
-      ...prev,
-      [status]: !prev[status],
-    }));
+    setSelectedStatuses((prev) => ({ ...prev, [status]: !prev[status] }));
   }, []);
 
   const handleClearFilters = useCallback(() => {
@@ -1317,9 +2355,11 @@ export default function TotalVisitsPage() {
     setPage(0);
   }, []);
 
-  // Pagination handlers
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   const handleChangeRowsPerPage = (event) => {
@@ -1327,7 +2367,7 @@ export default function TotalVisitsPage() {
     setPage(0);
   };
 
-  // Summary Cards - All using single color
+  // Summary Cards
   const summaryCards = useMemo(
     () => [
       {
@@ -1335,21 +2375,21 @@ export default function TotalVisitsPage() {
         value: summary.totalVisits,
         color: PRIMARY_COLOR,
         icon: <People />,
-        subText: "All visits",
+        subText: "All scheduled visits",
       },
       {
         label: "Completed",
         value: summary.completedVisits,
         color: PRIMARY_COLOR,
         icon: <CheckCircle />,
-        subText: "Completed visits",
+        subText: "Successfully completed",
       },
       {
         label: "Scheduled",
         value: summary.scheduledVisits,
         color: PRIMARY_COLOR,
         icon: <Schedule />,
-        subText: "Scheduled visits",
+        subText: "Upcoming visits",
       },
       {
         label: "This Week",
@@ -1375,7 +2415,7 @@ export default function TotalVisitsPage() {
           justifyContent: "center",
         }}
       >
-        <Alert severity="error" sx={{ maxWidth: 500 }}>
+        <Alert severity="error" sx={{ maxWidth: 500, borderRadius: 3 }}>
           <AlertTitle>Access Denied</AlertTitle>
           You don't have permission to access this page.
           <Button
@@ -1399,13 +2439,9 @@ export default function TotalVisitsPage() {
       <Box sx={{ p: 3, maxWidth: 600, mx: "auto" }}>
         <Alert
           severity="error"
+          sx={{ borderRadius: 3 }}
           action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={fetchVisitsData}
-              sx={{ color: PRIMARY_COLOR }}
-            >
+            <Button color="inherit" size="small" onClick={fetchVisitsData}>
               Retry
             </Button>
           }
@@ -1427,7 +2463,6 @@ export default function TotalVisitsPage() {
         userRole={userRole}
         showSnackbar={showSnackbar}
       />
-
       <EditVisitModal
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
@@ -1438,80 +2473,165 @@ export default function TotalVisitsPage() {
         updating={updating}
       />
 
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        open={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+        period={period}
+        setPeriod={setPeriod}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        selectedStatuses={selectedStatuses}
+        handleStatusCheckboxChange={handleStatusCheckboxChange}
+        handleClearFilters={handleClearFilters}
+        dateFilterError={dateFilterError}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        sortConfig={sortConfig}
+        setSortConfig={setSortConfig}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        activeFilterCount={activeFilterCount}
+      />
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
       >
         <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%",color:"#fff" }}
+          sx={{ width: "100%", borderRadius: 2, color: " #fff" }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
 
       {/* Main Content */}
-      <Box sx={{ p: { xs: 2, sm: 3 }, minHeight: "100vh" }}>
+      <Box
+        ref={containerRef}
+        sx={{
+          p: { xs: 1.5, sm: 2, md: 3 },
+          minHeight: "100vh",
+          pb: { xs: 8, sm: 3 },
+          bgcolor: "#f8fafc",
+        }}
+      >
         {/* Header */}
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          sx={{ mb: 4 }}
-          justifyContent="space-between"
-          alignItems={{ xs: "stretch", sm: "center" }}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, sm: 3 },
+            mb: 3,
+            borderRadius: 3,
+            background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${SECONDARY_COLOR} 100%)`,
+            color: "#fff",
+          }}
         >
-          <Box>
-            <Typography
-              variant="h5"
-              fontWeight={700}
-              gutterBottom
-              sx={{ color: PRIMARY_COLOR }}
-            >
-              Visit Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Track and manage all visit activities and schedules
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button
-              variant="contained"
-              startIcon={<Refresh />}
-              onClick={fetchVisitsData}
-              disabled={loading}
-              sx={{
-                background: "#4569ea",
-                color: "#fff",
-                "&:hover": {
-                  bgcolor: SECONDARY_COLOR,
-                },
-              }}
-            >
-              Refresh
-            </Button>
-          </Box>
-        </Stack>
-
-        {/* Summary Cards */}
-        <Grid container spacing={2} sx={{ mb: 4 }}>
-          {summaryCards.map((card, index) => (
-            <Grid item xs={6} sm={6} md={3} key={index}>
-              <Card
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+          >
+            <Box>
+              <Typography
+                variant={isMobile ? "h6" : "h5"}
+                fontWeight={700}
+                gutterBottom
+              >
+                Visit Management
+              </Typography>
+              <Typography
+                variant="body2"
                 sx={{
-                  borderRadius: 3,
-                  overflow: "visible",
-                  position: "relative",
-                  border: `1px solid ${alpha(card.color, 0.1)}`,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                  opacity: 0.9,
+                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
                 }}
               >
-                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                Track and manage all visit activities and schedules
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", gap: 1 }}>
+              {isMobile && (
+                <Button
+                  variant="contained"
+                  startIcon={<FilterAlt />}
+                  onClick={() => setMobileFilterOpen(true)}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                    position: "relative",
+                  }}
+                >
+                  Filter
+                  {activeFilterCount > 0 && (
+                    <Badge
+                      badgeContent={activeFilterCount}
+                      color="error"
+                      sx={{
+                        position: "absolute",
+                        top: -8,
+                        right: -8,
+                        "& .MuiBadge-badge": {
+                          fontSize: "0.6rem",
+                          minWidth: 16,
+                          height: 16,
+                        },
+                      }}
+                    />
+                  )}
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                startIcon={<Refresh />}
+                onClick={fetchVisitsData}
+                disabled={loading}
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                }}
+              >
+                Refresh
+              </Button>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Summary Cards */}
+        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+          {summaryCards.map((card, index) => (
+            <Grid item xs={6} sm={6} md={3} key={index}>
+              <Fade in={true} timeout={500 + index * 100}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2, md: 2.5 },
+                    borderRadius: 3,
+                    border: `1px solid ${alpha(card.color, 0.1)}`,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                    transition: "transform 0.2s",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+                    },
+                  }}
+                >
                   <Stack spacing={1}>
                     <Box
                       sx={{
@@ -1522,9 +2642,9 @@ export default function TotalVisitsPage() {
                     >
                       <Box
                         sx={{
-                          width: { xs: 40, sm: 48 },
-                          height: { xs: 40, sm: 48 },
-                          borderRadius: 2,
+                          width: { xs: 32, sm: 40, md: 48 },
+                          height: { xs: 32, sm: 40, md: 48 },
+                          borderRadius: { xs: 1.5, sm: 2 },
                           bgcolor: alpha(card.color, 0.1),
                           display: "flex",
                           alignItems: "center",
@@ -1532,146 +2652,168 @@ export default function TotalVisitsPage() {
                           color: card.color,
                         }}
                       >
-                        {React.cloneElement(card.icon, { 
-                          sx: { fontSize: { xs: 20, sm: 24 } } 
+                        {React.cloneElement(card.icon, {
+                          sx: { fontSize: { xs: 16, sm: 20, md: 24 } },
                         })}
                       </Box>
                       <Typography
                         variant="h4"
                         fontWeight={700}
-                        sx={{ 
+                        sx={{
                           color: card.color,
-                          fontSize: { xs: "1.5rem", sm: "2rem" }
+                          fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
                         }}
                       >
                         {card.value}
                       </Typography>
                     </Box>
                     <Box>
-                      <Typography variant="subtitle2" fontWeight={600}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+                      >
                         {card.label}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ fontSize: { xs: "0.6rem", sm: "0.7rem" } }}
+                      >
                         {card.subText}
                       </Typography>
                     </Box>
                   </Stack>
-                </CardContent>
-              </Card>
+                </Paper>
+              </Fade>
             </Grid>
           ))}
         </Grid>
 
-        {/* Filters Card */}
-        <Card sx={{ borderRadius: 3, mb: 4, overflow: "visible" }}>
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Stack spacing={3}>
-              {/* Top Filters Row */}
-              <Stack
-                direction={{ xs: "column", md: "row" }}
-                spacing={2}
-                justifyContent="space-between"
-                alignItems={{ xs: "stretch", md: "center" }}
-              >
-                <Box sx={{ width: { xs: "100%", md: 300 } }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search by name, email, phone or location..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search sx={{ color: "text.secondary" }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery && (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            <Close />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
+        {/* Desktop Search and Filters */}
+        {!isMobile && (
+          <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+            <Stack spacing={2.5}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search by name, email, phone or location..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ color: "text.secondary" }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <Close />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ maxWidth: 400 }}
+                />
 
-                <Stack 
-                  direction={{ xs: "column", sm: "row" }} 
-                  spacing={2} 
-                  flexWrap="wrap"
-                >
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Period</InputLabel>
-                    <Select
-                      value={period}
-                      label="Period"
-                      onChange={(e) => setPeriod(e.target.value)}
-                    >
-                      <MenuItem value="Today">Today</MenuItem>
-                      <MenuItem value="This Week">This Week</MenuItem>
-                      <MenuItem value="This Month">This Month</MenuItem>
-                      <MenuItem value="All">All Time</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Visit Status</InputLabel>
-                    <Select
-                      value={statusFilter}
-                      label="Visit Status"
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                    >
-                      <MenuItem value="All">All Statuses</MenuItem>
-                      {Object.keys(STATUS_CONFIG).map((status) => (
-                        <MenuItem key={status} value={status}>
-                          {status}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<Tune />}
-                    onClick={() => setShowFilterPanel(!showFilterPanel)}
-                    sx={{
-                      display: { xs: "none", sm: "flex" },
-                      borderColor: PRIMARY_COLOR,
-                      color: PRIMARY_COLOR,
-                      "&:hover": {
-                        borderColor: SECONDARY_COLOR,
-                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
-                      },
-                    }}
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Period</InputLabel>
+                  <Select
+                    value={period}
+                    label="Period"
+                    onChange={(e) => setPeriod(e.target.value)}
                   >
-                    {showFilterPanel ? "Hide Filters" : "More Filters"}
+                    {PERIOD_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {option.icon}
+                          <span>{option.label}</span>
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Button
+                  variant="outlined"
+                  startIcon={<Tune />}
+                  onClick={() => setShowFilterPanel(!showFilterPanel)}
+                  sx={{
+                    borderColor: PRIMARY_COLOR,
+                    color: PRIMARY_COLOR,
+                    "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.05) },
+                  }}
+                >
+                  {showFilterPanel ? "Hide Filters" : "More Filters"}
+                </Button>
+
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="text"
+                    startIcon={<Clear />}
+                    onClick={handleClearFilters}
+                    sx={{ color: ERROR_COLOR }}
+                  >
+                    Clear All
                   </Button>
-                </Stack>
+                )}
               </Stack>
 
-              {/* Advanced Filter Panel */}
-              {showFilterPanel && (
+              <Collapse in={showFilterPanel}>
                 <Paper
                   variant="outlined"
                   sx={{
-                    p: { xs: 2, sm: 3 },
+                    p: 3,
                     borderRadius: 2,
-                    borderColor: "divider",
-                    bgcolor: "grey.50",
+                    borderColor: alpha(PRIMARY_COLOR, 0.2),
+                    bgcolor: alpha(PRIMARY_COLOR, 0.02),
                   }}
                 >
-                  <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                    Advanced Filters
-                  </Typography>
                   <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Visit Status
+                      </Typography>
+                      <FormControl fullWidth size="small">
+                        <Select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                          <MenuItem value="All">All Statuses</MenuItem>
+                          {Object.keys(STATUS_CONFIG).map((status) => (
+                            <MenuItem key={status} value={status}>
+                              <Stack
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                              >
+                                {getStatusConfig(status).icon}
+                                <span>{status}</span>
+                              </Stack>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        Start Date
+                      </Typography>
                       <DatePicker
-                        label="Start Date"
                         value={dateFilter.startDate}
                         onChange={(newValue) =>
                           setDateFilter((prev) => ({
@@ -1684,14 +2826,20 @@ export default function TotalVisitsPage() {
                             fullWidth: true,
                             size: "small",
                             error: !!dateFilterError,
-                            helperText: dateFilterError,
                           },
                         }}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+
+                    <Grid item xs={12} md={4}>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={600}
+                        gutterBottom
+                      >
+                        End Date
+                      </Typography>
                       <DatePicker
-                        label="End Date"
                         value={dateFilter.endDate}
                         onChange={(newValue) =>
                           setDateFilter((prev) => ({
@@ -1708,20 +2856,16 @@ export default function TotalVisitsPage() {
                         }}
                       />
                     </Grid>
+
                     <Grid item xs={12}>
                       <Typography
                         variant="subtitle2"
                         fontWeight={600}
                         gutterBottom
                       >
-                        Visit Status
+                        Multiple Status Selection
                       </Typography>
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        flexWrap="wrap"
-                        useFlexGap
-                      >
+                      <Stack direction="row" spacing={2} flexWrap="wrap">
                         {Object.keys(STATUS_CONFIG).map((status) => (
                           <FormControlLabel
                             key={status}
@@ -1734,9 +2878,7 @@ export default function TotalVisitsPage() {
                                 size="small"
                                 sx={{
                                   color: PRIMARY_COLOR,
-                                  "&.Mui-checked": {
-                                    color: PRIMARY_COLOR,
-                                  },
+                                  "&.Mui-checked": { color: PRIMARY_COLOR },
                                 }}
                               />
                             }
@@ -1747,7 +2889,9 @@ export default function TotalVisitsPage() {
                                 spacing={0.5}
                               >
                                 {getStatusConfig(status).icon}
-                                <span>{status}</span>
+                                <Typography variant="body2">
+                                  {status}
+                                </Typography>
                               </Stack>
                             }
                           />
@@ -1755,45 +2899,16 @@ export default function TotalVisitsPage() {
                       </Stack>
                     </Grid>
                   </Grid>
-                  <Stack
-                    direction="row"
-                    spacing={2}
-                    justifyContent="flex-end"
-                    sx={{ mt: 3 }}
-                  >
-                    <Button
-                      variant="outlined"
-                      onClick={handleClearFilters}
-                      startIcon={<Clear />}
-                      sx={{
-                        borderColor: PRIMARY_COLOR,
-                        color: PRIMARY_COLOR,
-                      }}
-                    >
-                      Clear All
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={() => setShowFilterPanel(false)}
-                      sx={{ 
-                        bgcolor: PRIMARY_COLOR,
-                        "&:hover": {
-                          bgcolor: SECONDARY_COLOR,
-                        },
-                      }}
-                    >
-                      Apply Filters
-                    </Button>
-                  </Stack>
-                </Paper>
-              )}
 
-              {/* Active Filters */}
-              {(searchQuery ||
-                statusFilter !== "All" ||
-                dateFilter.startDate ||
-                dateFilter.endDate ||
-                Object.values(selectedStatuses).some((v) => !v)) && (
+                  {dateFilterError && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      {dateFilterError}
+                    </Alert>
+                  )}
+                </Paper>
+              </Collapse>
+
+              {activeFilterCount > 0 && (
                 <Box>
                   <Typography
                     variant="caption"
@@ -1802,12 +2917,7 @@ export default function TotalVisitsPage() {
                   >
                     Active Filters:
                   </Typography>
-                  <Stack 
-                    direction="row" 
-                    spacing={1} 
-                    flexWrap="wrap" 
-                    useFlexGap
-                  >
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
                     {searchQuery && (
                       <Chip
                         label={`Search: ${searchQuery}`}
@@ -1832,10 +2942,7 @@ export default function TotalVisitsPage() {
                     )}
                     {dateFilter.startDate && (
                       <Chip
-                        label={`From: ${format(
-                          dateFilter.startDate,
-                          "dd MMM yyyy",
-                        )}`}
+                        label={`From: ${format(dateFilter.startDate, "dd MMM yyyy")}`}
                         size="small"
                         onDelete={() =>
                           setDateFilter((prev) => ({
@@ -1851,16 +2958,10 @@ export default function TotalVisitsPage() {
                     )}
                     {dateFilter.endDate && (
                       <Chip
-                        label={`To: ${format(
-                          dateFilter.endDate,
-                          "dd MMM yyyy",
-                        )}`}
+                        label={`To: ${format(dateFilter.endDate, "dd MMM yyyy")}`}
                         size="small"
                         onDelete={() =>
-                          setDateFilter((prev) => ({
-                            ...prev,
-                            endDate: null,
-                          }))
+                          setDateFilter((prev) => ({ ...prev, endDate: null }))
                         }
                         sx={{
                           bgcolor: alpha(PRIMARY_COLOR, 0.1),
@@ -1868,11 +2969,9 @@ export default function TotalVisitsPage() {
                         }}
                       />
                     )}
-                    {Object.keys(selectedStatuses).some(
-                      (status) => !selectedStatuses[status],
-                    ) && (
+                    {Object.values(selectedStatuses).some((v) => !v) && (
                       <Chip
-                        label="Custom Status Filter"
+                        label="Custom Status"
                         size="small"
                         onDelete={() =>
                           setSelectedStatuses(
@@ -1888,58 +2987,55 @@ export default function TotalVisitsPage() {
                         }}
                       />
                     )}
-                    <Chip
-                      label="Clear All"
-                      size="small"
-                      variant="outlined"
-                      onClick={handleClearFilters}
-                      deleteIcon={<Close />}
-                      onDelete={handleClearFilters}
-                      sx={{
-                        borderColor: PRIMARY_COLOR,
-                        color: PRIMARY_COLOR,
-                      }}
-                    />
                   </Stack>
                 </Box>
               )}
             </Stack>
-          </CardContent>
-        </Card>
+          </Paper>
+        )}
 
-        {/* Data Table */}
-        <Card sx={{ borderRadius: 3, overflow: "hidden" }}>
-          <CardContent sx={{ p: 0 }}>
-            {/* Header */}
-            <Box
-              sx={{
-                p: { xs: 2, sm: 3 },
-                borderBottom: 1,
-                borderColor: "divider",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 2,
-              }}
+        {/* Main Content */}
+        <Paper elevation={0} sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <Box
+            sx={{
+              p: { xs: 2, sm: 3 },
+              borderBottom: 1,
+              borderColor: "divider",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 2,
+              bgcolor: "#fff",
+            }}
+          >
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
             >
-              <Typography variant="h6" fontWeight={600}>
-                Total Visits ({filteredVisits.length})
-              </Typography>
-              <Stack 
-                direction="row" 
-                spacing={2} 
-                alignItems="center"
-                flexWrap="wrap"
-              >
+              Visit Records
+              <Chip
+                label={`${filteredVisits.length} total`}
+                size="small"
+                sx={{
+                  ml: 1,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                  color: PRIMARY_COLOR,
+                }}
+              />
+            </Typography>
+
+            {!isMobile && (
+              <Stack direction="row" spacing={2} alignItems="center">
                 <Typography variant="body2" color="text.secondary">
-                  Show:
+                  Rows per page:
                 </Typography>
                 <Select
                   size="small"
                   value={rowsPerPage}
                   onChange={handleChangeRowsPerPage}
-                  sx={{ minWidth: 100 }}
+                  sx={{ minWidth: 80 }}
                 >
                   {ITEMS_PER_PAGE_OPTIONS.map((option) => (
                     <MenuItem key={option} value={option}>
@@ -1948,386 +3044,299 @@ export default function TotalVisitsPage() {
                   ))}
                 </Select>
               </Stack>
-            </Box>
+            )}
+          </Box>
 
-            {/* Table Container */}
-            <TableContainer
-              sx={{
-                maxHeight: { xs: "60vh", md: "70vh" },
-                position: "relative",
-                overflowX: "auto",
-              }}
-            >
+          {viewMode === "table" && !isMobile ? (
+            <TableContainer sx={{ maxHeight: "70vh", overflow: "auto" }}>
               {loading && allVisits.length > 0 && (
                 <LinearProgress
-                  sx={{ position: "absolute", top: 0, left: 0, right: 0 }}
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 1,
+                  }}
                 />
               )}
-
-              <Table stickyHeader size="medium">
+              <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ minWidth: 200 }}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        onClick={() => handleSort("firstName")}
-                        startIcon={
-                          sortConfig.key === "firstName" ? (
-                            sortConfig.direction === "asc" ? (
-                              <ArrowUpward fontSize="small" />
-                            ) : (
-                              <ArrowDownward fontSize="small" />
-                            )
-                          ) : null
-                        }
-                        sx={{
-                          justifyContent: "flex-start",
-                          fontWeight: 600,
-                          color: "text.primary",
-                          textTransform: "none",
-                        }}
-                      >
-                        Customer Details
-                      </Button>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Customer
                     </TableCell>
-                    <TableCell sx={{ minWidth: 150 }}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        onClick={() => handleSort("visitDate")}
-                        startIcon={
-                          sortConfig.key === "visitDate" ? (
-                            sortConfig.direction === "asc" ? (
-                              <ArrowUpward fontSize="small" />
-                            ) : (
-                              <ArrowDownward fontSize="small" />
-                            )
-                          ) : null
-                        }
-                        sx={{
-                          justifyContent: "flex-start",
-                          fontWeight: 600,
-                          color: "text.primary",
-                          textTransform: "none",
-                        }}
-                      >
-                        Visit Date & Time
-                      </Button>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Date & Time
                     </TableCell>
-                    <TableCell sx={{ minWidth: 150 }}>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Location
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Location
                     </TableCell>
-                    <TableCell sx={{ minWidth: 130 }}>
-                      <Button
-                        fullWidth
-                        size="small"
-                        onClick={() => handleSort("visitStatus")}
-                        startIcon={
-                          sortConfig.key === "visitStatus" ? (
-                            sortConfig.direction === "asc" ? (
-                              <ArrowUpward fontSize="small" />
-                            ) : (
-                              <ArrowDownward fontSize="small" />
-                            )
-                          ) : null
-                        }
-                        sx={{
-                          justifyContent: "flex-start",
-                          fontWeight: 600,
-                          color: "text.primary",
-                          textTransform: "none",
-                        }}
-                      >
-                        Visit Status
-                      </Button>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Status
                     </TableCell>
-                    <TableCell sx={{ minWidth: 130 }}>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Lead Status
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Lead Status
                     </TableCell>
-                    <TableCell sx={{ minWidth: 100 }}>
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Actions
-                      </Typography>
+                    <TableCell
+                      sx={{
+                        bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                        fontWeight: 600,
+                        py: 2,
+                      }}
+                    >
+                      Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
-
                 <TableBody>
                   {paginatedVisits.length > 0 ? (
-                    paginatedVisits.map((visit) => {
-                      const visitStatusConfig = getStatusConfig(
-                        visit.visitStatus,
-                      );
-                      const leadStatusConfig = getLeadStatusConfig(
-                        visit.status,
-                      );
-
-                      return (
-                        <TableRow
-                          key={visit._id}
-                          hover
-                          sx={{
-                            "&:hover": {
-                              bgcolor: alpha(PRIMARY_COLOR, 0.02),
-                            },
-                          }}
-                        >
-                          {/* Customer Details */}
-                          <TableCell>
-                            <Stack spacing={1}>
-                              <Typography variant="subtitle2" fontWeight={600}>
-                                {visit.firstName} {visit.lastName}
-                              </Typography>
-                              <Stack spacing={0.5}>
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    color: "text.secondary",
-                                  }}
-                                >
-                                  <Email fontSize="inherit" />
-                                  {visit.email || "No email"}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                    color: "text.secondary",
-                                  }}
-                                >
-                                  <Phone fontSize="inherit" />
-                                  {visit.phone || "No phone"}
-                                </Typography>
-                              </Stack>
-                            </Stack>
-                          </TableCell>
-
-                          {/* Visit Date & Time */}
-                          <TableCell>
-                            <Stack spacing={0.5}>
-                              <Typography variant="body2">
-                                {formatDate(visit.visitDate, "dd MMM yyyy")}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {formatTime(visit.visitTime)}
-                              </Typography>
-                            </Stack>
-                          </TableCell>
-
-                          {/* Location */}
-                          <TableCell>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                maxWidth: 150,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
+                    paginatedVisits.map((visit) => (
+                      <TableRow key={visit._id} hover>
+                        <TableCell>
+                          {visit.firstName} {visit.lastName}
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(visit.visitDate, "dd MMM yyyy")}
+                          <br />
+                          <small>{formatTime(visit.visitTime)}</small>
+                        </TableCell>
+                        <TableCell>{visit.visitLocation || "—"}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={visit.visitStatus}
+                            size="small"
+                            sx={{ background: "#4569ea", color: "#fff" }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={visit.status}
+                            size="small"
+                            sx={{ background: "#4569ea", color: "#fff" }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={1}>
+                            <IconButton
+                              sx={{ background: "#4569ea", color: "#fff" }}
+                              size="small"
+                              onClick={() => handleViewClick(visit)}
                             >
-                              {visit.visitLocation || "Not set"}
-                            </Typography>
-                          </TableCell>
-
-                          {/* Visit Status */}
-                          <TableCell>
-                            <Chip
-                              label={visit.visitStatus || "Not Assigned"}
-                              icon={visitStatusConfig.icon}
+                              <Visibility fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              sx={{ background: "#4569ea", color: "#fff" }}
                               size="small"
-                              sx={{
-                                bgcolor: visitStatusConfig.bg,
-                                color: visitStatusConfig.color,
-                                fontWeight: 600,
-                                minWidth: 100,
-                              }}
-                            />
-                          </TableCell>
-
-                          {/* Lead Status */}
-                          <TableCell>
-                            <Chip
-                              label={visit.status || "Unknown"}
-                              icon={leadStatusConfig.icon}
-                              size="small"
-                              sx={{
-                                bgcolor: leadStatusConfig.bg,
-                                color: leadStatusConfig.color,
-                                fontWeight: 600,
-                                minWidth: 100,
-                              }}
-                            />
-                          </TableCell>
-
-                          {/* Actions */}
-                          <TableCell>
-                            <Stack direction="row" spacing={1}>
-                              <Tooltip title="View Details" arrow>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleViewClick(visit)}
-                                  sx={{
-                                    bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                                    color: PRIMARY_COLOR,
-                                    "&:hover": {
-                                      bgcolor: alpha(PRIMARY_COLOR, 0.2),
-                                    },
-                                  }}
-                                >
-                                  <Visibility fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-
-                              <Tooltip title="Edit" arrow>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleEditClick(visit)}
-                                  sx={{
-                                    bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                                    color: PRIMARY_COLOR,
-                                    "&:hover": {
-                                      bgcolor: alpha(PRIMARY_COLOR, 0.2),
-                                    },
-                                  }}
-                                >
-                                  <Edit fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
+                              onClick={() => handleEditClick(visit)}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                        <Box sx={{ textAlign: "center" }}>
-                          <Search
-                            sx={{
-                              fontSize: 64,
-                              color: "text.disabled",
-                              mb: 2,
-                            }}
-                          />
-                          <Typography
-                            variant="h6"
-                            color="text.secondary"
-                            gutterBottom
-                          >
-                            No visits found
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {searchQuery ||
-                            statusFilter !== "All" ||
-                            dateFilter.startDate ||
-                            dateFilter.endDate ||
-                            Object.values(selectedStatuses).some((v) => !v)
-                              ? "Try adjusting your filters"
-                              : "No visits have been scheduled yet"}
-                          </Typography>
-                          {(searchQuery ||
-                            statusFilter !== "All" ||
-                            dateFilter.startDate ||
-                            dateFilter.endDate ||
-                            Object.values(selectedStatuses).some(
-                              (v) => !v,
-                            )) && (
-                            <Button
-                              variant="outlined"
-                              onClick={handleClearFilters}
-                              sx={{ mt: 2, borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR }}
-                            >
-                              Clear All Filters
-                            </Button>
-                          )}
-                        </Box>
+                      <TableCell colSpan={6}>
+                        <EmptyState
+                          onClearFilters={handleClearFilters}
+                          hasFilters={activeFilterCount > 0}
+                        />
                       </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </TableContainer>
-
-            {/* Pagination */}
-            {filteredVisits.length > 0 && (
-              <Box
-                sx={{
-                  p: { xs: 2, sm: 3 },
-                  borderTop: 1,
-                  borderColor: "divider",
-                  display: "flex",
-                  flexDirection: { xs: "column", sm: "row" },
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 2,
-                }}
-              >
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary"
-                  sx={{ 
-                    bgcolor: alpha(PRIMARY_COLOR, 0.1), 
-                    color: PRIMARY_COLOR, 
-                    px: 2, 
-                    py: 1, 
-                    borderRadius: 4,
-                    textAlign: "center",
-                    width: { xs: "100%", sm: "auto" }
-                  }}
-                >
-                  Showing {Math.min(page * rowsPerPage + 1, filteredVisits.length)} to{" "}
-                  {Math.min((page + 1) * rowsPerPage, filteredVisits.length)} of{" "}
-                  {filteredVisits.length} entries
-                </Typography>
-                <Pagination 
-                  count={Math.ceil(filteredVisits.length / rowsPerPage)}
-                  page={page + 1}
-                  onChange={(event, value) => setPage(value - 1)}
-                  showFirstButton
-                  showLastButton
-                  siblingCount={1}
-                  boundaryCount={1}
-                  size={isSmall ? "small" : "medium"}
-                  sx={{
-                    "& .MuiPaginationItem-root": {
-                      borderRadius: 2,
-                      "&.Mui-selected": {
-                        bgcolor: PRIMARY_COLOR,
-                        color: "#fff",
-                        "&:hover": {
-                          bgcolor: SECONDARY_COLOR,
-                        },
-                      },
-                    },
-                  }}
+          ) : (
+            <Box sx={{ p: { xs: 2, sm: 3 } }}>
+              {loading && allVisits.length > 0 && (
+                <LinearProgress sx={{ mb: 2, borderRadius: 2 }} />
+              )}
+              {paginatedVisits.length > 0 ? (
+                paginatedVisits.map((visit) => (
+                  <MobileVisitCard
+                    key={visit._id}
+                    visit={visit}
+                    onView={handleViewClick}
+                    onEdit={handleEditClick}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  onClearFilters={handleClearFilters}
+                  hasFilters={activeFilterCount > 0}
                 />
-              </Box>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </Box>
+          )}
 
-        {/* Footer Note */}
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ mt: 3, display: "block", textAlign: "center" }}
+          {filteredVisits.length > 0 && (
+            <Box
+              sx={{
+                p: { xs: 2, sm: 3 },
+                borderTop: 1,
+                borderColor: "divider",
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+                bgcolor: "#fff",
+              }}
+            >
+              <Typography variant="body2">
+                Showing {page * rowsPerPage + 1} to{" "}
+                {Math.min((page + 1) * rowsPerPage, filteredVisits.length)} of{" "}
+                {filteredVisits.length}
+              </Typography>
+              <Pagination
+                count={Math.ceil(filteredVisits.length / rowsPerPage)}
+                page={page + 1}
+                onChange={handleChangePage}
+                color="primary"
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  "& .MuiPaginationItem-root": {
+                    borderRadius: 2,
+                    "&.Mui-selected": { bgcolor: PRIMARY_COLOR, color: "#fff" },
+                  },
+                }}
+              />
+            </Box>
+          )}
+        </Paper>
+
+        {/* Footer */}
+        <Box
+          sx={{
+            mt: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
+          }}
         >
-          Last updated: {formatDate(new Date().toISOString())} •{" "}
-          {summary.totalVisits} total visits
-        </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Last updated: {format(new Date(), "dd MMM yyyy, hh:mm a")}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {summary.totalVisits} total visits • {summary.conversionRate}%
+            conversion rate
+          </Typography>
+        </Box>
       </Box>
+
+      {/* Mobile FAB */}
+      {isMobile && (
+        <Zoom in={true}>
+          <Fab
+            color="primary"
+            aria-label="filter"
+            onClick={() => setMobileFilterOpen(true)}
+            sx={{
+              position: "fixed",
+              bottom: 80,
+              right: 16,
+              zIndex: 1000,
+              bgcolor: PRIMARY_COLOR,
+              "&:hover": { bgcolor: SECONDARY_COLOR },
+              boxShadow: `0 4px 12px ${alpha(PRIMARY_COLOR, 0.3)}`,
+            }}
+          >
+            <Badge
+              badgeContent={activeFilterCount}
+              color="error"
+              max={9}
+              sx={{
+                "& .MuiBadge-badge": {
+                  fontSize: "0.6rem",
+                  minWidth: 16,
+                  height: 16,
+                },
+              }}
+            >
+              <FilterAlt />
+            </Badge>
+          </Fab>
+        </Zoom>
+      )}
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            sx={{
+              height: 64,
+              "& .MuiBottomNavigationAction-root": {
+                color: "text.secondary",
+                "&.Mui-selected": { color: PRIMARY_COLOR },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate("/dashboard")}
+            />
+            <BottomNavigationAction
+              label="Visits"
+              icon={<Schedule />}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            />
+            <BottomNavigationAction
+              label="Profile"
+              icon={<Person />}
+              onClick={() => navigate("/profile")}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </LocalizationProvider>
   );
 }
+ 
