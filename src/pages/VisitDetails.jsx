@@ -1,5 +1,5 @@
 // components/VisitDetails.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -9,6 +9,7 @@ import {
   Grid,
   Stack,
   IconButton,
+  LinearProgress,
   Alert,
   Chip,
   Divider,
@@ -16,7 +17,21 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  useTheme,
+  useMediaQuery,
+  Avatar,
+  Fade,
+  Zoom,
+  Slide,
+  Card,
+  CardContent,
+  InputAdornment,
+  FormHelperText,
+  BottomNavigation,
+  BottomNavigationAction,
+  Fab,
+  Badge
 } from '@mui/material';
 import {
   AddAPhoto,
@@ -29,82 +44,257 @@ import {
   Cancel,
   GpsFixed,
   CheckCircle,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  ArrowBack,
+  Business,
+  Notes,
+  Person,
+  Phone,
+  Email,
+  Save,
+  MyLocation,
+  GpsOff,
+  Wifi,
+  WifiOff,
+  Dashboard,
+  Schedule,
+  History,
+  CameraAlt,
+  Delete,
+  Refresh,
+  Fullscreen,
+  Close
 } from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
+import { styled, alpha } from '@mui/material/styles';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
+// ========== CONSTANTS ==========
 const PRIMARY = '#4569ea';
+const SECONDARY = '#1a237e';
+const SUCCESS = '#4caf50';
+const ERROR = '#f44336';
+const WARNING = '#ff9800';
 
+// ========== STYLED COMPONENTS ==========
 const UploadArea = styled(Box)(({ theme }) => ({
-  border: `2px dashed ${theme.palette.divider}`,
-  borderRadius: 12,
-  padding: theme.spacing(4),
+  border: `2px dashed ${alpha(theme.palette.primary.main, 0.3)}`,
+  borderRadius: 16,
+  padding: theme.spacing(3),
   textAlign: 'center',
   cursor: 'pointer',
   transition: 'all 0.2s',
+  backgroundColor: alpha(theme.palette.primary.main, 0.02),
+  minHeight: 200,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
   '&:hover': {
-    borderColor: PRIMARY,
-    backgroundColor: `${PRIMARY}10`
+    borderColor: theme.palette.primary.main,
+    backgroundColor: alpha(theme.palette.primary.main, 0.05),
+    transform: 'scale(1.02)'
+  },
+  '&.has-image': {
+    borderStyle: 'solid',
+    borderColor: SUCCESS,
+    backgroundColor: alpha(SUCCESS, 0.05)
   }
 }));
 
+const LocationCard = styled(Paper)(({ theme, accuracy }) => {
+  const getAccuracyColor = () => {
+    if (accuracy > 50) return WARNING;
+    if (accuracy > 20) return theme.palette.primary.main;
+    return SUCCESS;
+  };
+
+  return {
+    padding: theme.spacing(2),
+    borderRadius: 16,
+    background: `linear-gradient(135deg, ${alpha(getAccuracyColor(), 0.1)}, ${alpha(theme.palette.background.paper, 0.8)})`,
+    backdropFilter: 'blur(10px)',
+    border: `1px solid ${alpha(getAccuracyColor(), 0.3)}`,
+    transition: 'all 0.3s ease'
+  };
+});
+
+const FormSection = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2.5),
+  borderRadius: 16,
+  backgroundColor: '#fff',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+  marginBottom: theme.spacing(2),
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2),
+  }
+}));
+
+const ImagePreview = styled(Box)(({ theme }) => ({
+  position: 'relative',
+  width: '100%',
+  height: 250,
+  borderRadius: 16,
+  overflow: 'hidden',
+  '& img': {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover'
+  },
+  '& .overlay': {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    padding: theme.spacing(2),
+    opacity: 0,
+    transition: 'opacity 0.2s',
+    [theme.breakpoints.down('sm')]: {
+      opacity: 1, // Always visible on mobile for better UX
+    },
+    '&:hover': {
+      opacity: 1
+    }
+  }
+}));
+
+// ========== SUCCESS DIALOG ==========
 const SuccessDialog = ({ open, visitData, onClose }) => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          background: `linear-gradient(135deg, ${alpha(SUCCESS, 0.05)}, ${alpha(theme.palette.primary.main, 0.05)})`
+        }
+      }}
+      TransitionComponent={isMobile ? Slide : Zoom}
+      transitionDuration={300}
+    >
       <DialogTitle sx={{ textAlign: 'center', pt: 4 }}>
-        <CheckCircle sx={{ fontSize: 64, color: '#4caf50', mb: 2 }} />
-        <Typography variant="h5" fontWeight={800}>
+        <Zoom in={open}>
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              bgcolor: alpha(SUCCESS, 0.1),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mx: 'auto',
+              mb: 2
+            }}
+          >
+            <CheckCircle sx={{ fontSize: 48, color: SUCCESS }} />
+          </Box>
+        </Zoom>
+        <Typography variant={isMobile ? "h6" : "h5"} fontWeight={800}>
           Visit Created Successfully!
         </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Your visit has been recorded and synced
+        </Typography>
       </DialogTitle>
+
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 2 }}>
-          <Paper sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              {visitData?.locationName}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
-              {visitData?.address || 'Address not available'}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
-              <Chip
-                icon={<LocationOn />}
-                label={`${visitData?.coordinates?.lat?.toFixed(4)}, ${visitData?.coordinates?.lng?.toFixed(4)}`}
-                size="small"
-                variant="outlined"
+        <Stack spacing={3} sx={{ mt: 2 }}>
+          <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
+            {visitData?.photos?.[0]?.url && (
+              <Box
+                component="img"
+                src={visitData.photos[0].url}
+                alt="Visit"
+                sx={{
+                  width: '100%',
+                  height: 200,
+                  objectFit: 'cover'
+                }}
               />
+            )}
+            <CardContent>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                {visitData?.locationName}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                {visitData?.address || 'Address not available'}
+              </Typography>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Paper sx={{ p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.05), borderRadius: 2 }}>
+                    <Typography variant="caption" color="text.secondary">Latitude</Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {visitData?.coordinates?.lat?.toFixed(6)}°
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={6}>
+                  <Paper sx={{ p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.05), borderRadius: 2 }}>
+                    <Typography variant="caption" color="text.secondary">Longitude</Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {visitData?.coordinates?.lng?.toFixed(6)}°
+                    </Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+
               {visitData?.distanceFromPreviousKm > 0 && (
                 <Chip
                   icon={<Route />}
-                  label={`${visitData?.distanceFromPreviousKm?.toFixed(2)} km`}
+                  label={`${visitData.distanceFromPreviousKm.toFixed(2)} km from previous`}
                   size="small"
-                  variant="outlined"
+                  sx={{ mt: 2 }}
                 />
               )}
-            </Box>
-          </Paper>
+            </CardContent>
+          </Card>
         </Stack>
       </DialogContent>
-      <DialogActions sx={{ p: 3, justifyContent: 'center', gap: 2 }}>
+
+      <DialogActions sx={{ p: 3, justifyContent: 'center', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
         <Button
+          fullWidth={isMobile}
           variant="outlined"
           onClick={onClose}
-          sx={{ borderRadius: 2, px: 4 }}
+          sx={{ 
+            borderRadius: 2, 
+            px: 4,
+            borderColor: theme.palette.primary.main,
+            color: theme.palette.primary.main
+          }}
         >
           Close
         </Button>
         <Button
+          fullWidth={isMobile}
           variant="contained"
           onClick={() => {
             onClose();
             navigate('/total-visits');
           }}
-          sx={{ borderRadius: 2, px: 4, bgcolor: PRIMARY }}
+          sx={{ 
+            borderRadius: 2, 
+            px: 4, 
+            bgcolor: theme.palette.primary.main,
+            '&:hover': { bgcolor: SECONDARY }
+          }}
         >
           View All Visits
         </Button>
@@ -113,10 +303,28 @@ const SuccessDialog = ({ open, visitData, onClose }) => {
   );
 };
 
+// ========== MAIN COMPONENT ==========
 export default function VisitDetails({ onClose, onSave }) {
-  const { createVisit, getCurrentPosition, loading: authLoading } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   
+  // Refs for camera input
+  const cameraInputRef = useRef(null);
+  const locationTimeoutRef = useRef(null);
+  
+  const { 
+    createVisit, 
+    getCurrentPosition, 
+    getLocationSmart,
+    requestLocationPermission,
+    locationState,
+    loading: authLoading,
+    socket,
+    user
+  } = useAuth();
+  
+  // State
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -124,92 +332,251 @@ export default function VisitDetails({ onClose, onSave }) {
   const [preview, setPreview] = useState(null);
   const [formData, setFormData] = useState({
     locationName: '',
-    remarks: ''
+    address: '',
+    remarks: '',
+    contactPerson: '',
+    phone: '',
+    email: ''
   });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [createdVisit, setCreatedVisit] = useState(null);
-  const [locationRetryCount, setLocationRetryCount] = useState(0);
+  const [accuracyStatus, setAccuracyStatus] = useState('unknown');
+  const [validationErrors, setValidationErrors] = useState({});
+  const [bottomNav, setBottomNav] = useState(0);
+  const [fullscreenImage, setFullscreenImage] = useState(false);
+  const [locationAttempts, setLocationAttempts] = useState(0);
 
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (locationTimeoutRef.current) {
+        clearTimeout(locationTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Get location with improved timeout handling
+  const getCurrentLocation = useCallback(async (highAccuracy = true) => {
+    setLocationLoading(true);
+    setError(null);
+    
+    try {
+      const permResult = await requestLocationPermission();
+      if (!permResult.success) {
+        setError(permResult.error || 'Location permission denied');
+        setLocationLoading(false);
+        return;
+      }
+
+      // Create a promise that rejects after timeout
+      const locationPromise = getCurrentPosition({ 
+        enableHighAccuracy: highAccuracy,
+        timeout: 15000 // 15 seconds timeout
+      });
+
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        locationTimeoutRef.current = setTimeout(() => {
+          reject({ code: 3, message: 'Location timeout' });
+        }, 16000);
+      });
+
+      // Race between location and timeout
+      const result = await Promise.race([locationPromise, timeoutPromise]);
+      
+      // Clear timeout if location succeeded
+      if (locationTimeoutRef.current) {
+        clearTimeout(locationTimeoutRef.current);
+        locationTimeoutRef.current = null;
+      }
+
+      if (result.success) {
+        setLocation(result);
+        setLocationAttempts(0);
+        
+        if (socket?.connected && user?._id) {
+          socket.emit('location:update', {
+            userId: user._id,
+            location: {
+              lat: result.lat,
+              lng: result.lng,
+              accuracy: result.accuracy,
+              timestamp: new Date().toISOString()
+            },
+            activity: 'creating_visit'
+          });
+        }
+        setLocationLoading(false);
+      } else {
+        throw new Error(result.error || 'Failed to get location');
+      }
+    } catch (err) {
+      console.error('Location error:', err);
+      
+      if (locationTimeoutRef.current) {
+        clearTimeout(locationTimeoutRef.current);
+        locationTimeoutRef.current = null;
+      }
+
+      // Handle timeout
+      if (err.code === 3 || err.message?.includes('timeout')) {
+        if (highAccuracy && locationAttempts < 2) {
+          // Try with low accuracy
+          setLocationAttempts(prev => prev + 1);
+          setError('High accuracy timeout, trying low accuracy...');
+          setTimeout(() => getCurrentLocation(false), 1000);
+        } else if (locationAttempts < 3) {
+          // Retry with current accuracy
+          setLocationAttempts(prev => prev + 1);
+          setError(`Location timeout (attempt ${locationAttempts + 1}/3). Retrying...`);
+          setTimeout(() => getCurrentLocation(highAccuracy), 2000);
+        } else {
+          setError('Unable to get location after multiple attempts. Please try manual entry or check GPS.');
+          setLocationLoading(false);
+        }
+      } else {
+        setError(err.message || 'Failed to get location');
+        setLocationLoading(false);
+      }
+    }
+  }, [getCurrentPosition, requestLocationPermission, socket, user, locationAttempts]);
+
+  // Initial location fetch
   useEffect(() => {
     getCurrentLocation();
   }, []);
 
-  const getCurrentLocation = async () => {
-    setLocationLoading(true);
-    setError(null);
-    
-    const result = await getCurrentPosition();
-    
-    if (result.success) {
-      setLocation(result);
-    } else {
-      setError(result.error || 'Failed to get location');
-      if (locationRetryCount < 3) {
-        setTimeout(() => {
-          setLocationRetryCount(prev => prev + 1);
-          getCurrentLocation();
-        }, 3000);
-      }
+  // Update accuracy status
+  useEffect(() => {
+    if (location?.accuracy) {
+      if (location.accuracy <= 20) setAccuracyStatus('good');
+      else if (location.accuracy <= 50) setAccuracyStatus('fair');
+      else setAccuracyStatus('poor');
     }
-    setLocationLoading(false);
-  };
+  }, [location]);
 
-  const handleImageChange = (event) => {
+  // Camera Handler - Direct camera capture only
+  const handleCameraCapture = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setError('Image size should be less than 10MB');
-        return;
-      }
-      
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Please upload an image file');
-        return;
-      }
+      processImageFile(file);
+    }
+    // Reset input value so same file can be selected again
+    event.target.value = '';
+  };
 
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+  const processImageFile = (file) => {
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image size should be less than 10MB');
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please capture a valid image');
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = () => {
+    setImageFile(null);
+    setPreview(null);
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+  };
+
+  const handleChange = (field) => (event) => {
+    const value = event.target.value;
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
   const validateForm = () => {
+    const errors = {};
+
     if (!imageFile) {
-      setError('Please capture or upload a photo');
-      return false;
+      errors.photo = 'Please capture a photo';
     }
+
     if (!formData.locationName.trim()) {
-      setError('Please enter location name');
-      return false;
+      errors.locationName = 'Location name is required';
     }
+
     if (!location) {
-      setError('Location not available. Please try again.');
-      return false;
+      errors.location = 'Location coordinates are required';
     }
-    return true;
+
+    if (formData.phone && !/^[0-9+\-\s()]{10,15}$/.test(formData.phone)) {
+      errors.phone = 'Please enter a valid phone number';
+    }
+
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      setError('Please fill all required fields correctly');
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const visitData = {
-        locationName: formData.locationName,
-        latitude: location.lat,
-        longitude: location.lng,
-        remarks: formData.remarks || ''
-      };
+      // Get fresh location if accuracy is poor
+      let currentLocation = location;
+      if (accuracyStatus === 'poor') {
+        const freshLocation = await getLocationSmart();
+        if (freshLocation.success) {
+          currentLocation = freshLocation;
+        }
+      }
 
-      const response = await createVisit(visitData, imageFile);
+      const formDataObj = new FormData();
+      formDataObj.append('latitude', currentLocation.lat.toString());
+      formDataObj.append('longitude', currentLocation.lng.toString());
+      formDataObj.append('locationName', formData.locationName.trim());
+      
+      if (formData.address.trim()) {
+        formDataObj.append('address', formData.address.trim());
+      }
+      
+      if (formData.remarks.trim()) {
+        formDataObj.append('remarks', formData.remarks.trim());
+      }
+      
+      if (formData.contactPerson.trim()) {
+        formDataObj.append('contactPerson', formData.contactPerson.trim());
+      }
+      
+      if (formData.phone.trim()) {
+        formDataObj.append('phone', formData.phone.trim());
+      }
+      
+      if (formData.email.trim()) {
+        formDataObj.append('email', formData.email.trim());
+      }
+      
+      formDataObj.append('photos', imageFile);
+
+      const response = await createVisit(formDataObj, imageFile);
 
       if (response.success) {
         setCreatedVisit(response.data);
@@ -224,7 +591,11 @@ export default function VisitDetails({ onClose, onSave }) {
         setPreview(null);
         setFormData({
           locationName: '',
-          remarks: ''
+          address: '',
+          remarks: '',
+          contactPerson: '',
+          phone: '',
+          email: ''
         });
       } else {
         setError(response.error || 'Failed to create visit');
@@ -238,282 +609,614 @@ export default function VisitDetails({ onClose, onSave }) {
   };
 
   const handleRetryLocation = () => {
-    setLocationRetryCount(0);
+    setLocationAttempts(0);
     getCurrentLocation();
   };
 
+  // Helper Functions
+  const getAccuracyColor = () => {
+    switch(accuracyStatus) {
+      case 'good': return SUCCESS;
+      case 'fair': return WARNING;
+      case 'poor': return ERROR;
+      default: return theme.palette.text.secondary;
+    }
+  };
+
+  const getAccuracyIcon = () => {
+    switch(accuracyStatus) {
+      case 'good': return <GpsFixed sx={{ color: SUCCESS }} />;
+      case 'fair': return <MyLocation sx={{ color: WARNING }} />;
+      case 'poor': return <GpsOff sx={{ color: ERROR }} />;
+      default: return <LocationOn sx={{ color: theme.palette.text.secondary }} />;
+    }
+  };
+
   return (
-    <>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h5" fontWeight={800} sx={{ color: PRIMARY, mb: 1 }}>
-          Create New Visit
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          Capture site information and location coordinates
-        </Typography>
+    <Box sx={{ 
+      minHeight: '100vh', 
+      bgcolor: '#f8fafc',
+      pb: isMobile ? 8 : 4
+    }}>
+      {/* Hidden Camera Input - Only Camera */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCameraCapture}
+        style={{ display: 'none' }}
+      />
 
-        <Grid container spacing={4}>
+      {/* Header - Fully Responsive */}
+      <Paper
+        sx={{
+          p: isMobile ? 2 : 3,
+          borderRadius: 0,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${SECONDARY} 100%)`,
+          color: 'white',
+          position: 'sticky',
+          top: 0,
+          ml : isMobile ? 2 : 3,
+          width : isMobile ? "90%" : "1150px",
+          zIndex: 100,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+          mb: 3,
+        }}
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 2,
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'flex-start' : 'center'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+            <IconButton 
+              onClick={() => onClose ? onClose() : navigate(-1)} 
+              sx={{ color: 'white' }}
+            >
+              <ArrowBack />
+            </IconButton>
+            <Box>
+              <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700}>
+                Create New Visit
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Connection Status */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1, 
+            px: 1.5,
+            py: 0.5,
+            bgcolor: 'rgba(255,255,255,0.1)',
+            borderRadius: 2,
+            width: isMobile ? '100%' : 'fit-content',
+            justifyContent: isMobile ? 'center' : 'flex-start'
+          }}>
+            {socket?.connected ? (
+              <>
+                <Wifi sx={{ fontSize: 16 }} />
+                <Typography variant="caption">Connected</Typography>
+              </>
+            ) : (
+              <>
+                <WifiOff sx={{ fontSize: 16 }} />
+                <Typography variant="caption">Offline</Typography>
+              </>
+            )}
+          </Box>
+        </Box>
+      </Paper>
+
+      {/* Main Content - Fully Responsive */}
+      <Box sx={{ 
+        px: isMobile ? 2 : 3,
+        maxWidth: '1200px',
+        mx: 'auto'
+      }}>
+        <Grid container spacing={isMobile ? 2 : 3}>
+          {/* Left Column - Photo & Basic Info */}
           <Grid item xs={12} md={6}>
-            {/* Photo Capture */}
-            <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AddAPhoto sx={{ fontSize: 20, color: PRIMARY }} />
-                Capture Site Photo
-                <Chip 
-                  label="Required" 
-                  size="small" 
-                  color={imageFile ? 'success' : 'error'}
-                  sx={{ ml: 'auto' }}
-                />
-              </Typography>
+            <Stack spacing={2}>
+              {/* Camera Section - Direct camera capture */}
+              <FormSection>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  color: theme.palette.primary.main,
+                  mb: 2,
+                  fontSize: isMobile ? '1rem' : '1.1rem'
+                }}>
+                  <CameraAlt /> Site Photo
+                  <Chip 
+                    label="Required" 
+                    size="small" 
+                    color={imageFile ? 'success' : 'error'}
+                    sx={{ ml: 'auto', height: 24 }}
+                  />
+                </Typography>
 
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleImageChange}
-                style={{ display: 'none' }}
-                id="visit-image"
-                disabled={loading || authLoading}
-              />
-              <label htmlFor="visit-image">
-                {preview ? (
-                  <Box sx={{ position: 'relative' }}>
-                    <img
-                      src={preview}
-                      alt="Preview"
-                      style={{
-                        width: '100%',
-                        height: 200,
-                        objectFit: 'cover',
-                        borderRadius: 12
-                      }}
-                    />
-                    <IconButton
-                      sx={{
-                        position: 'absolute',
-                        top: 8,
-                        right: 8,
-                        bgcolor: 'rgba(0,0,0,0.5)',
-                        color: 'white',
-                        '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setImageFile(null);
-                        setPreview(null);
-                      }}
-                      disabled={loading}
+                <AnimatePresence mode="wait">
+                  {preview ? (
+                    <motion.div
+                      key="preview"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
                     >
-                      <Cancel />
-                    </IconButton>
-                  </Box>
-                ) : (
-                  <UploadArea>
-                    <PhotoCamera sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                    <Typography variant="body2" fontWeight={600}>
-                      Click to capture or upload
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                      Clear site/storefront image required (Max 10MB)
-                    </Typography>
-                  </UploadArea>
-                )}
-              </label>
-            </Paper>
+                      <ImagePreview>
+                        <img 
+                          src={preview} 
+                          alt="Preview" 
+                          onClick={() => setFullscreenImage(true)}
+                        />
+                        <Box className="overlay">
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<Fullscreen />}
+                            onClick={() => setFullscreenImage(true)}
+                            sx={{ 
+                              bgcolor: 'rgba(255,255,255,0.2)',
+                              backdropFilter: 'blur(5px)',
+                              '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
+                            }}
+                          >
+                            View
+                          </Button>
+                          <IconButton
+                            onClick={handleRemovePhoto}
+                            sx={{ 
+                              bgcolor: 'rgba(255,255,255,0.2)',
+                              backdropFilter: 'blur(5px)',
+                              '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
+                            }}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      </ImagePreview>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="upload"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                    >
+                      <UploadArea 
+                        onClick={() => cameraInputRef.current?.click()}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <CameraAlt sx={{ 
+                          fontSize: isMobile ? 40 : 48, 
+                          color: alpha(theme.palette.primary.main, 0.5), 
+                          mb: 2 
+                        }} />
+                        <Typography 
+                          variant={isMobile ? "body1" : "h6"} 
+                          fontWeight={600} 
+                          color={theme.palette.primary.main}
+                        >
+                          Tap to open camera
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                          Take a photo of the site
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Max size: 10MB
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          size={isMobile ? "small" : "medium"}
+                          startIcon={<PhotoCamera />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cameraInputRef.current?.click();
+                          }}
+                          sx={{ 
+                            mt: 2, 
+                            borderRadius: 2,
+                            bgcolor: theme.palette.primary.main,
+                            '&:hover': { bgcolor: SECONDARY }
+                          }}
+                        >
+                          Open Camera
+                        </Button>
+                      </UploadArea>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-            {/* Location Name Input */}
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LocationOn sx={{ fontSize: 20, color: PRIMARY }} />
-                Location Name
-                <Chip 
-                  label="Required" 
-                  size="small" 
-                  color={formData.locationName ? 'success' : 'error'}
-                  sx={{ ml: 'auto' }}
-                />
-              </Typography>
-              <TextField
-                fullWidth
-                placeholder="Enter location/business name"
-                value={formData.locationName}
-                onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
-                disabled={loading || authLoading}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    bgcolor: 'action.hover'
-                  }
-                }}
-              />
-            </Paper>
+                {validationErrors.photo && (
+                  <FormHelperText error sx={{ mt: 1 }}>
+                    {validationErrors.photo}
+                  </FormHelperText>
+                )}
+              </FormSection>
+
+              {/* Location Name */}
+              <FormSection>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  color: theme.palette.primary.main,
+                  mb: 2,
+                  fontSize: isMobile ? '1rem' : '1.1rem'
+                }}>
+                  <Business /> Location Details
+                </Typography>
+                
+                <Stack spacing={2}>
+                  <TextField
+                    fullWidth
+                    label="Location/Business Name *"
+                    placeholder="e.g., Client Office, Store Name"
+                    value={formData.locationName}
+                    onChange={handleChange('locationName')}
+                    error={!!validationErrors.locationName}
+                    helperText={validationErrors.locationName}
+                    disabled={loading || authLoading}
+                    size={isMobile ? "small" : "medium"}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LocationOn sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Address"
+                    placeholder="Full address"
+                    value={formData.address}
+                    onChange={handleChange('address')}
+                    multiline
+                    rows={isMobile ? 2 : 2}
+                    disabled={loading || authLoading}
+                    size={isMobile ? "small" : "medium"}
+                  />
+                </Stack>
+              </FormSection>
+            </Stack>
           </Grid>
 
+          {/* Right Column - Contact & Location */}
           <Grid item xs={12} md={6}>
-            {/* Location Details */}
-            <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <GpsFixed sx={{ fontSize: 20, color: PRIMARY }} />
-                Location Coordinates
-                <Chip 
-                  label={location ? 'Acquired' : 'Required'} 
-                  size="small" 
-                  color={location ? 'success' : 'error'}
-                  sx={{ ml: 'auto' }}
-                />
-              </Typography>
+            <Stack spacing={2}>
+              {/* Contact Information */}
+              <FormSection>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  color: theme.palette.primary.main,
+                  mb: 2,
+                  fontSize: isMobile ? '1rem' : '1.1rem'
+                }}>
+                  <Person /> Contact Information
+                </Typography>
 
-              {locationLoading ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress size={24} sx={{ mr: 2 }} />
-                  <Typography>Getting your location...</Typography>
-                </Box>
-              ) : location ? (
                 <Stack spacing={2}>
-                  <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                    <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                      Current Coordinates
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Map sx={{ color: PRIMARY, fontSize: 20 }} />
-                      <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
-                        {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-                      </Typography>
-                    </Box>
-                  </Box>
+                  <TextField
+                    fullWidth
+                    label="Contact Person"
+                    placeholder="Enter contact name"
+                    value={formData.contactPerson}
+                    onChange={handleChange('contactPerson')}
+                    disabled={loading || authLoading}
+                    size={isMobile ? "small" : "medium"}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
 
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                          Latitude
-                        </Typography>
-                        <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
-                          {location.lat.toFixed(6)}° N
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                          Longitude
-                        </Typography>
-                        <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
-                          {location.lng.toFixed(6)}° E
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
+                  <TextField
+                    fullWidth
+                    label="Phone Number"
+                    placeholder="Enter phone number"
+                    value={formData.phone}
+                    onChange={handleChange('phone')}
+                    error={!!validationErrors.phone}
+                    helperText={validationErrors.phone}
+                    disabled={loading || authLoading}
+                    size={isMobile ? "small" : "medium"}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Phone sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
 
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                          Accuracy
-                        </Typography>
-                        <Typography variant="body2" fontWeight={600}>
-                          ±{location.accuracy?.toFixed(0)} meters
-                        </Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4caf50', animation: 'pulse 2s infinite' }} />
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            Current Time
-                          </Typography>
-                          <Typography variant="body2" fontWeight={600}>
-                            {format(new Date(), 'hh:mm:ss a')}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Grid>
-                  </Grid>
+                  <TextField
+                    fullWidth
+                    label="Email Address"
+                    placeholder="Enter email address"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange('email')}
+                    error={!!validationErrors.email}
+                    helperText={validationErrors.email}
+                    disabled={loading || authLoading}
+                    size={isMobile ? "small" : "medium"}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Email sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
                 </Stack>
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <ErrorIcon sx={{ fontSize: 48, color: 'error.main', mb: 2 }} />
-                  <Typography color="error" gutterBottom>
-                    {error || 'Failed to get location'}
+              </FormSection>
+
+              {/* Location Status */}
+              <FormSection>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  mb: 2,
+                  flexDirection: isMobile ? 'column' : 'row',
+                  gap: isMobile ? 1 : 0
+                }}>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1,
+                    color: theme.palette.primary.main,
+                    fontSize: isMobile ? '1rem' : '1.1rem'
+                  }}>
+                    <GpsFixed /> Location Coordinates
                   </Typography>
                   <Button
-                    variant="outlined"
+                    size="small"
+                    startIcon={<Refresh />}
                     onClick={handleRetryLocation}
-                    sx={{ mt: 2, borderRadius: 2 }}
+                    disabled={locationLoading}
+                    sx={{ 
+                      color: theme.palette.primary.main,
+                      width: isMobile ? '100%' : 'auto'
+                    }}
                   >
-                    Retry Location
+                    Refresh
                   </Button>
                 </Box>
-              )}
-            </Paper>
 
-            {/* Remarks */}
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AccessTime sx={{ fontSize: 20, color: PRIMARY }} />
-                Visit Remarks (Optional)
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                placeholder="Enter any additional notes about the visit..."
-                value={formData.remarks}
-                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                disabled={loading || authLoading}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    bgcolor: 'action.hover'
-                  }
-                }}
-              />
-            </Paper>
+                {locationLoading ? (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <CircularProgress size={isMobile ? 32 : 40} sx={{ color: theme.palette.primary.main, mb: 2 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {locationAttempts > 0 ? `Attempt ${locationAttempts}/3...` : 'Getting your location...'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Please ensure GPS is enabled
+                    </Typography>
+                    {locationAttempts > 0 && (
+                      <LinearProgress 
+                        sx={{ mt: 2, borderRadius: 2 }} 
+                        variant="determinate" 
+                        value={locationAttempts * 33.33} 
+                      />
+                    )}
+                  </Box>
+                ) : location ? (
+                  <LocationCard accuracy={location.accuracy}>
+                    <Stack spacing={2}>
+                      {/* Accuracy Indicator */}
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        gap: isMobile ? 1 : 0
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {getAccuracyIcon()}
+                          <Typography variant="body2">
+                            Accuracy: ±{location.accuracy?.toFixed(0)}m
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={accuracyStatus.toUpperCase()}
+                          size="small"
+                          sx={{
+                            bgcolor: alpha(getAccuracyColor(), 0.1),
+                            color: getAccuracyColor(),
+                            fontWeight: 600,
+                            height: 24,
+                            width: isMobile ? '100%' : 'auto'
+                          }}
+                        />
+                      </Box>
+
+                      {/* Coordinates */}
+                      <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+                        <Typography variant="caption" color="text.secondary" gutterBottom>
+                          Current Position
+                        </Typography>
+                        <Typography 
+                          variant="body2" 
+                          fontFamily="monospace" 
+                          fontWeight={600}
+                          sx={{ 
+                            fontSize: isMobile ? '0.8rem' : '0.9rem',
+                            wordBreak: 'break-all'
+                          }}
+                        >
+                          {location.lat.toFixed(6)}° N, {location.lng.toFixed(6)}° E
+                        </Typography>
+                      </Box>
+
+                      <Grid container spacing={isMobile ? 1 : 2}>
+                        <Grid item xs={6}>
+                          <Paper sx={{ p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.05), borderRadius: 2 }}>
+                            <Typography variant="caption" color="text.secondary">Latitude</Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ fontSize: isMobile ? '0.8rem' : '0.9rem' }}>
+                              {location.lat.toFixed(6)}°
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Paper sx={{ p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.05), borderRadius: 2 }}>
+                            <Typography variant="caption" color="text.secondary">Longitude</Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ fontSize: isMobile ? '0.8rem' : '0.9rem' }}>
+                              {location.lng.toFixed(6)}°
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                      </Grid>
+                    </Stack>
+                  </LocationCard>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <GpsOff sx={{ fontSize: 48, color: ERROR, mb: 2 }} />
+                    <Typography color="error" gutterBottom>
+                      {error || 'Failed to get location'}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={handleRetryLocation}
+                      fullWidth={isMobile}
+                      sx={{ 
+                        mt: 2, 
+                        borderRadius: 2,
+                        bgcolor: theme.palette.primary.main,
+                        '&:hover': { bgcolor: SECONDARY }
+                      }}
+                    >
+                      Retry Location
+                    </Button>
+                  </Box>
+                )}
+                {validationErrors.location && (
+                  <FormHelperText error sx={{ mt: 1 }}>
+                    {validationErrors.location}
+                  </FormHelperText>
+                )}
+              </FormSection>
+
+              {/* Remarks */}
+              <FormSection>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 1,
+                  color: theme.palette.primary.main,
+                  mb: 2,
+                  fontSize: isMobile ? '1rem' : '1.1rem'
+                }}>
+                  <Notes /> Visit Notes
+                </Typography>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={isMobile ? 3 : 4}
+                  placeholder="Enter any additional notes about the visit..."
+                  value={formData.remarks}
+                  onChange={handleChange('remarks')}
+                  disabled={loading || authLoading}
+                  variant="outlined"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: 'action.hover'
+                    }
+                  }}
+                />
+              </FormSection>
+            </Stack>
           </Grid>
         </Grid>
 
-        {error && (
-          <Alert 
-            severity="error" 
-            sx={{ mt: 3, borderRadius: 2 }}
-            onClose={() => setError(null)}
-            action={
-              error.includes('location') && (
-                <Button color="inherit" size="small" onClick={handleRetryLocation}>
-                  Retry
-                </Button>
-              )
-            }
-          >
-            {error}
-          </Alert>
-        )}
+        {/* Error Alert */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <Alert 
+                severity={error.includes('timeout') ? 'warning' : 'error'} 
+                sx={{ mt: 3, borderRadius: 2 }}
+                onClose={() => setError(null)}
+                action={
+                  error.includes('location') && (
+                    <Button color="inherit" size="small" onClick={handleRetryLocation}>
+                      Retry
+                    </Button>
+                  )
+                }
+              >
+                {error}
+              </Alert>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <Box display="flex" justifyContent="flex-end" gap={2} sx={{ mt: 4 }}>
+        {/* Action Buttons - Fully Responsive */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            gap: 2, 
+            mt: 4,
+            mb: isMobile ? 2 : 0,
+            flexDirection: isMobile ? 'column' : 'row'
+          }}
+        >
           <Button
+            fullWidth={isMobile}
             variant="outlined"
-            onClick={onClose}
+            onClick={() => onClose ? onClose() : navigate(-1)}
             disabled={loading}
-            sx={{ px: 4, py: 1.5, borderRadius: 2 }}
+            sx={{ 
+              px: 4, 
+              py: 1.5, 
+              borderRadius: 2,
+              borderColor: theme.palette.primary.main,
+              color: theme.palette.primary.main,
+              '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.05) },
+              order: isMobile ? 2 : 1
+            }}
           >
             Cancel
           </Button>
           <Button
+            fullWidth={isMobile}
             variant="contained"
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <CloudUpload />}
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
             onClick={handleSubmit}
             disabled={loading || authLoading || !location || !imageFile || !formData.locationName}
             sx={{
               px: 4,
               py: 1.5,
               borderRadius: 2,
-              bgcolor: PRIMARY,
-              '&:hover': { bgcolor: '#3456c0' },
+              bgcolor: theme.palette.primary.main,
+              '&:hover': { bgcolor: SECONDARY },
               '&.Mui-disabled': {
-                bgcolor: 'action.disabledBackground'
-              }
+                bgcolor: alpha(theme.palette.primary.main, 0.3)
+              },
+              order: isMobile ? 1 : 2
             }}
           >
             {loading ? 'Creating Visit...' : 'Create Visit'}
@@ -531,16 +1234,132 @@ export default function VisitDetails({ onClose, onSave }) {
         }}
       />
 
-      {/* Animation styles */}
+      {/* Fullscreen Image Dialog */}
+      <Dialog
+        open={fullscreenImage}
+        onClose={() => setFullscreenImage(false)}
+        maxWidth="lg"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            bgcolor: 'black',
+            borderRadius: isMobile ? 0 : 2
+          }
+        }}
+      >
+        <DialogContent sx={{ p: 0, position: 'relative', height: isMobile ? '100vh' : 'auto' }}>
+          <IconButton
+            onClick={() => setFullscreenImage(false)}
+            sx={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              bgcolor: 'rgba(255,255,255,0.2)',
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
+              zIndex: 1
+            }}
+          >
+            <Close />
+          </IconButton>
+          <Box
+            component="img"
+            src={preview}
+            alt="Full preview"
+            sx={{
+              width: '100%',
+              height: isMobile ? '100%' : 'auto',
+              objectFit: 'contain'
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper
+          sx={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          }}
+          elevation={3}
+        >
+          <BottomNavigation
+            showLabels
+            value={bottomNav}
+            onChange={(e, newValue) => setBottomNav(newValue)}
+            sx={{
+              height: 64,
+              '& .MuiBottomNavigationAction-root': {
+                color: theme.palette.text.secondary,
+                '&.Mui-selected': { color: theme.palette.primary.main },
+              },
+            }}
+          >
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<Dashboard />}
+              onClick={() => navigate('/dashboard')}
+            />
+            <BottomNavigationAction
+              label="Visits"
+              icon={<History />}
+              onClick={() => navigate('/total-visits')}
+            />
+            <BottomNavigationAction
+              label="New Visit"
+              icon={<AddAPhoto />}
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
+
+      {/* Mobile FAB for quick actions */}
+      {isMobile && (
+        <Zoom in={true}>
+          <Fab
+            color="primary"
+            aria-label="location"
+            onClick={handleRetryLocation}
+            disabled={locationLoading}
+            sx={{
+              position: 'fixed',
+              bottom: 80,
+              right: 16,
+              zIndex: 1000,
+              bgcolor: theme.palette.primary.main,
+              '&:hover': { bgcolor: SECONDARY },
+              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+            }}
+          >
+            <Badge
+              variant="dot"
+              color={location ? 'success' : 'error'}
+              overlap="circular"
+            >
+              <MyLocation />
+            </Badge>
+          </Fab>
+        </Zoom>
+      )}
+
+      {/* Global Styles */}
       <style>
         {`
           @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
           }
         `}
       </style>
-    </>
+    </Box>
   );
 }

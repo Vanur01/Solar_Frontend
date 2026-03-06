@@ -33,6 +33,7 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from "../contexts/AuthContext";
 
 const Topbar = ({ 
   toggleDrawer, 
@@ -51,15 +52,8 @@ const Topbar = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
-  // Mock user data (replace with actual auth context)
-  const user = {
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@example.com",
-    role: "Head_office",
-    avatar: null,
-    dashboardTitle: "Dashboard",
-  };
+  const { user, logout } = useAuth()
+  console.log("users11...", user)
 
   // Mock notifications
   useEffect(() => {
@@ -122,26 +116,6 @@ const Topbar = ({
     }
   }, [navigate, handleClose]);
 
-  const handleProfile = useCallback(() => {
-    handleClose();
-    navigate('/profile');
-  }, [navigate, handleClose]);
-
-  const handleSettings = useCallback(() => {
-    handleClose();
-    navigate('/settings');
-  }, [navigate, handleClose]);
-
-  const handleHelp = useCallback(() => {
-    handleClose();
-    navigate('/help');
-  }, [navigate, handleClose]);
-
-  const handleDashboard = useCallback(() => {
-    handleClose();
-    navigate('/dashboard');
-  }, [navigate, handleClose]);
-
   const handleSearch = useCallback((e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -171,8 +145,8 @@ const Topbar = ({
   }, [user]);
 
   const displayName = useMemo(() => {
-    if (!user) return 'User';
-    return user?.firstName || 'User';
+    if (!user) return 'Team';
+    return user?.firstName || 'Team';
   }, [user]);
 
   const fullName = useMemo(() => {

@@ -1,3 +1,4 @@
+// pages/AttendanceDetails.jsx (Updated with Mobile View)
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -21,7 +22,9 @@ import {
   Alert,
   Snackbar,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Slide,
+  Fade,
 } from '@mui/material';
 import { styled, alpha } from '@mui/material/styles';
 import {
@@ -37,9 +40,12 @@ import {
   CalendarToday,
   CheckCircle,
   Warning,
-  Error as ErrorIcon
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useAttendance } from '../hooks/useAttendance';
+import { format, parseISO } from 'date-fns';
+
+const PRIMARY_COLOR = "#4569ea";
 
 const InfoItem = styled(Box)(({ theme }) => ({
   padding: theme.spacing(1.5),
@@ -54,11 +60,11 @@ const PhotoPreview = styled(Box)(({ theme }) => ({
   borderRadius: theme.spacing(2),
   overflow: 'hidden',
   cursor: 'pointer',
-  border: `2px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+  border: `2px solid ${alpha(PRIMARY_COLOR, 0.2)}`,
   transition: 'transform 0.2s ease',
   '&:hover': {
     transform: 'scale(1.05)',
-    borderColor: theme.palette.primary.main
+    borderColor: PRIMARY_COLOR
   },
   '& img': {
     width: '100%',
@@ -67,26 +73,40 @@ const PhotoPreview = styled(Box)(({ theme }) => ({
   }
 }));
 
-const StatusChip = styled(Chip)(({ theme, status }) => {
-  const colors = {
-    present: { bg: alpha('#4caf50', 0.1), color: '#4caf50', icon: CheckCircle },
-    absent: { bg: alpha('#f44336', 0.1), color: '#f44336', icon: ErrorIcon },
-    late: { bg: alpha('#ff9800', 0.1), color: '#ff9800', icon: Warning },
-    leave: { bg: alpha('#9c27b0', 0.1), color: '#9c27b0', icon: Person },
-    holiday: { bg: alpha('#2196f3', 0.1), color: '#2196f3', icon: CalendarToday }
-  };
-  const style = colors[status] || colors.present;
-  const Icon = style.icon;
-  
-  return {
-    backgroundColor: style.bg,
-    color: style.color,
-    fontWeight: 600,
-    '& .MuiChip-icon': {
-      color: style.color
+const StatusChip = ({ status, size = "small" }) => {
+  const getConfig = () => {
+    switch (status) {
+      case 'present':
+        return { bg: alpha('#4caf50', 0.1), color: '#4caf50', icon: <CheckCircle />, label: 'Present' };
+      case 'absent':
+        return { bg: alpha('#f44336', 0.1), color: '#f44336', icon: <ErrorIcon />, label: 'Absent' };
+      case 'late':
+        return { bg: alpha('#ff9800', 0.1), color: '#ff9800', icon: <Warning />, label: 'Late' };
+      case 'leave':
+        return { bg: alpha('#9c27b0', 0.1), color: '#9c27b0', icon: <Person />, label: 'Leave' };
+      case 'holiday':
+        return { bg: alpha('#2196f3', 0.1), color: '#2196f3', icon: <CalendarToday />, label: 'Holiday' };
+      default:
+        return { bg: alpha('#4caf50', 0.1), color: '#4caf50', icon: <CheckCircle />, label: status };
     }
   };
-});
+
+  const config = getConfig();
+
+  return (
+    <Chip
+      size={size}
+      label={config.label}
+      icon={config.icon}
+      sx={{
+        bgcolor: config.bg,
+        color: config.color,
+        fontWeight: 600,
+        '& .MuiChip-icon': { color: config.color },
+      }}
+    />
+  );
+};
 
 export default function AttendanceDetails({ 
   open, 
@@ -204,74 +224,67 @@ export default function AttendanceDetails({
         PaperProps={{
           sx: {
             borderRadius: isMobile ? 0 : 4,
-            maxHeight: '90vh'
+            margin: isMobile ? 0 : 24,
+            maxHeight: isMobile ? '100%' : '90vh',
           }
         }}
+        TransitionComponent={isMobile ? Slide : Fade}
+        transitionDuration={300}
       >
         <DialogTitle sx={{ 
-          borderBottom: '1px solid', 
-          borderColor: 'divider',
-          bgcolor: 'white',
-          p: 2,
-          position: 'sticky',
-          top: 0,
-          zIndex: 10
+          bgcolor: PRIMARY_COLOR,
+          color: 'white',
+          pb: 2,
+          px: { xs: 2, sm: 3 },
         }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6" fontWeight={700}>
-              Attendance Details
-            </Typography>
-            <IconButton onClick={onClose}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Avatar sx={{ bgcolor: 'white', color: PRIMARY_COLOR, width: 40, height: 40 }}>
+                {attendance.user?.name?.charAt(0) || 'U'}
+              </Avatar>
+              <Box>
+                <Typography variant="h6" fontWeight={700}>
+                  {attendance.user?.name || 'Attendance Details'}
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                  ID: {attendance.id?.slice(-8) || 'N/A'}
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton onClick={onClose} size="small" sx={{ color: 'white' }}>
               <Close />
             </IconButton>
           </Stack>
         </DialogTitle>
 
-        <DialogContent sx={{ p: 3 }}>
+        <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
           <Stack spacing={3}>
             {/* User Info */}
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: '#4569ea', width: 64, height: 64 }}>
-                {attendance.user?.name?.charAt(0) || 'U'}
-              </Avatar>
-              <Box flex={1}>
-                <Typography variant="h5" fontWeight={700}>
-                  {attendance.user?.name || 'User'}
+            <Box display="flex" alignItems="center" justifyContent="space-between" gap={2}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  {attendance.user?.email}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {attendance.user?.email} • {attendance.user?.employeeId || 'No ID'}
+                  {attendance.user?.employeeId || 'No Employee ID'}
                 </Typography>
-                <Box mt={1}>
-                  <Chip
-                    label={attendance.user?.role || 'TEAM'}
-                    size="small"
-                    sx={{ bgcolor: alpha('#4569ea', 0.1), color: '#4569ea' }}
-                  />
-                </Box>
               </Box>
               {!editMode && (
-                <StatusChip
-                  label={attendance.status || 'present'}
-                  status={attendance.status}
-                  icon={attendance.status === 'present' ? <CheckCircle /> : 
-                         attendance.status === 'late' ? <Warning /> :
-                         attendance.status === 'absent' ? <ErrorIcon /> :
-                         <Person />}
-                />
+                <StatusChip status={attendance.status || 'present'} />
               )}
             </Box>
 
             {/* Date Info */}
-            <Paper sx={{ p: 2, bgcolor: alpha('#4569ea', 0.02), borderRadius: 2 }}>
+            <Paper sx={{ p: 2, bgcolor: alpha(PRIMARY_COLOR, 0.02), borderRadius: 2 }}>
               <Stack spacing={1}>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <CalendarToday sx={{ color: '#4569ea', fontSize: 20 }} />
+                  <CalendarToday sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
                   <Typography variant="body1" fontWeight={600}>
                     {formatDate(attendance.date)}
                   </Typography>
                 </Box>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <AccessTime sx={{ color: '#4569ea', fontSize: 20 }} />
+                  <AccessTime sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
                   <Typography variant="body2">
                     Work Duration: <strong>{attendance.workHoursFormatted || '00:00'}</strong> hours
                   </Typography>
@@ -363,7 +376,7 @@ export default function AttendanceDetails({
             </Grid>
 
             {/* Location Details */}
-            <Paper sx={{ p: 2, bgcolor: alpha('#4569ea', 0.02), borderRadius: 2 }}>
+            <Paper sx={{ p: 2, bgcolor: alpha(PRIMARY_COLOR, 0.02), borderRadius: 2 }}>
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
                 Location Details
               </Typography>
@@ -391,7 +404,7 @@ export default function AttendanceDetails({
 
             {/* Photos */}
             {photos.length > 0 && (
-              <Paper sx={{ p: 2, bgcolor: alpha('#4569ea', 0.02), borderRadius: 2 }}>
+              <Paper sx={{ p: 2, bgcolor: alpha(PRIMARY_COLOR, 0.02), borderRadius: 2 }}>
                 <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>
                   Photos ({photos.length})
                 </Typography>
@@ -414,7 +427,11 @@ export default function AttendanceDetails({
                       variant="outlined"
                       startIcon={<Cancel />}
                       onClick={() => setEditMode(false)}
-                      sx={{ borderRadius: 2 }}
+                      sx={{
+                        borderRadius: 2,
+                        borderColor: PRIMARY_COLOR,
+                        color: PRIMARY_COLOR,
+                      }}
                     >
                       Cancel
                     </Button>
@@ -423,7 +440,11 @@ export default function AttendanceDetails({
                       startIcon={<Save />}
                       onClick={handleSave}
                       disabled={loading}
-                      sx={{ borderRadius: 2 }}
+                      sx={{
+                        borderRadius: 2,
+                        bgcolor: PRIMARY_COLOR,
+                        "&:hover": { bgcolor: "#1a237e" },
+                      }}
                     >
                       {loading ? 'Saving...' : 'Save Changes'}
                     </Button>
@@ -435,7 +456,11 @@ export default function AttendanceDetails({
                         variant="outlined"
                         startIcon={<Edit />}
                         onClick={handleEdit}
-                        sx={{ borderRadius: 2 }}
+                        sx={{
+                          borderRadius: 2,
+                          borderColor: PRIMARY_COLOR,
+                          color: PRIMARY_COLOR,
+                        }}
                       >
                         Edit
                       </Button>
@@ -464,19 +489,39 @@ export default function AttendanceDetails({
         open={photoViewOpen}
         onClose={() => setPhotoViewOpen(false)}
         maxWidth="lg"
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: isMobile ? 0 : 3,
+            margin: isMobile ? 0 : 24,
+          }
+        }}
+        TransitionComponent={isMobile ? Slide : Fade}
+        transitionDuration={300}
       >
-        <DialogContent sx={{ p: 1, position: 'relative' }}>
+        <DialogContent sx={{ p: 0, position: 'relative' }}>
           <IconButton
             onClick={() => setPhotoViewOpen(false)}
-            sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(0,0,0,0.5)', color: 'white' }}
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              bgcolor: 'rgba(0,0,0,0.5)',
+              color: 'white',
+              zIndex: 10,
+            }}
           >
             <Close />
           </IconButton>
           <img
             src={selectedPhoto?.url}
             alt="Attendance"
-            style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              maxHeight: '90vh',
+            }}
           />
         </DialogContent>
       </Dialog>
@@ -486,9 +531,12 @@ export default function AttendanceDetails({
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
       >
-        <Alert severity={snackbar.severity} sx={{ borderRadius: 2 }}>
+        <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 2 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

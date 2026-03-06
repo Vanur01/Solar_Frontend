@@ -1,9 +1,10 @@
 // contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from "react";
+import io from 'socket.io-client';
 
 const AuthContext = createContext({});
-
 const API_BASE_URL = "https://backend.sunergytechsolar.com/api/v1";
+const SOCKET_URL = "https://backend.sunergytechsolar.com";
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -18,16 +19,78 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [socket, setSocket] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState([]);
   const [locationState, setLocationState] = useState({
     permission: null,
     coords: null,
     accuracy: null,
     error: null,
-    isWatching: false
+    isWatching: false,
+    isOnline: false
   });
   const [attendance, setAttendance] = useState(null);
   
   const watchIdRef = useRef(null);
+  const locationIntervalRef = useRef(null);
+
+  // Initialize Socket.IO connection
+  const initializeSocket = useCallback(() => {
+    if (!user?._id) return null;
+
+    const token = localStorage.getItem("token");
+    const socketInstance = io(SOCKET_URL, {
+      auth: { token },
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
+
+    socketInstance.on('connect', () => {
+      console.log('Socket connected:', socketInstance.id);
+      setLocationState(prev => ({ ...prev, isOnline: true }));
+      
+      // Join user's room
+      socketInstance.emit('user:online', { 
+        userId: user._id,
+        role: user.role 
+      });
+    });
+
+    socketInstance.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setLocationState(prev => ({ ...prev, isOnline: false }));
+    });
+
+    socketInstance.on('users:online', (users) => {
+      setOnlineUsers(users);
+    });
+
+    socketInstance.on('location:update', (data) => {
+      // Handle real-time location updates from other users
+      console.log('Location update received:', data);
+    });
+
+    socketInstance.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
+
+    setSocket(socketInstance);
+    return socketInstance;
+  }, [user]);
+
+  // Cleanup socket on unmount or logout
+  useEffect(() => {
+    if (user) {
+      const socketInstance = initializeSocket();
+      return () => {
+        if (socketInstance) {
+          socketInstance.disconnect();
+        }
+      };
+    }
+  }, [user, initializeSocket]);
 
   // Check if user is authenticated
   const isAuthenticated = useCallback(() => {
@@ -76,8 +139,29 @@ export const AuthProvider = ({ children }) => {
       if (watchIdRef.current) {
         navigator.geolocation?.clearWatch(watchIdRef.current);
       }
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+      }
     };
   }, []);
+
+  // Send location update via socket
+  const sendLocationUpdate = useCallback((location) => {
+    if (socket?.connected && user?._id) {
+      socket.emit('location:update', {
+        userId: user._id,
+        location: {
+          lat: location.lat,
+          lng: location.lng,
+          accuracy: location.accuracy,
+          speed: location.speed,
+          heading: location.heading,
+          timestamp: new Date().toISOString()
+        },
+        attendance: attendance?.status || 'OFF DUTY'
+      });
+    }
+  }, [socket, user, attendance]);
 
   // Request location permission with modern approach
   const requestLocationPermission = useCallback(async () => {
@@ -95,7 +179,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      // Check permission status if available
       if (navigator.permissions?.query) {
         const permission = await navigator.permissions.query({ name: 'geolocation' });
         
@@ -110,27 +193,28 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      // Trigger permission prompt
       const result = await new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            const locationData = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              speed: position.coords.speed,
+              heading: position.coords.heading
+            };
+
             setLocationState(prev => ({
               ...prev,
               permission: 'granted',
-              coords: {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude
-              },
+              coords: locationData,
               accuracy: position.coords.accuracy,
               error: null
             }));
+
             resolve({ 
               success: true, 
-              coords: {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-                accuracy: position.coords.accuracy
-              }
+              ...locationData
             });
           },
           (error) => {
@@ -179,33 +263,35 @@ export const AuthProvider = ({ children }) => {
       const position = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, geolocationOptions);
         
-        // Backup timeout
         const timeoutId = setTimeout(() => {
           reject({ code: 3, message: 'Location timeout' });
         }, geolocationOptions.timeout + 1000);
 
-        // Clear timeout if position found
         return () => clearTimeout(timeoutId);
       });
 
-      setLocationState(prev => ({
-        ...prev,
-        coords: {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        },
-        accuracy: position.coords.accuracy,
-        error: null
-      }));
-
-      return {
-        success: true,
+      const locationData = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
         accuracy: position.coords.accuracy,
         speed: position.coords.speed,
         heading: position.coords.heading,
-        timestamp: position.timestamp,
+        timestamp: position.timestamp
+      };
+
+      setLocationState(prev => ({
+        ...prev,
+        coords: locationData,
+        accuracy: position.coords.accuracy,
+        error: null
+      }));
+
+      // Send real-time update via socket
+      sendLocationUpdate(locationData);
+
+      return {
+        success: true,
+        ...locationData,
         source: 'gps'
       };
     } catch (error) {
@@ -234,13 +320,12 @@ export const AuthProvider = ({ children }) => {
         code: error.code 
       };
     }
-  }, []);
+  }, [sendLocationUpdate]);
 
   // Get location with intelligent fallbacks
   const getLocationSmart = useCallback(async () => {
     setLocationState(prev => ({ ...prev, isWatching: true }));
     
-    // Try high accuracy first
     let result = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
     
     if (result.success) {
@@ -248,7 +333,6 @@ export const AuthProvider = ({ children }) => {
       return result;
     }
 
-    // If timeout, try low accuracy
     if (result.errorType === 'TIMEOUT') {
       result = await getCurrentPosition({ 
         enableHighAccuracy: false, 
@@ -266,7 +350,6 @@ export const AuthProvider = ({ children }) => {
       }
     }
 
-    // Last resort - IP location
     try {
       const ipResponse = await fetch('https://ipapi.co/json/');
       const ipData = await ipResponse.json();
@@ -300,13 +383,14 @@ export const AuthProvider = ({ children }) => {
     };
   }, [getCurrentPosition]);
 
-  // Start watching position
-  const startWatchingPosition = useCallback((onUpdate, onError) => {
+  // Start watching position with real-time updates
+  const startWatchingPosition = useCallback((onUpdate, onError, interval = 5000) => {
     if (!navigator.geolocation) {
       onError?.('Geolocation not supported');
       return null;
     }
 
+    // Use watchPosition for continuous tracking
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const locationData = {
@@ -324,6 +408,9 @@ export const AuthProvider = ({ children }) => {
           accuracy: position.coords.accuracy,
           isWatching: true
         }));
+
+        // Send real-time update via socket
+        sendLocationUpdate(locationData);
         
         onUpdate?.(locationData);
       },
@@ -338,17 +425,38 @@ export const AuthProvider = ({ children }) => {
       }
     );
 
+    // Also send periodic updates as backup
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+    }
+
+    locationIntervalRef.current = setInterval(async () => {
+      const result = await getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 });
+      if (result.success) {
+        sendLocationUpdate(result);
+      }
+    }, interval);
+
     return watchIdRef.current;
-  }, []);
+  }, [sendLocationUpdate, getCurrentPosition]);
 
   // Stop watching position
   const stopWatchingPosition = useCallback(() => {
     if (watchIdRef.current) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
-      setLocationState(prev => ({ ...prev, isWatching: false }));
     }
-  }, []);
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+    }
+    setLocationState(prev => ({ ...prev, isWatching: false }));
+    
+    // Notify others that user stopped tracking
+    if (socket?.connected && user?._id) {
+      socket.emit('location:stop', { userId: user._id });
+    }
+  }, [socket, user]);
 
   // API call helper
   const fetchAPI = useCallback(async (endpoint, options = {}) => {
@@ -399,7 +507,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchAPI]);
 
-  // ============ LOGIN - IMPROVED ============
+  // Login
   const login = async (email, password) => {
     try {
       setLoading(true);
@@ -410,37 +518,24 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password })
       });
 
-      console.log("Login raw response:", response);
-
-      // Handle different response structures
       let token, userData;
 
-      // Check if response has result wrapper (like your API)
       if (response?.result) {
         token = response.result.token;
         userData = response.result.user || response.result;
-      } 
-      // Check if response has data wrapper
-      else if (response?.data) {
+      } else if (response?.data) {
         token = response.data.token;
         userData = response.data;
-      }
-      // Check if response has token directly
-      else if (response?.token) {
+      } else if (response?.token) {
         token = response.token;
         userData = response;
-      }
-      // Check if response has user object with token inside
-      else if (response?.user?.token) {
+      } else if (response?.user?.token) {
         token = response.user.token;
         userData = response.user;
-      }
-      // Check if response is the user object itself with token
-      else if (response?._id && response?.token) {
+      } else if (response?._id && response?.token) {
         token = response.token;
         userData = response;
-      }
-      else {
+      } else {
         console.error("Unexpected response format:", response);
         throw new Error("Invalid response format from server");
       }
@@ -449,20 +544,16 @@ export const AuthProvider = ({ children }) => {
         throw new Error("No authentication token received");
       }
 
-      // Clean user data (remove sensitive fields)
       const cleanUserData = { ...userData };
       delete cleanUserData.token;
       delete cleanUserData.refreshToken;
 
-      // Store in localStorage
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(cleanUserData));
 
-      // Update state
       setUser(cleanUserData);
       setSuccess("Login successful");
       
-      // Return success with user data and token
       return { 
         success: true, 
         user: cleanUserData,
@@ -475,7 +566,6 @@ export const AuthProvider = ({ children }) => {
       const errorMessage = err.message || "Login failed";
       setError(errorMessage);
       
-      // Determine error type
       let errorType = 'LOGIN_ERROR';
       if (err.message?.includes('Network')) {
         errorType = 'NETWORK_ERROR';
@@ -497,21 +587,46 @@ export const AuthProvider = ({ children }) => {
 
   // Logout
   const logout = useCallback(() => {
+    // Notify others about logout
+    if (socket?.connected && user?._id) {
+      socket.emit('user:offline', { userId: user._id });
+    }
+
+    // Disconnect socket
+    if (socket) {
+      socket.disconnect();
+    }
+
+    // Stop location tracking
+    stopWatchingPosition();
+
+    // Clear storage
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Reset state
     setUser(null);
     setError(null);
     setSuccess(null);
     setAttendance(null);
-    stopWatchingPosition();
-  }, [stopWatchingPosition]);
+    setSocket(null);
+    setOnlineUsers([]);
+    setLocationState({
+      permission: null,
+      coords: null,
+      accuracy: null,
+      error: null,
+      isWatching: false,
+      isOnline: false
+    });
+  }, [socket, user, stopWatchingPosition]);
 
   // Punch In
   const punchIn = useCallback(async (latitude, longitude, source = 'gps') => {
     try {
       const response = await fetchAPI("/attendance/punch-in", {
         method: "POST",
-        body: JSON.stringify({ latitude, longitude })
+        body: JSON.stringify({ latitude, longitude, source })
       });
 
       if (response.success || response.result) {
@@ -520,10 +635,20 @@ export const AuthProvider = ({ children }) => {
           punchInTime: new Date().toISOString(),
           punchOutTime: null,
           location: { latitude, longitude },
-          source
+          source,
+          ...(response.result || {})
         };
         setAttendance(attendanceData);
         localStorage.setItem("attendance", JSON.stringify(attendanceData));
+
+        // Notify via socket
+        if (socket?.connected) {
+          socket.emit('attendance:update', {
+            userId: user?._id,
+            status: 'ON DUTY',
+            timestamp: new Date().toISOString()
+          });
+        }
         
         return { success: true, data: attendanceData };
       }
@@ -533,7 +658,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       return { success: false, error: err.message };
     }
-  }, [fetchAPI]);
+  }, [fetchAPI, socket, user]);
 
   // Punch Out
   const punchOut = useCallback(async (latitude, longitude) => {
@@ -548,10 +673,23 @@ export const AuthProvider = ({ children }) => {
           status: 'OFF DUTY',
           punchInTime: attendance?.punchInTime,
           punchOutTime: new Date().toISOString(),
-          location: { latitude, longitude }
+          location: { latitude, longitude },
+          ...(response.result || {})
         };
         setAttendance(attendanceData);
         localStorage.setItem("attendance", JSON.stringify(attendanceData));
+
+        // Notify via socket
+        if (socket?.connected) {
+          socket.emit('attendance:update', {
+            userId: user?._id,
+            status: 'OFF DUTY',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Stop tracking when punching out
+        stopWatchingPosition();
         
         return { success: true, data: attendanceData };
       }
@@ -561,26 +699,14 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       return { success: false, error: err.message };
     }
-  }, [fetchAPI, attendance]);
+  }, [fetchAPI, attendance, socket, user, stopWatchingPosition]);
 
-  // ============ VISIT METHODS ============
-
-  /**
-   * Create a new visit with photo upload
-   * @param {Object} visitData - Visit data object
-   * @param {string} visitData.locationName - Name of the location
-   * @param {number} visitData.latitude - Latitude coordinate
-   * @param {number} visitData.longitude - Longitude coordinate
-   * @param {string} visitData.remarks - Optional remarks
-   * @param {File} photoFile - Photo file to upload
-   * @returns {Promise<Object>} API response
-   */
+  // Create visit
   const createVisit = useCallback(async (visitData, photoFile) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Validate required fields
       if (!visitData.locationName) {
         throw new Error('Location name is required');
       }
@@ -591,17 +717,14 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Photo is required');
       }
 
-      // Validate file type
       if (!photoFile.type.startsWith('image/')) {
         throw new Error('Please upload an image file');
       }
 
-      // Validate file size (max 10MB)
       if (photoFile.size > 10 * 1024 * 1024) {
         throw new Error('Image size should be less than 10MB');
       }
 
-      // Create FormData
       const formData = new FormData();
       formData.append('locationName', visitData.locationName);
       formData.append('latitude', visitData.latitude.toString());
@@ -613,17 +736,23 @@ export const AuthProvider = ({ children }) => {
       
       formData.append('photos', photoFile);
 
-      // Make API call
       const response = await fetchAPI('/visit/', {
         method: 'POST',
         body: formData,
-        headers: {
-          // Don't set Content-Type, let browser set it with boundary
-        }
       });
 
       if (response.success && response.result) {
         setSuccess('Visit created successfully');
+
+        // Notify via socket
+        if (socket?.connected) {
+          socket.emit('visit:created', {
+            userId: user?._id,
+            visit: response.result,
+            timestamp: new Date().toISOString()
+          });
+        }
+
         return { 
           success: true, 
           data: response.result,
@@ -642,18 +771,9 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [fetchAPI]);
+  }, [fetchAPI, socket, user]);
 
-  /**
-   * Get all visits with filters
-   * @param {Object} filters - Query filters
-   * @param {number} filters.page - Page number
-   * @param {number} filters.limit - Items per page
-   * @param {string} filters.status - Filter by status
-   * @param {string} filters.startDate - Start date
-   * @param {string} filters.endDate - End date
-   * @returns {Promise<Object>} API response
-   */
+  // Get visits
   const getVisits = useCallback(async (filters = {}) => {
     try {
       const queryParams = new URLSearchParams(filters).toString();
@@ -664,11 +784,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [safeFetchAPI]);
 
-  /**
-   * Get visit by ID
-   * @param {string} visitId - Visit ID
-   * @returns {Promise<Object>} API response
-   */
+  // Get visit by ID
   const getVisitById = useCallback(async (visitId) => {
     try {
       const response = await safeFetchAPI(`/visit/${visitId}`);
@@ -678,13 +794,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [safeFetchAPI]);
 
-  /**
-   * Update visit
-   * @param {string} visitId - Visit ID
-   * @param {Object} updateData - Data to update
-   * @param {File} [photoFile] - Optional new photo
-   * @returns {Promise<Object>} API response
-   */
+  // Update visit
   const updateVisit = useCallback(async (visitId, updateData, photoFile = null) => {
     try {
       setLoading(true);
@@ -695,7 +805,6 @@ export const AuthProvider = ({ children }) => {
       };
 
       if (photoFile) {
-        // If updating with photo, use FormData
         const formData = new FormData();
         Object.keys(updateData).forEach(key => {
           if (updateData[key] !== undefined && updateData[key] !== null) {
@@ -705,7 +814,6 @@ export const AuthProvider = ({ children }) => {
         formData.append('photos', photoFile);
         body = formData;
       } else {
-        // If no photo, use JSON
         options.headers = { 'Content-Type': 'application/json' };
         body = JSON.stringify(updateData);
       }
@@ -729,11 +837,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchAPI]);
 
-  /**
-   * Delete visit
-   * @param {string} visitId - Visit ID
-   * @returns {Promise<Object>} API response
-   */
+  // Delete visit
   const deleteVisit = useCallback(async (visitId) => {
     try {
       const response = await fetchAPI(`/visit/${visitId}`, {
@@ -753,13 +857,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchAPI]);
 
-  /**
-   * Verify visit
-   * @param {string} visitId - Visit ID
-   * @param {boolean} verified - Verification status
-   * @param {string} notes - Verification notes
-   * @returns {Promise<Object>} API response
-   */
+  // Verify visit
   const verifyVisit = useCallback(async (visitId, verified = true, notes = '') => {
     try {
       const response = await fetchAPI(`/visit/${visitId}/verify`, {
@@ -780,31 +878,19 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchAPI]);
 
-  /**
-   * Get visit stats
-   * @returns {Promise<Object>} API response
-   */
+  // Get visit stats
   const getVisitStats = useCallback(async () => {
-    const response = await safeFetchAPI("/visit/stats");
+    const response = await safeFetchAPI("/visit/stats/overview");
     return response;
   }, [safeFetchAPI]);
 
-  /**
-   * Get recent visits
-   * @param {number} limit - Number of recent visits to fetch
-   * @returns {Promise<Object>} API response
-   */
+  // Get recent visits
   const getRecentVisits = useCallback(async (limit = 5) => {
-    const response = await safeFetchAPI(`/visit/recent?limit=${limit}`);
+    const response = await safeFetchAPI(`/visit/activity/recent?limit=${limit}`);
     return response;
   }, [safeFetchAPI]);
 
-  /**
-   * Check-in to a visit
-   * @param {string} visitId - Visit ID
-   * @param {Object} checkInData - Check-in data with coordinates
-   * @returns {Promise<Object>} API response
-   */
+  // Check-in to visit
   const checkInToVisit = useCallback(async (visitId, checkInData) => {
     try {
       const response = await fetchAPI(`/visit/${visitId}/checkin`, {
@@ -825,12 +911,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchAPI]);
 
-  /**
-   * Check-out from a visit
-   * @param {string} visitId - Visit ID
-   * @param {Object} checkOutData - Check-out data with coordinates
-   * @returns {Promise<Object>} API response
-   */
+  // Check-out from visit
   const checkOutFromVisit = useCallback(async (visitId, checkOutData) => {
     try {
       const response = await fetchAPI(`/visit/${visitId}/checkout`, {
@@ -848,6 +929,31 @@ export const AuthProvider = ({ children }) => {
       console.error('Check-out error:', err);
       setError(err.message || 'Failed to check out');
       return { success: false, error: err.message };
+    }
+  }, [fetchAPI]);
+
+  // Get team performance
+  const getTeamPerformance = useCallback(async (page = 1, limit = 10, sortBy = 'distance', sortOrder = 'desc') => {
+    const response = await safeFetchAPI(`/visit/performance/team?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`);
+    return response;
+  }, [safeFetchAPI]);
+
+  // Get my performance
+  const getMyPerformance = useCallback(async (startDate, endDate) => {
+    const response = await safeFetchAPI(`/visit/performance/me?startDate=${startDate}&endDate=${endDate}`);
+    return response;
+  }, [safeFetchAPI]);
+
+  // Export data
+  const exportData = useCallback(async () => {
+    try {
+      const response = await fetchAPI('/visit/export/data');
+      if (response.success && response.result) {
+        return { success: true, data: response.result };
+      }
+      return { success: false, error: 'Failed to export data' };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   }, [fetchAPI]);
 
@@ -875,6 +981,10 @@ export const AuthProvider = ({ children }) => {
     error,
     success,
     attendance,
+    
+    // Socket state
+    socket,
+    onlineUsers,
     
     // Location state
     locationState,
@@ -913,6 +1023,11 @@ export const AuthProvider = ({ children }) => {
     getRecentVisits,
     checkInToVisit,
     checkOutFromVisit,
+    
+    // Performance methods
+    getTeamPerformance,
+    getMyPerformance,
+    exportData,
     
     // Helpers
     setError,

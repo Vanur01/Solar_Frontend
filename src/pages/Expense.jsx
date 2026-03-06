@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+// pages/ExpensesPage.jsx (Fixed with Mobile View)
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Box,
   Typography,
@@ -54,6 +55,8 @@ import {
   Tooltip,
   BottomNavigation,
   BottomNavigationAction,
+  SwipeableDrawer,Slide,
+  Collapse,
   alpha,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -114,6 +117,14 @@ import {
   Share,
   Bookmark,
   BookmarkBorder,
+  FilterAlt,
+  ExpandMore,
+  ExpandLess,
+  ViewModule,
+  Dashboard as DashboardIcon,
+  Schedule,
+  FiberManualRecord,
+  Clear,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -123,13 +134,15 @@ import {
   isThisWeek,
   isThisMonth,
   isThisYear,
+  subWeeks,
+  subMonths,
 } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
 // New Color Theme - Clean and Modern
 const COLORS = {
   primary: {
-    main: "#2563eb",
+    main: "#4569ea",
     light: "#60a5fa",
     dark: "#1d4ed8",
     bg: "#eff6ff",
@@ -197,7 +210,7 @@ const STATUS_CONFIG = {
 // Category Configuration
 const CATEGORY_CONFIG = {
   Travel: { 
-    color: "#2563eb", 
+    color: "#4569ea", 
     icon: <Flight sx={{ fontSize: 18 }} />, 
     bg: "#eff6ff",
     label: "Travel"
@@ -256,6 +269,411 @@ const TIME_PERIODS = [
   { value: "custom", label: "Custom Range", icon: <DateRange sx={{ fontSize: 18 }} /> },
 ];
 
+// Period Options for Mobile Filter
+const PERIOD_OPTIONS = [
+  { value: "today", label: "Today", icon: <Today /> },
+  { value: "week", label: "This Week", icon: <DateRange /> },
+  { value: "month", label: "This Month", icon: <CalendarToday /> },
+  { value: "year", label: "This Year", icon: <CalendarToday /> },
+  { value: "all", label: "All Time", icon: <DateRange /> },
+];
+
+// ========== MOBILE FILTER DRAWER ==========
+const MobileFilterDrawer = ({
+  open,
+  onClose,
+  filters,
+  onFilterChange,
+  onReset,
+  activeFilterCount,
+}) => {
+  const [expandedSection, setExpandedSection] = useState("search");
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  return (
+    <SwipeableDrawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      onOpen={() => {}}
+      disableSwipeToOpen={false}
+      PaperProps={{
+        sx: {
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          maxHeight: "90vh",
+          overflow: "hidden",
+        },
+      }}
+    >
+      <Box sx={{ position: "relative" }}>
+        {/* Drag Handle */}
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            bgcolor: "grey.300",
+            borderRadius: 2,
+            mx: "auto",
+            my: 1.5,
+          }}
+        />
+
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 3,
+            pb: 2,
+            borderBottom: `1px solid ${alpha(COLORS.primary.main, 0.1)}`,
+          }}
+        >
+          <Box>
+            <Typography variant="h6" fontWeight="700" color={COLORS.primary.main}>
+              Filter Expenses
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{ bgcolor: alpha(COLORS.primary.main, 0.1) }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Filter Content */}
+        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
+          <Stack spacing={2.5}>
+            {/* Search Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(COLORS.primary.main, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(COLORS.primary.main, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("search")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Search sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Search
+                  </Typography>
+                </Stack>
+                {expandedSection === "search" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "search"}>
+                <Box sx={{ p: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search by title or description..."
+                    value={filters.search}
+                    onChange={(e) => onFilterChange("search", e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search sx={{ color: "text.secondary", fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: filters.search && (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => onFilterChange("search", "")}
+                          >
+                            <Close fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Period Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(COLORS.primary.main, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(COLORS.primary.main, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("period")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <DateRange sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Time Period
+                  </Typography>
+                </Stack>
+                {expandedSection === "period" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "period"}>
+                <Box sx={{ p: 2 }}>
+                  <Grid container spacing={1}>
+                    {PERIOD_OPTIONS.map((option) => (
+                      <Grid item xs={6} key={option.value}>
+                        <Button
+                          fullWidth
+                          variant={
+                            filters.period === option.value ? "contained" : "outlined"
+                          }
+                          onClick={() => onFilterChange("period", option.value)}
+                          startIcon={option.icon}
+                          size="small"
+                          sx={{
+                            bgcolor:
+                              filters.period === option.value
+                                ? COLORS.primary.main
+                                : "transparent",
+                            color:
+                              filters.period === option.value ? "#fff" : COLORS.primary.main,
+                            borderColor: COLORS.primary.main,
+                            "&:hover": {
+                              bgcolor:
+                                filters.period === option.value
+                                  ? COLORS.primary.dark
+                                  : alpha(COLORS.primary.main, 0.1),
+                            },
+                          }}
+                        >
+                          {option.label}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Category Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(COLORS.primary.main, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(COLORS.primary.main, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("category")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <FilterAlt sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Category
+                  </Typography>
+                </Stack>
+                {expandedSection === "category" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "category"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={filters.category}
+                      onChange={(e) => onFilterChange("category", e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="all">All Categories</MenuItem>
+                      {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
+                        <MenuItem key={key} value={key}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Box sx={{ color: config.color }}>{config.icon}</Box>
+                            <span>{config.label}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Status Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(COLORS.primary.main, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(COLORS.primary.main, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("status")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <CheckCircle sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Status
+                  </Typography>
+                </Stack>
+                {expandedSection === "status" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "status"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={filters.status}
+                      onChange={(e) => onFilterChange("status", e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="all">All Status</MenuItem>
+                      {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                        <MenuItem key={key} value={key}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            {config.icon}
+                            <span>{config.label}</span>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+
+            {/* Sort Section */}
+            <Paper
+              elevation={0}
+              sx={{
+                border: `1px solid ${alpha(COLORS.primary.main, 0.1)}`,
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(COLORS.primary.main, 0.02),
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => toggleSection("sort")}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <FilterAlt sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    Sort By
+                  </Typography>
+                </Stack>
+                {expandedSection === "sort" ? <ExpandLess /> : <ExpandMore />}
+              </Box>
+              <Collapse in={expandedSection === "sort"}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={filters.sortBy}
+                      onChange={(e) => onFilterChange("sortBy", e.target.value)}
+                      displayEmpty
+                    >
+                      <MenuItem value="-createdAt">Newest First</MenuItem>
+                      <MenuItem value="createdAt">Oldest First</MenuItem>
+                      <MenuItem value="-amount">Highest Amount</MenuItem>
+                      <MenuItem value="amount">Lowest Amount</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Collapse>
+            </Paper>
+          </Stack>
+        </Box>
+
+        {/* Action Buttons */}
+        <Box
+          sx={{
+            p: 3,
+            borderTop: `1px solid ${alpha(COLORS.primary.main, 0.1)}`,
+            bgcolor: "#fff",
+          }}
+        >
+          <Stack direction="row" spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => {
+                onReset();
+                onClose();
+              }}
+              startIcon={<Clear />}
+              sx={{
+                borderColor: COLORS.primary.main,
+                color: COLORS.primary.main,
+                "&:hover": {
+                  bgcolor: alpha(COLORS.primary.main, 0.05),
+                },
+              }}
+            >
+              Clear All
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={onClose}
+              sx={{
+                bgcolor: COLORS.primary.main,
+                "&:hover": {
+                  bgcolor: COLORS.primary.dark,
+                },
+              }}
+            >
+              Apply Filters
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+    </SwipeableDrawer>
+  );
+};
+
 // Skeleton Loader
 const ExpenseCardSkeleton = () => (
   <Card sx={{ mb: 2, borderRadius: 3 }}>
@@ -279,69 +697,103 @@ const ExpenseCardSkeleton = () => (
 );
 
 // Stat Card Component
-const StatCard = ({ icon, title, value, subtitle, color = COLORS.primary.main, trend }) => {
+const StatCard = ({ icon, title, value, subtitle, color = COLORS.primary.main, trend, index }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
-    <Card
-      sx={{
-        borderRadius: 3,
-        border: `1px solid ${COLORS.neutral[200]}`,
-        transition: "all 0.2s",
-        height:"150px",
-        "&:hover": {
-          borderColor: color,
-          boxShadow: `0 4px 12px ${alpha(color, 0.15)}`,
-        },
-      }}
-    >
-      <CardContent sx={{ p: isMobile ? 2 : 2.5 }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-          <Avatar
+    <Fade in={true} timeout={500 + index * 100}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 1.5, sm: 2, md: 2.5 },
+          borderRadius: 3,
+          border: `1px solid ${alpha(color, 0.1)}`,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+          transition: "transform 0.2s",
+          height: "100%",
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+          },
+        }}
+      >
+        <Stack spacing={1}>
+          <Box
             sx={{
-              bgcolor: alpha(color, 0.1),
-              color: color,
-              width: isMobile ? 40 : 44,
-              height: isMobile ? 40 : 44,
-              borderRadius: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
-            {icon}
-          </Avatar>
-          {trend && (
-            <Chip
-              size="small"
-              icon={trend > 0 ? <TrendingUp /> : <TrendingDown />}
-              label={`${Math.abs(trend)}%`}
+            <Box
               sx={{
-                borderRadius: 2,
-                bgcolor: trend > 0 ? alpha(COLORS.success.main, 0.1) : alpha(COLORS.error.main, 0.1),
-                color: trend > 0 ? COLORS.success.main : COLORS.error.main,
-                height: 24,
-                "& .MuiChip-icon": { fontSize: 14, color: "inherit" },
+                width: { xs: 32, sm: 40, md: 48 },
+                height: { xs: 32, sm: 40, md: 48 },
+                borderRadius: { xs: 1.5, sm: 2 },
+                bgcolor: alpha(color, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: color,
               }}
-            />
-          )}
-        </Box>
-        <Typography variant="body2" color={COLORS.neutral[600]} sx={{ mb: 0.5 }}>
-          {title}
-        </Typography>
-        <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.neutral[800] }}>
-          {value}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" color={COLORS.neutral[500]}>
-            {subtitle}
-          </Typography>
-        )}
-      </CardContent>
-    </Card>
+            >
+              {React.cloneElement(icon, {
+                sx: { fontSize: { xs: 14, sm: 18, md: 20 } },
+              })}
+            </Box>
+            {trend && (
+              <Chip
+                size="small"
+                icon={trend > 0 ? <TrendingUp /> : <TrendingDown />}
+                label={`${Math.abs(trend)}%`}
+                sx={{
+                  borderRadius: 2,
+                  bgcolor: trend > 0 ? alpha(COLORS.success.main, 0.1) : alpha(COLORS.error.main, 0.1),
+                  color: trend > 0 ? COLORS.success.main : COLORS.error.main,
+                  height: 24,
+                  "& .MuiChip-icon": { fontSize: 12, color: "inherit" },
+                }}
+              />
+            )}
+          </Box>
+          <Box>
+            <Typography
+              variant="subtitle2"
+              fontWeight={600}
+              sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+            >
+              {title}
+            </Typography>
+            <Typography
+              variant="h4"
+              fontWeight={700}
+              sx={{
+                color: color,
+                fontSize: { xs: "1rem", sm: "1.3rem", md: "1.5rem" },
+              }}
+            >
+              {value}
+            </Typography>
+            {subtitle && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.6rem", sm: "0.7rem" } }}
+              >
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      </Paper>
+    </Fade>
   );
 };
 
-// Mobile Expense Card
-const MobileExpenseCard = ({ expense, onMenuOpen, onView }) => {
+// Mobile Expense Card (Updated with expandable details)
+const MobileExpenseCard = ({ expense, onMenuOpen, onView, index }) => {
+  const [expanded, setExpanded] = useState(false);
   const status = expense.status || "Pending";
   const category = expense.category || "Miscellaneous";
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.Pending;
@@ -355,145 +807,221 @@ const MobileExpenseCard = ({ expense, onMenuOpen, onView }) => {
     return format(date, "MMM dd, yyyy");
   };
 
+  const initials = expense.createdBy?.name?.charAt(0) || expense.createdBy?.email?.charAt(0) || "U";
+
   return (
-    <Card
-      sx={{
-        mb: 2,
-        borderRadius: 3,
-        border: `1px solid ${COLORS.neutral[200]}`,
-        transition: "all 0.2s",
-        "&:hover": {
-          borderColor: COLORS.primary.main,
-          boxShadow: `0 4px 12px ${alpha(COLORS.primary.main, 0.1)}`,
-        },
-      }}
-    >
-      <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
-        {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-          <Box display="flex" gap={1.5}>
-            <Avatar
-              sx={{
-                bgcolor: alpha(categoryConfig.color, 0.1),
-                color: categoryConfig.color,
-                width: 44,
-                height: 44,
-                borderRadius: 2,
-              }}
-            >
-              {categoryConfig.icon}
-            </Avatar>
-            <Box>
-              <Typography variant="subtitle1" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
-                {expense.title}
-              </Typography>
-              <Box display="flex" alignItems="center" gap={0.5}>
-                <Today sx={{ fontSize: 14, color: COLORS.neutral[400] }} />
-                <Typography variant="caption" color={COLORS.neutral[500]}>
-                  {getTimeAgo(expense.createdAt)}
+    <Fade in={true} timeout={500 + index * 50}>
+      <Paper
+        sx={{
+          mb: 1.5,
+          borderRadius: 3,
+          border: `1px solid ${alpha(categoryConfig.color, 0.2)}`,
+          overflow: "hidden",
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          {/* Header */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              mb: 1.5,
+            }}
+          >
+            <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+              <Avatar
+                sx={{
+                  bgcolor: alpha(categoryConfig.color, 0.1),
+                  color: categoryConfig.color,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 2,
+                }}
+              >
+                {categoryConfig.icon}
+              </Avatar>
+              <Box>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight="700"
+                  sx={{ color: COLORS.neutral[800] }}
+                >
+                  {expense.title}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ID: {expense._id?.slice(-8) || "N/A"}
                 </Typography>
               </Box>
             </Box>
-          </Box>
-          <Box display="flex" alignItems="center">
-            <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.primary.main, mr: 1 }}>
-              ₹{expense.amount?.toLocaleString()}
-            </Typography>
-            <IconButton 
-              size="small" 
-              onClick={(e) => onMenuOpen(e, expense)}
-              sx={{ color: COLORS.neutral[500] }}
+            <IconButton
+              size="small"
+              onClick={() => setExpanded(!expanded)}
+              sx={{
+                transform: expanded ? "rotate(180deg)" : "none",
+                transition: "transform 0.3s",
+                bgcolor: alpha(categoryConfig.color, 0.1),
+              }}
             >
-              <MoreVert sx={{ fontSize: 20 }} />
+              {expanded ? <ExpandLess /> : <ExpandMore />}
             </IconButton>
           </Box>
-        </Box>
 
-        {/* Description */}
-        {expense.description && (
-          <Typography 
-            variant="body2" 
-            color={COLORS.neutral[600]} 
-            sx={{ mt: 1.5, ml: 7 }}
-          >
-            {expense.description.length > 50
-              ? `${expense.description.substring(0, 50)}...`
-              : expense.description}
-          </Typography>
-        )}
+          {/* Quick Info */}
+          <Grid container spacing={1} sx={{ mb: 1.5 }}>
+            <Grid item xs={6}>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <AttachMoney sx={{ fontSize: 14, color: alpha(COLORS.primary.main, 0.6) }} />
+                <Typography variant="body2" fontWeight={600} sx={{ color: COLORS.primary.main }}>
+                  ₹{expense.amount?.toLocaleString()}
+                </Typography>
+              </Stack>
+            </Grid>
+            <Grid item xs={6}>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <CalendarToday sx={{ fontSize: 14, color: alpha(COLORS.primary.main, 0.6) }} />
+                <Typography variant="caption">
+                  {getTimeAgo(expense.createdAt)}
+                </Typography>
+              </Stack>
+            </Grid>
+          </Grid>
 
-        {/* Chips */}
-        <Box display="flex" gap={1} flexWrap="wrap" sx={{ mt: 1.5, ml: 7 }}>
-          <Chip
-            size="small"
-            label={categoryConfig.label}
-            sx={{
-              bgcolor: alpha(categoryConfig.color, 0.1),
-              color: categoryConfig.color,
-              fontWeight: 500,
-              height: 26,
-              fontSize: "0.75rem",
-              borderRadius: 2,
-              border: `1px solid ${alpha(categoryConfig.color, 0.2)}`,
-            }}
-          />
-          <Chip
-            size="small"
-            label={statusConfig.label}
-            icon={statusConfig.icon}
-            sx={{
-              bgcolor: statusConfig.bg,
-              color: statusConfig.color,
-              fontWeight: 500,
-              height: 26,
-              fontSize: "0.75rem",
-              borderRadius: 2,
-              border: `1px solid ${alpha(statusConfig.color, 0.2)}`,
-              "& .MuiChip-icon": { 
-                fontSize: 14, 
+          {/* Status and Category Chips */}
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1.5 }}>
+            <Chip
+              size="small"
+              label={categoryConfig.label}
+              sx={{
+                bgcolor: alpha(categoryConfig.color, 0.1),
+                color: categoryConfig.color,
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                border: `1px solid ${alpha(categoryConfig.color, 0.2)}`,
+              }}
+            />
+            <Chip
+              size="small"
+              label={statusConfig.label}
+              icon={statusConfig.icon}
+              sx={{
+                bgcolor: statusConfig.bg,
                 color: statusConfig.color,
-                marginLeft: '6px',
-              },
-            }}
-          />
-        </Box>
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+                "& .MuiChip-icon": { fontSize: 14 },
+              }}
+            />
+          </Box>
 
-        {/* Footer */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 2 }}>
+          {/* Creator Info */}
           <Box display="flex" alignItems="center" gap={1}>
             <Avatar
               sx={{
-                width: 28,
-                height: 28,
-                fontSize: "0.75rem",
+                width: 24,
+                height: 24,
+                fontSize: "0.65rem",
                 bgcolor: COLORS.neutral[500],
-                borderRadius: 2,
+                borderRadius: 1.5,
               }}
             >
-              {expense.createdBy?.name?.charAt(0) || expense.createdBy?.email?.charAt(0) || "U"}
+              {initials}
             </Avatar>
             <Typography variant="caption" color={COLORS.neutral[600]}>
               {expense.createdBy?.name || expense.createdBy?.email?.split("@")[0] || "Unknown"}
             </Typography>
           </Box>
-          <Button
-            size="small"
-            onClick={() => onView(expense)}
-            sx={{
-              textTransform: "none",
-              color: COLORS.primary.main,
-              fontWeight: 500,
-              fontSize: "0.75rem",
-              "&:hover": {
-                bgcolor: alpha(COLORS.primary.main, 0.05),
-              },
-            }}
-          >
-            View Details
-          </Button>
+
+          {/* Expanded Details */}
+          <Collapse in={expanded}>
+            <Box
+              sx={{
+                mt: 2,
+                pt: 2,
+                borderTop: `1px solid ${alpha(categoryConfig.color, 0.1)}`,
+              }}
+            >
+              {/* Description */}
+              {expense.description && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Description
+                  </Typography>
+                  <Typography variant="body2">
+                    {expense.description}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Location */}
+              {expense.location && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Location
+                  </Typography>
+                  <Typography variant="body2">
+                    {expense.location.address ||
+                      `Lat: ${expense.location.lat?.toFixed(4)}, Lng: ${expense.location.lng?.toFixed(4)}`}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Dates */}
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Created
+                  </Typography>
+                  <Typography variant="body2">
+                    {format(parseISO(expense.createdAt), "dd MMM yyyy")}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Updated
+                  </Typography>
+                  <Typography variant="body2">
+                    {expense.updatedAt ? format(parseISO(expense.updatedAt), "dd MMM yyyy") : "N/A"}
+                  </Typography>
+                </Grid>
+              </Grid>
+
+              {/* Action Buttons */}
+              <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="contained"
+                  startIcon={<Visibility />}
+                  onClick={() => onView(expense)}
+                  sx={{
+                    bgcolor: COLORS.primary.main,
+                    borderRadius: 2,
+                    "&:hover": { bgcolor: COLORS.primary.dark },
+                  }}
+                >
+                  View
+                </Button>
+                <IconButton
+                  size="small"
+                  onClick={(e) => onMenuOpen(e, expense)}
+                  sx={{
+                    bgcolor: alpha(COLORS.primary.main, 0.1),
+                    color: COLORS.primary.main,
+                    borderRadius: 2,
+                    width: 40,
+                  }}
+                >
+                  <MoreVert />
+                </IconButton>
+              </Stack>
+            </Box>
+          </Collapse>
         </Box>
-      </CardContent>
-    </Card>
+      </Paper>
+    </Fade>
   );
 };
 
@@ -591,7 +1119,7 @@ const DesktopTableRow = ({ expense, onMenuOpen }) => {
               height: 28,
               fontSize: "0.75rem",
               bgcolor: COLORS.neutral[500],
-              borderRadius: 2,
+              borderRadius: 1.5,
             }}
           >
             {expense.createdBy?.name?.charAt(0) || expense.createdBy?.email?.charAt(0) || "U"}
@@ -614,177 +1142,6 @@ const DesktopTableRow = ({ expense, onMenuOpen }) => {
   );
 };
 
-// Filter Drawer Component
-const FilterDrawer = ({ open, onClose, filters, onFilterChange, onReset }) => (
-  <Drawer
-    anchor="bottom"
-    open={open}
-    onClose={onClose}
-    PaperProps={{
-      sx: {
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        maxHeight: "90vh",
-      },
-    }}
-  >
-    <Box sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h6" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
-          Filters
-        </Typography>
-        <IconButton onClick={onClose} sx={{ color: COLORS.neutral[500] }}>
-          <Close />
-        </IconButton>
-      </Box>
-
-      <Stack spacing={2.5}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Search expenses..."
-          value={filters.search}
-          onChange={(e) => onFilterChange("search", e.target.value)}
-          sx={{
-            "& .MuiOutlinedInput-root": {
-              borderRadius: 2,
-            },
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search sx={{ fontSize: 20, color: COLORS.neutral[400] }} />
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        <FormControl fullWidth size="small">
-          <InputLabel sx={{ color: COLORS.neutral[600] }}>Category</InputLabel>
-          <Select
-            value={filters.category}
-            onChange={(e) => onFilterChange("category", e.target.value)}
-            label="Category"
-            sx={{ borderRadius: 2 }}
-          >
-            <MenuItem value="all">All Categories</MenuItem>
-            {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
-              <MenuItem key={key} value={key}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Box sx={{ color: config.color }}>{config.icon}</Box>
-                  <span>{config.label}</span>
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl fullWidth size="small">
-          <InputLabel sx={{ color: COLORS.neutral[600] }}>Status</InputLabel>
-          <Select
-            value={filters.status}
-            onChange={(e) => onFilterChange("status", e.target.value)}
-            label="Status"
-            sx={{ borderRadius: 2 }}
-          >
-            <MenuItem value="all">All Status</MenuItem>
-            {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-              <MenuItem key={key} value={key}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Box sx={{ color: config.color }}>{config.icon}</Box>
-                  <span>{config.label}</span>
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl fullWidth size="small">
-          <InputLabel sx={{ color: COLORS.neutral[600] }}>Period</InputLabel>
-          <Select
-            value={filters.period}
-            onChange={(e) => onFilterChange("period", e.target.value)}
-            label="Period"
-            sx={{ borderRadius: 2 }}
-          >
-            {TIME_PERIODS.map((period) => (
-              <MenuItem key={period.value} value={period.value}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Box sx={{ color: COLORS.neutral[600] }}>{period.icon}</Box>
-                  <span>{period.label}</span>
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {filters.period === "custom" && (
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DatePicker
-              label="Start Date"
-              value={filters.startDate}
-              onChange={(date) => onFilterChange("startDate", date)}
-              slotProps={{ 
-                textField: { 
-                  size: "small", 
-                  fullWidth: true,
-                  sx: { borderRadius: 2 }
-                } 
-              }}
-            />
-            <DatePicker
-              label="End Date"
-              value={filters.endDate}
-              onChange={(date) => onFilterChange("endDate", date)}
-              slotProps={{ 
-                textField: { 
-                  size: "small", 
-                  fullWidth: true,
-                  sx: { borderRadius: 2 }
-                } 
-              }}
-            />
-          </LocalizationProvider>
-        )}
-
-        <Box display="flex" gap={2} mt={2}>
-          <Button 
-            fullWidth 
-            variant="outlined" 
-            onClick={onReset} 
-            startIcon={<Refresh />}
-            sx={{ 
-              borderRadius: 2,
-              textTransform: "none",
-              borderColor: COLORS.neutral[300],
-              color: COLORS.neutral[700],
-              "&:hover": {
-                borderColor: COLORS.neutral[400],
-                bgcolor: COLORS.neutral[50],
-              },
-            }}
-          >
-            Reset
-          </Button>
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={onClose}
-            sx={{ 
-              borderRadius: 2,
-              textTransform: "none",
-              bgcolor: COLORS.primary.main,
-              "&:hover": { bgcolor: COLORS.primary.dark },
-            }}
-          >
-            Apply
-          </Button>
-        </Box>
-      </Stack>
-    </Box>
-  </Drawer>
-);
-
 // Expense Modal Component
 const ExpenseModal = ({
   open,
@@ -802,232 +1159,216 @@ const ExpenseModal = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
-    <Modal
+    <Dialog
       open={open}
       onClose={onClose}
-      closeAfterTransition
-      slots={{ backdrop: Backdrop }}
-      slotProps={{
-        backdrop: { 
-          timeout: 500,
-          sx: { bgcolor: alpha(COLORS.neutral[900], 0.5) }
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          margin: isMobile ? 0 : 24,
         },
       }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
     >
-      <Fade in={open}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: isMobile ? "95%" : 550,
-            maxHeight: "90vh",
-            overflow: "auto",
-            bgcolor: "white",
-            borderRadius: 3,
-            boxShadow: 24,
-            p: 3,
-          }}
-        >
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h6" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
-              {selectedExpense ? "Edit Expense" : "Create New Expense"}
-            </Typography>
-            <IconButton onClick={onClose} sx={{ color: COLORS.neutral[500] }}>
-              <Close />
-            </IconButton>
-          </Box>
-
-          <Stack spacing={3}>
-            <TextField
-              fullWidth
-              label="Title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              size="small"
-              required
+      <DialogTitle
+        sx={{
+          bgcolor: COLORS.primary.main,
+          color: "white",
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar
               sx={{
-                "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                "& .MuiInputLabel-root": { color: COLORS.neutral[600] },
-              }}
-            />
-
-            <TextField
-              fullWidth
-              label="Amount"
-              type="number"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              size="small"
-              required
-              sx={{
-                "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                "& .MuiInputLabel-root": { color: COLORS.neutral[600] },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <AttachMoney sx={{ fontSize: 18, color: COLORS.neutral[500] }} />
-                  </InputAdornment>
-                ),
-                inputProps: { min: 0, step: 1 },
-              }}
-            />
-
-            <FormControl fullWidth size="small" required>
-              <InputLabel sx={{ color: COLORS.neutral[600] }}>Category</InputLabel>
-              <Select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                label="Category"
-                sx={{ borderRadius: 2 }}
-              >
-                {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
-                  <MenuItem key={key} value={key}>
-                    <Box display="flex" alignItems="center" gap={1.5}>
-                      <Box sx={{ color: config.color }}>{config.icon}</Box>
-                      <span>{config.label}</span>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              fullWidth
-              label="Description"
-              multiline
-              rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              size="small"
-              placeholder="Add additional details..."
-              sx={{
-                "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                "& .MuiInputLabel-root": { color: COLORS.neutral[600] },
-              }}
-            />
-
-            <Box>
-              <Typography variant="subtitle2" gutterBottom fontWeight="500" sx={{ color: COLORS.neutral[700] }}>
-                Location (Optional)
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    label="Latitude"
-                    type="number"
-                    value={formData.latitude}
-                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                    size="small"
-                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                    InputProps={{ inputProps: { step: 0.000001, min: -90, max: 90 } }}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    label="Longitude"
-                    type="number"
-                    value={formData.longitude}
-                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                    size="small"
-                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                    InputProps={{ inputProps: { step: 0.000001, min: -180, max: 180 } }}
-                  />
-                </Grid>
-              </Grid>
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" gutterBottom fontWeight="500" sx={{ color: COLORS.neutral[700] }}>
-                Bill Attachment
-              </Typography>
-              <Button
-                component="label"
-                variant="outlined"
-                startIcon={<CloudUpload />}
-                fullWidth
-                sx={{ 
-                  py: 1.5, 
-                  borderRadius: 2,
-                  textTransform: "none",
-                  borderColor: COLORS.neutral[300],
-                  color: COLORS.neutral[700],
-                  "&:hover": {
-                    borderColor: COLORS.primary.main,
-                    bgcolor: alpha(COLORS.primary.main, 0.05),
-                  },
-                }}
-              >
-                Upload File
-                <input type="file" hidden accept="image/*,.pdf" onChange={handleFileSelect} />
-              </Button>
-
-              {(selectedFile || filePreview) && (
-                <Alert 
-                  severity="info" 
-                  sx={{ 
-                    mt: 2, 
-                    borderRadius: 2,
-                    bgcolor: alpha(COLORS.info.main, 0.1),
-                    color: COLORS.info.main,
-                    "& .MuiAlert-icon": { color: COLORS.info.main },
-                  }}
-                >
-                  <Box display="flex" alignItems="center" gap={1}>
-                    {filePreview ? (
-                      <img
-                        src={filePreview}
-                        alt="Preview"
-                        style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }}
-                      />
-                    ) : (
-                      <AttachFile sx={{ fontSize: 20 }} />
-                    )}
-                    <Typography variant="body2" noWrap sx={{ color: COLORS.neutral[700] }}>
-                      {selectedFile?.name || "File selected"}
-                    </Typography>
-                  </Box>
-                </Alert>
-              )}
-            </Box>
-          </Stack>
-
-          <Box display="flex" gap={2} justifyContent="flex-end" mt={4}>
-            <Button 
-              onClick={onClose} 
-              disabled={loading}
-              sx={{ 
-                borderRadius: 2,
-                textTransform: "none",
-                color: COLORS.neutral[700],
+                bgcolor: "white",
+                color: COLORS.primary.main,
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
               }}
             >
-              Cancel
-            </Button>
+              <ReceiptLong sx={{ fontSize: { xs: 20, sm: 24 } }} />
+            </Avatar>
+            <Box>
+              <Typography variant="h6" fontWeight={700}>
+                {selectedExpense ? "Edit Expense" : "New Expense"}
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                {selectedExpense ? "Update expense details" : "Create a new expense"}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
+            <Close />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+
+      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          <TextField
+            fullWidth
+            label="Title"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            size={isMobile ? "small" : "medium"}
+            required
+            sx={{
+              "& .MuiOutlinedInput-root": { borderRadius: 2 },
+            }}
+          />
+
+          <TextField
+            fullWidth
+            label="Amount"
+            type="number"
+            value={formData.amount}
+            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            size={isMobile ? "small" : "medium"}
+            required
+            sx={{
+              "& .MuiOutlinedInput-root": { borderRadius: 2 },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <AttachMoney sx={{ fontSize: 18, color: COLORS.neutral[500] }} />
+                </InputAdornment>
+              ),
+              inputProps: { min: 0, step: 1 },
+            }}
+          />
+
+          <FormControl fullWidth size={isMobile ? "small" : "medium"} required>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              label="Category"
+              sx={{ borderRadius: 2 }}
+            >
+              {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
+                <MenuItem key={key} value={key}>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <Box sx={{ color: config.color }}>{config.icon}</Box>
+                    <span>{config.label}</span>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            fullWidth
+            label="Description"
+            multiline
+            rows={isMobile ? 2 : 3}
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            size={isMobile ? "small" : "medium"}
+            placeholder="Add additional details..."
+            sx={{
+              "& .MuiOutlinedInput-root": { borderRadius: 2 },
+            }}
+          />
+
+          <Box>
+            <Typography variant="subtitle2" gutterBottom fontWeight="500" sx={{ color: COLORS.neutral[700] }}>
+              Bill Attachment
+            </Typography>
             <Button
-              onClick={onSubmit}
-              disabled={!formData.title || !formData.amount || !formData.category || loading}
-              variant="contained"
+              component="label"
+              variant="outlined"
+              startIcon={<CloudUpload />}
+              fullWidth
               sx={{ 
+                py: 1.5, 
                 borderRadius: 2,
                 textTransform: "none",
-                bgcolor: COLORS.primary.main,
-                "&:hover": { bgcolor: COLORS.primary.dark },
-                "&.Mui-disabled": {
-                  bgcolor: COLORS.neutral[300],
+                borderColor: COLORS.neutral[300],
+                color: COLORS.neutral[700],
+                "&:hover": {
+                  borderColor: COLORS.primary.main,
+                  bgcolor: alpha(COLORS.primary.main, 0.05),
                 },
               }}
             >
-              {loading ? <CircularProgress size={24} sx={{ color: "white" }} /> : selectedExpense ? "Update" : "Create"}
+              Upload File
+              <input type="file" hidden accept="image/*,.pdf" onChange={handleFileSelect} />
             </Button>
+
+            {(selectedFile || filePreview) && (
+              <Alert 
+                severity="info" 
+                sx={{ 
+                  mt: 2, 
+                  borderRadius: 2,
+                  bgcolor: alpha(COLORS.info.main, 0.1),
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={1}>
+                  {filePreview ? (
+                    <img
+                      src={filePreview}
+                      alt="Preview"
+                      style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }}
+                    />
+                  ) : (
+                    <AttachFile sx={{ fontSize: 20 }} />
+                  )}
+                  <Typography variant="body2" noWrap sx={{ color: COLORS.neutral[700] }}>
+                    {selectedFile?.name || "File selected"}
+                  </Typography>
+                </Box>
+              </Alert>
+            )}
           </Box>
-        </Box>
-      </Fade>
-    </Modal>
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
+      >
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          fullWidth={isMobile}
+          disabled={loading}
+          sx={{
+            borderRadius: 2,
+            borderColor: COLORS.primary.main,
+            color: COLORS.primary.main,
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={onSubmit}
+          variant="contained"
+          fullWidth={isMobile}
+          disabled={!formData.title || !formData.amount || !formData.category || loading}
+          sx={{
+            borderRadius: 2,
+            bgcolor: COLORS.primary.main,
+            "&:hover": { bgcolor: COLORS.primary.dark },
+          }}
+        >
+          {loading ? <CircularProgress size={24} sx={{ color: "white" }} /> : selectedExpense ? "Update" : "Create"}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
@@ -1044,547 +1385,371 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
   const categoryConfig = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Miscellaneous;
 
   return (
-    <Modal
+    <Dialog
       open={open}
       onClose={onClose}
-      closeAfterTransition
-      slots={{ backdrop: Backdrop }}
-      slotProps={{ 
-        backdrop: { 
-          timeout: 500,
-          sx: { bgcolor: alpha(COLORS.neutral[900], 0.5) }
-        } 
+      maxWidth="md"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          margin: isMobile ? 0 : 24,
+        },
       }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
     >
-      <Fade in={open}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: isMobile ? "95%" : 600,
-            maxHeight: "90vh",
-            overflow: "auto",
-            bgcolor: "white",
-            borderRadius: 1,
-            boxShadow: 24,
-            p: 3,
-          }}
-        >
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h6" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
-              Expense Details
-            </Typography>
-            <IconButton onClick={onClose} sx={{ color: COLORS.neutral[500] }}>
-              <Close />
-            </IconButton>
-          </Box>
-
-          <Stack spacing={3}>
-            {/* Header */}
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-              <Box>
-                <Typography variant="h5" fontWeight="700" sx={{ color: COLORS.neutral[800] }} gutterBottom>
-                  {expense.title}
-                </Typography>
-                <Box display="flex" gap={1} flexWrap="wrap">
-                  <Chip
-                    size="small"
-                    label={categoryConfig.label}
-                    sx={{
-                      bgcolor: alpha(categoryConfig.color, 0.1),
-                      color: categoryConfig.color,
-                      fontWeight: 500,
-                      borderRadius: 2,
-                      border: `1px solid ${alpha(categoryConfig.color, 0.2)}`,
-                    }}
-                  />
-                  <Chip
-                    size="small"
-                    label={statusConfig.label}
-                    icon={statusConfig.icon}
-                    sx={{
-                      bgcolor: statusConfig.bg,
-                      color: statusConfig.color,
-                      fontWeight: 500,
-                      borderRadius: 2,
-                      border: `1px solid ${alpha(statusConfig.color, 0.2)}`,
-                      "& .MuiChip-icon": { color: statusConfig.color },
-                    }}
-                  />
-                </Box>
-              </Box>
-              <Typography variant="h4" fontWeight="700" sx={{ color: COLORS.primary.main }}>
-                ₹{expense.amount?.toLocaleString()}
-              </Typography>
-            </Box>
-
-            <Divider sx={{ borderColor: COLORS.neutral[200] }} />
-
-            {/* Details Grid */}
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2" fontWeight="500" color={COLORS.neutral[600]} gutterBottom>
-                  Date
-                </Typography>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <CalendarToday sx={{ fontSize: 16, color: COLORS.primary.main }} />
-                  <Typography sx={{ color: COLORS.neutral[800] }}>
-                    {format(parseISO(expense.createdAt), "MMMM dd, yyyy")}
-                  </Typography>
-                </Box>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <Typography variant="subtitle2" fontWeight="500" color={COLORS.neutral[600]} gutterBottom>
-                  Created By
-                </Typography>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Avatar 
-                    sx={{ 
-                      width: 28, 
-                      height: 28, 
-                      bgcolor: COLORS.neutral[500],
-                      borderRadius: 2,
-                      fontSize: "0.75rem"
-                    }}
-                  >
-                    {expense.createdBy?.name?.charAt(0) || expense.createdBy?.email?.charAt(0) || "U"}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="body2" fontWeight="500" sx={{ color: COLORS.neutral[800] }}>
-                      {expense.createdBy?.name || "Unknown"}
-                    </Typography>
-                    <Typography variant="caption" color={COLORS.neutral[500]}>
-                      {expense.createdBy?.email}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-
-              {expense.description && (
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight="500" color={COLORS.neutral[600]} gutterBottom>
-                    Description
-                  </Typography>
-                  <Paper 
-                    variant="outlined" 
-                    sx={{ 
-                      p: 2, 
-                      borderRadius: 2,
-                      borderColor: COLORS.neutral[200],
-                      bgcolor: COLORS.neutral[50],
-                    }}
-                  >
-                    <Typography sx={{ color: COLORS.neutral[700] }}>{expense.description}</Typography>
-                  </Paper>
-                </Grid>
-              )}
-
-              {expense.location && (
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight="500" color={COLORS.neutral[600]} gutterBottom>
-                    Location
-                  </Typography>
-                  <Paper 
-                    variant="outlined" 
-                    sx={{ 
-                      p: 2, 
-                      borderRadius: 2,
-                      borderColor: COLORS.neutral[200],
-                      bgcolor: COLORS.neutral[50],
-                    }}
-                  >
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <LocationOn sx={{ fontSize: 18, color: COLORS.primary.main }} />
-                      <Typography sx={{ color: COLORS.neutral[700] }}>
-                        {expense.location.address ||
-                          `Lat: ${expense.location.lat?.toFixed(6)}, Lng: ${expense.location.lng?.toFixed(6)}`}
-                      </Typography>
-                    </Box>
-                  </Paper>
-                </Grid>
-              )}
-
-              {expense.billAttachment && (
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight="500" color={COLORS.neutral[600]} gutterBottom>
-                    Bill Attachment
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<AttachFile />}
-                    onClick={() => window.open(expense.billAttachment, "_blank")}
-                    fullWidth
-                    sx={{ 
-                      mt: 0.5, 
-                      py: 1.5, 
-                      borderRadius: 2,
-                      textTransform: "none",
-                      borderColor: COLORS.neutral[300],
-                      color: COLORS.neutral[700],
-                      "&:hover": {
-                        borderColor: COLORS.primary.main,
-                        bgcolor: alpha(COLORS.primary.main, 0.05),
-                      },
-                    }}
-                  >
-                    View Bill
-                  </Button>
-                </Grid>
-              )}
-
-              {expense.rejectionReason && (
-                <Grid item xs={12}>
-                  <Alert 
-                    severity="error" 
-                    sx={{ 
-                      borderRadius: 2,
-                      bgcolor: alpha(COLORS.error.main, 0.1),
-                      "& .MuiAlert-icon": { color: COLORS.error.main },
-                    }}
-                  >
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.error.main }}>
-                      Rejection Reason
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: COLORS.error.main }}>
-                      {expense.rejectionReason}
-                    </Typography>
-                  </Alert>
-                </Grid>
-              )}
-
-              {expense.approvedBy && (
-                <Grid item xs={12}>
-                  <Alert 
-                    severity="success" 
-                    sx={{ 
-                      borderRadius: 2,
-                      bgcolor: alpha(COLORS.success.main, 0.1),
-                      "& .MuiAlert-icon": { color: COLORS.success.main },
-                    }}
-                  >
-                    <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.success.main }}>
-                      Approved By
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: COLORS.success.main }}>
-                      {expense.approvedBy?.name || "Unknown"} on{" "}
-                      {expense.approvedAt && format(parseISO(expense.approvedAt), "MMM dd, yyyy")}
-                    </Typography>
-                    {expense.approverRemarks && (
-                      <Typography variant="body2" sx={{ color: COLORS.success.main, mt: 0.5 }}>
-                        Remarks: {expense.approverRemarks}
-                      </Typography>
-                    )}
-                  </Alert>
-                </Grid>
-              )}
-            </Grid>
-          </Stack>
-
-          <Box display="flex" justifyContent="flex-end" mt={4}>
-            <Button 
-              onClick={onClose} 
-              variant="contained"
-              sx={{ 
-                borderRadius: 2,
-                textTransform: "none",
-                bgcolor: COLORS.primary.main,
-                "&:hover": { bgcolor: COLORS.primary.dark },
+      <DialogTitle
+        sx={{
+          bgcolor: COLORS.primary.main,
+          color: "white",
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Box display="flex" alignItems="center" justifyContent="space-between">
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar
+              sx={{
+                bgcolor: "white",
+                color: COLORS.primary.main,
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
               }}
             >
-              Close
-            </Button>
+              <ReceiptLong sx={{ fontSize: { xs: 20, sm: 24 } }} />
+            </Avatar>
+            <Box>
+              <Typography variant="h6" fontWeight={700}>
+                {expense.title}
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                Expense Details • {expense._id?.slice(-8)}
+              </Typography>
+            </Box>
           </Box>
+          <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
+            <Close />
+          </IconButton>
         </Box>
-      </Fade>
-    </Modal>
+      </DialogTitle>
+
+      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <Stack spacing={3}>
+          {/* Header */}
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+            <Box>
+              <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
+                <Chip
+                  size="small"
+                  label={categoryConfig.label}
+                  icon={categoryConfig.icon}
+                  sx={{
+                    bgcolor: alpha(categoryConfig.color, 0.1),
+                    color: categoryConfig.color,
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    mt: 3
+                  }}
+                />
+                <Chip
+                  size="small"
+                  label={statusConfig.label}
+                  icon={statusConfig.icon}
+                  sx={{
+                    bgcolor: statusConfig.bg,
+                    color: statusConfig.color,
+                    fontWeight: 600,
+                    borderRadius: 2,
+                    mt: 3
+                  }}
+                />
+              </Box>
+            </Box>
+            <Typography variant="h4" fontWeight="700" sx={{ color: COLORS.primary.main , mt: 3 }}>
+              ₹{expense.amount?.toLocaleString()}
+            </Typography>
+          </Box>
+
+          <Divider />
+
+          {/* Details Grid */}
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+                Date
+              </Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <CalendarToday sx={{ fontSize: 16, color: COLORS.primary.main }} />
+                <Typography sx={{ color: COLORS.neutral[800] }}>
+                  {format(parseISO(expense.createdAt), "MMMM dd, yyyy")}
+                </Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+                Created By
+              </Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Avatar 
+                  sx={{ 
+                    width: 28, 
+                    height: 28, 
+                    bgcolor: COLORS.neutral[500],
+                    borderRadius: 1.5,
+                    fontSize: "0.75rem"
+                  }}
+                >
+                  {expense.createdBy?.name?.charAt(0) || expense.createdBy?.email?.charAt(0) || "U"}
+                </Avatar>
+                <Box>
+                  <Typography variant="body2" fontWeight="500" sx={{ color: COLORS.neutral[800] }}>
+                    {expense.createdBy?.name || "Unknown"}
+                  </Typography>
+                  <Typography variant="caption" color={COLORS.neutral[500]}>
+                    {expense.createdBy?.email}
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+
+            {expense.description && (
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+                  Description
+                </Typography>
+                <Paper 
+                  variant="outlined" 
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 2,
+                    borderColor: COLORS.neutral[200],
+                    bgcolor: COLORS.neutral[50],
+                  }}
+                >
+                  <Typography sx={{ color: COLORS.neutral[700] }}>{expense.description}</Typography>
+                </Paper>
+              </Grid>
+            )}
+
+            {expense.location && (
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+                  Location
+                </Typography>
+                <Paper 
+                  variant="outlined" 
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 2,
+                    borderColor: COLORS.neutral[200],
+                    bgcolor: COLORS.neutral[50],
+                  }}
+                >
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <LocationOn sx={{ fontSize: 18, color: COLORS.primary.main }} />
+                    <Typography sx={{ color: COLORS.neutral[700] }}>
+                      {expense.location.address ||
+                        `Lat: ${expense.location.lat?.toFixed(6)}, Lng: ${expense.location.lng?.toFixed(6)}`}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+            )}
+
+            {expense.billAttachment && (
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+                  Bill Attachment
+                </Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<AttachFile />}
+                  onClick={() => window.open(expense.billAttachment, "_blank")}
+                  fullWidth
+                  sx={{ 
+                    mt: 0.5, 
+                    py: 1.5, 
+                    borderRadius: 2,
+                    textTransform: "none",
+                    borderColor: COLORS.neutral[300],
+                    color: COLORS.neutral[700],
+                    "&:hover": {
+                      borderColor: COLORS.primary.main,
+                      bgcolor: alpha(COLORS.primary.main, 0.05),
+                    },
+                  }}
+                >
+                  View Bill
+                </Button>
+              </Grid>
+            )}
+
+            {expense.rejectionReason && (
+              <Grid item xs={12}>
+                <Alert 
+                  severity="error" 
+                  sx={{ 
+                    borderRadius: 2,
+                    bgcolor: alpha(COLORS.error.main, 0.1),
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.error.main }}>
+                    Rejection Reason
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: COLORS.error.main }}>
+                    {expense.rejectionReason}
+                  </Typography>
+                </Alert>
+              </Grid>
+            )}
+
+            {expense.approvedBy && (
+              <Grid item xs={12}>
+                <Alert 
+                  severity="success" 
+                  sx={{ 
+                    borderRadius: 2,
+                    bgcolor: alpha(COLORS.success.main, 0.1),
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.success.main }}>
+                    Approved By
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: COLORS.success.main }}>
+                    {expense.approvedBy?.name || "Unknown"} on{" "}
+                    {expense.approvedAt && format(parseISO(expense.approvedAt), "MMM dd, yyyy")}
+                  </Typography>
+                  {expense.approverRemarks && (
+                    <Typography variant="body2" sx={{ color: COLORS.success.main, mt: 0.5 }}>
+                      Remarks: {expense.approverRemarks}
+                    </Typography>
+                  )}
+                </Alert>
+              </Grid>
+            )}
+          </Grid>
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
+      >
+        <Button
+          onClick={onClose}
+          variant="contained"
+          fullWidth={isMobile}
+          sx={{
+            borderRadius: 2,
+            bgcolor: COLORS.primary.main,
+            "&:hover": { bgcolor: COLORS.primary.dark },
+          }}
+        >
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
-// User Summary Modal
-const UserSummaryModal = ({ open, onClose, userId, userName }) => {
-  const { fetchAPI } = useAuth();
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [period, setPeriod] = useState("month");
+// Loading Skeleton
+const LoadingSkeleton = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const fetchSummary = useCallback(async () => {
-    if (!userId) return;
-    
-    setLoading(true);
-    try {
-      const response = await fetchAPI(`/expense/user/${userId}/summary?period=${period}`);
-      if (response?.success) {
-        setSummary(response.result);
-      }
-    } catch (error) {
-      console.error("Error fetching summary:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, period, fetchAPI]);
-
-  useEffect(() => {
-    if (open) {
-      fetchSummary();
-    }
-  }, [open, period, fetchSummary]);
-
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      closeAfterTransition
-      slots={{ backdrop: Backdrop }}
-      slotProps={{ 
-        backdrop: { 
-          timeout: 500,
-          sx: { bgcolor: alpha(COLORS.neutral[900], 0.5) }
-        } 
-      }}
-    >
-      <Fade in={open}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: isMobile ? "95%" : 600,
-            maxHeight: "90vh",
-            overflow: "auto",
-            bgcolor: "white",
-            borderRadius: 1,
-            boxShadow: 24,
-            p: 3,
-          }}
-        >
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Box>
-              <Typography variant="h6" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
-                Expense Summary
-              </Typography>
-              <Typography variant="body2" color={COLORS.neutral[600]}>
-                {userName || "User"}
-              </Typography>
-            </Box>
-            <IconButton onClick={onClose} sx={{ color: COLORS.neutral[500] }}>
-              <Close />
-            </IconButton>
-          </Box>
-
-          <Box mb={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel sx={{ color: COLORS.neutral[600] }}>Period</InputLabel>
-              <Select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
-                label="Period"
-                sx={{ borderRadius: 2 }}
-              >
-                {TIME_PERIODS.map((p) => (
-                  <MenuItem key={p.value} value={p.value}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Box sx={{ color: COLORS.neutral[600] }}>{p.icon}</Box>
-                      <span>{p.label}</span>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {loading ? (
-            <Box textAlign="center" py={4}>
-              <CircularProgress sx={{ color: COLORS.primary.main }} />
-            </Box>
-          ) : summary ? (
-            <Stack spacing={3}>
-              {/* Stats Cards */}
-              <Grid container spacing={2}>
-                <Grid item xs={4}>
-                  <Card sx={{ 
-                    p: 2, 
-                    textAlign: "center", 
-                    borderRadius: 2,
-                    border: `1px solid ${COLORS.neutral[200]}`,
-                  }}>
-                    <ReceiptLong sx={{ fontSize: 24, color: COLORS.primary.main, mb: 1 }} />
-                    <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.neutral[800] }}>
-                      {summary.summary?.totalExpenses || 0}
-                    </Typography>
-                    <Typography variant="caption" color={COLORS.neutral[500]}>
-                      Total
-                    </Typography>
-                  </Card>
-                </Grid>
-                <Grid item xs={4}>
-                  <Card sx={{ 
-                    p: 2, 
-                    textAlign: "center", 
-                    borderRadius: 2,
-                    border: `1px solid ${COLORS.neutral[200]}`,
-                  }}>
-                    <AttachMoney sx={{ fontSize: 24, color: COLORS.success.main, mb: 1 }} />
-                    <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.neutral[800] }}>
-                      ₹{(summary.summary?.totalAmount || 0).toLocaleString()}
-                    </Typography>
-                    <Typography variant="caption" color={COLORS.neutral[500]}>
-                      Amount
-                    </Typography>
-                  </Card>
-                </Grid>
-                <Grid item xs={4}>
-                  <Card sx={{ 
-                    p: 2, 
-                    textAlign: "center", 
-                    borderRadius: 2,
-                    border: `1px solid ${COLORS.neutral[200]}`,
-                  }}>
-                    <TrendingUp sx={{ fontSize: 24, color: COLORS.info.main, mb: 1 }} />
-                    <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.neutral[800] }}>
-                      ₹{(summary.summary?.averageAmount || 0).toLocaleString()}
-                    </Typography>
-                    <Typography variant="caption" color={COLORS.neutral[500]}>
-                      Average
-                    </Typography>
-                  </Card>
-                </Grid>
-              </Grid>
-
-              {/* Status Breakdown */}
-              <Box>
-                <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.neutral[800], mb: 2 }}>
-                  By Status
-                </Typography>
-                <Stack spacing={1}>
-                  {Object.entries(summary.summary?.byStatus || {}).map(([status, data]) => (
-                    <Box
-                      key={status}
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        bgcolor: STATUS_CONFIG[status]?.bg || COLORS.neutral[100],
-                        border: `1px solid ${alpha(STATUS_CONFIG[status]?.color || COLORS.neutral[400], 0.2)}`,
-                      }}
-                    >
-                      <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Box display="flex" alignItems="center" gap={1}>
-                          {STATUS_CONFIG[status]?.icon}
-                          <Typography variant="body2" fontWeight="500" sx={{ color: STATUS_CONFIG[status]?.color }}>
-                            {status}
-                          </Typography>
-                        </Box>
-                        <Box textAlign="right">
-                          <Typography variant="body2" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
-                            {data.count} items
-                          </Typography>
-                          <Typography variant="caption" color={COLORS.neutral[600]}>
-                            ₹{data.total.toLocaleString()}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  ))}
-                </Stack>
-              </Box>
-
-              {/* Category Breakdown */}
-              <Box>
-                <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.neutral[800], mb: 2 }}>
-                  By Category
-                </Typography>
-                <Stack spacing={1}>
-                  {Object.entries(summary.summary?.byCategory || {}).map(([category, data]) => (
-                    <Box
-                      key={category}
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        bgcolor: CATEGORY_CONFIG[category]?.bg || COLORS.neutral[100],
-                        border: `1px solid ${alpha(CATEGORY_CONFIG[category]?.color || COLORS.neutral[400], 0.2)}`,
-                      }}
-                    >
-                      <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Box sx={{ color: CATEGORY_CONFIG[category]?.color }}>
-                            {CATEGORY_CONFIG[category]?.icon}
-                          </Box>
-                          <Typography variant="body2" fontWeight="500" sx={{ color: COLORS.neutral[800] }}>
-                            {CATEGORY_CONFIG[category]?.label || category}
-                          </Typography>
-                        </Box>
-                        <Box textAlign="right">
-                          <Typography variant="body2" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
-                            {data.count} items
-                          </Typography>
-                          <Typography variant="caption" color={COLORS.neutral[600]}>
-                            ₹{data.total.toLocaleString()}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  ))}
-                </Stack>
-              </Box>
-
-              {/* Recent Expenses */}
-              {summary.recentExpenses?.length > 0 && (
-                <Box>
-                  <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.neutral[800], mb: 2 }}>
-                    Recent Expenses
-                  </Typography>
-                  <Stack spacing={1}>
-                    {summary.recentExpenses.slice(0, 5).map((exp) => (
-                      <Paper
-                        key={exp._id}
-                        variant="outlined"
-                        sx={{ 
-                          p: 1.5, 
-                          borderRadius: 2,
-                          borderColor: COLORS.neutral[200],
-                        }}
-                      >
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                          <Box>
-                            <Typography variant="body2" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
-                              {exp.title}
-                            </Typography>
-                            <Typography variant="caption" color={COLORS.neutral[500]}>
-                              {CATEGORY_CONFIG[exp.category]?.label || exp.category} • {format(parseISO(exp.expenseDate), "MMM dd")}
-                            </Typography>
-                          </Box>
-                          <Typography fontWeight="600" sx={{ color: COLORS.primary.main }}>
-                            ₹{exp.amount?.toLocaleString()}
-                          </Typography>
-                        </Box>
-                      </Paper>
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-            </Stack>
-          ) : (
-            <Alert 
-              severity="info" 
-              sx={{ 
-                borderRadius: 2,
-                bgcolor: alpha(COLORS.info.main, 0.1),
-                "& .MuiAlert-icon": { color: COLORS.info.main },
-              }}
-            >
-              No summary data available
-            </Alert>
-          )}
-        </Box>
-      </Fade>
-    </Modal>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+        {[1, 2, 3, 4].map((item) => (
+          <Grid item xs={6} sm={6} md={3} key={item}>
+            <Skeleton
+              variant="rectangular"
+              height={isMobile ? 90 : 120}
+              sx={{ borderRadius: 3 }}
+            />
+          </Grid>
+        ))}
+      </Grid>
+      {isMobile && (
+        <Skeleton
+          variant="rectangular"
+          height={56}
+          sx={{ borderRadius: 2, mb: 2 }}
+        />
+      )}
+      <Skeleton
+        variant="rectangular"
+        height={isMobile ? 500 : 400}
+        sx={{ borderRadius: 3, mb: 2 }}
+      />
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
+    </Box>
   );
 };
+
+// Empty State
+const EmptyState = ({ onClearFilters, hasFilters, canCreate, onCreate }) => (
+  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
+    <Box
+      sx={{
+        width: 120,
+        height: 120,
+        borderRadius: "50%",
+        bgcolor: alpha(COLORS.primary.main, 0.1),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        mx: "auto",
+        mb: 3,
+      }}
+    >
+      <ReceiptLong sx={{ fontSize: 48, color: COLORS.primary.main }} />
+    </Box>
+    <Typography variant="h6" fontWeight={600} gutterBottom>
+      No expenses found
+    </Typography>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+    >
+      {hasFilters
+        ? "No expenses match your current filters. Try adjusting your search criteria."
+        : canCreate
+          ? "Get started by creating your first expense"
+          : "No expenses available"}
+    </Typography>
+    {hasFilters && (
+      <Button
+        variant="contained"
+        onClick={onClearFilters}
+        startIcon={<Clear />}
+        sx={{ bgcolor: COLORS.primary.main, "&:hover": { bgcolor: COLORS.primary.dark } }}
+      >
+        Clear All Filters
+      </Button>
+    )}
+    {!hasFilters && canCreate && (
+      <Button
+        variant="contained"
+        onClick={onCreate}
+        startIcon={<Add />}
+        sx={{ bgcolor: COLORS.primary.main, "&:hover": { bgcolor: COLORS.primary.dark } }}
+      >
+        Create Expense
+      </Button>
+    )}
+  </Box>
+);
 
 // Main Component
 export default function ExpensesPage() {
@@ -1626,16 +1791,17 @@ export default function ExpensesPage() {
   const [openFilterDrawer, setOpenFilterDrawer] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const [openViewModal, setOpenViewModal] = useState(false);
-  const [openUserSummaryModal, setOpenUserSummaryModal] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openApproveDialog, setOpenApproveDialog] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [actionType, setActionType] = useState("");
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedExpenseForMenu, setSelectedExpenseForMenu] = useState(null);
   const [viewMode, setViewMode] = useState(isMobile ? "card" : "table");
   const [navValue, setNavValue] = useState(0);
+
+  // Refs
+  const containerRef = useRef(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -1663,6 +1829,16 @@ export default function ExpensesPage() {
   const canDelete = userRole === "Head_office";
   const canUpdateStatus = ["ASM", "ZSM", "Head_office"].includes(userRole);
   const canViewSummary = ["ASM", "ZSM", "Head_office"].includes(userRole);
+
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.category !== "all") count++;
+    if (filters.status !== "all") count++;
+    if (filters.period !== "month") count++;
+    return count;
+  }, [filters.search, filters.category, filters.status, filters.period]);
 
   // Tabs
   const tabs = [
@@ -1927,13 +2103,6 @@ export default function ExpensesPage() {
     } else if (action === "delete") {
       setSelectedExpense(selectedExpenseForMenu);
       setOpenDeleteDialog(true);
-    } else if (action === "userSummary") {
-      setSelectedUser({
-        id: selectedExpenseForMenu?.createdBy?._id,
-        name: selectedExpenseForMenu?.createdBy?.name,
-        email: selectedExpenseForMenu?.createdBy?.email,
-      });
-      setOpenUserSummaryModal(true);
     }
   };
 
@@ -1975,6 +2144,17 @@ export default function ExpensesPage() {
     setOpenFilterDrawer(false);
   };
 
+  const handleChangePage = (event, newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+    if (containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setPagination(prev => ({ ...prev, limit: parseInt(event.target.value, 10), page: 1 }));
+  };
+
   // Initial Data Fetch
   useEffect(() => {
     if (isAuthenticated()) {
@@ -2006,120 +2186,183 @@ export default function ExpensesPage() {
     return { totalExpenses, totalAmount, approvedCount, pendingCount, approvedAmount, pendingAmount };
   }, [expenses]);
 
+  // Loading state
+  if (loading.expenses && expenses.length === 0) {
+    return <LoadingSkeleton />;
+  }
+
   return (
-    <Box sx={{ minHeight: "100vh", marginLeft:"15px" }}>
-      {/* Header */}
-      <AppBar
-        position="sticky"
+    <Box
+      ref={containerRef}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 3 },
+        minHeight: "100vh",
+        pb: { xs: 8, sm: 3 },
+        bgcolor: "#f8fafc",
+      }}
+    >
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        open={openFilterDrawer}
+        onClose={() => setOpenFilterDrawer(false)}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onReset={handleResetFilters}
+        activeFilterCount={activeFilterCount}
+      />
+
+      {/* Header with Gradient Background */}
+      <Paper
         elevation={0}
         sx={{
-          bgcolor: "white",
-          borderBottom: `1px solid ${COLORS.neutral[200]}`,
+          p: { xs: 2, sm: 3 },
+          mb: 3,
+          borderRadius: 3,
+          background: `linear-gradient(135deg, ${COLORS.primary.main} 0%, ${COLORS.primary.dark} 100%)`,
+          color: "#fff",
         }}
       >
-        <Toolbar>
-          {isMobile && (
-            <IconButton edge="start" sx={{ mr: 2, color: COLORS.neutral[700] }}>
-              <MenuIcon />
-            </IconButton>
-          )}
-          
-          <Typography
-            variant="h6"
-            sx={{
-              flexGrow: 1,
-              fontWeight: 700,
-              color: COLORS.primary.main,
-            }}
-          >
-            Expenses
-          </Typography>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+        >
+          <Box>
+            <Typography
+              variant={isMobile ? "h6" : "h5"}
+              fontWeight={700}
+              gutterBottom
+            >
+              Expense Management
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                opacity: 0.9,
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              }}
+            >
+              Track and manage all expense claims
+            </Typography>
+          </Box>
 
-          {!isMobile && (
-            <Box display="flex" gap={2}>
-              {canViewSummary && (
-                <Button
-                  variant="outlined"
-                  startIcon={<Person />}
-                  onClick={() => setSelectedUser({ id: user?._id, name: user?.name })}
-                  sx={{ 
-                    borderRadius: 1,
-                    textTransform: "none",
-                    borderColor: COLORS.neutral[300],
-                    color: COLORS.neutral[700],
-                    "&:hover": {
-                      borderColor: COLORS.primary.main,
-                      bgcolor: alpha(COLORS.primary.main, 0.05),
-                    },
-                  }}
-                >
-                  My Summary
-                </Button>
-              )}
-              
-              {canCreate && (
-                <Button
-                  variant="contained"
-                  startIcon={<Add />}
-                  onClick={() => {
-                    resetForm();
-                    setOpenModal(true);
-                  }}
-                  sx={{
-                    borderRadius: 1,
-                    textTransform: "none",
-                    bgcolor: COLORS.primary.main,
-                    "&:hover": { bgcolor: COLORS.primary.dark },
-                  }}
-                >
-                  New Expense
-                </Button>
-              )}
-            </Box>
-          )}
-        </Toolbar>
-      </AppBar>
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {isMobile && (
+              <Button
+                variant="contained"
+                startIcon={<FilterAlt />}
+                onClick={() => setOpenFilterDrawer(true)}
+                size="small"
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                  position: "relative",
+                }}
+              >
+                Filter
+                {activeFilterCount > 0 && (
+                  <Badge
+                    badgeContent={activeFilterCount}
+                    color="error"
+                    sx={{
+                      position: "absolute",
+                      top: -8,
+                      right: -8,
+                      "& .MuiBadge-badge": {
+                        fontSize: "0.6rem",
+                        minWidth: 16,
+                        height: 16,
+                      },
+                    }}
+                  />
+                )}
+              </Button>
+            )}
+            <Button
+              variant="contained"
+              startIcon={<Refresh />}
+              onClick={() => {
+                fetchExpenses();
+                fetchStats();
+              }}
+              disabled={loading.expenses}
+              size={isMobile ? "small" : "medium"}
+              sx={{
+                bgcolor: "rgba(255,255,255,0.2)",
+                color: "#fff",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+              }}
+            >
+              Refresh
+            </Button>
+            {canCreate && !isMobile && (
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => {
+                  resetForm();
+                  setOpenModal(true);
+                }}
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                }}
+              >
+                New Expense
+              </Button>
+            )}
+          </Box>
+        </Stack>
+      </Paper>
 
       {/* Main Content */}
-      <Container maxWidth="xl" sx={{ py: 3, px: isMobile ? 2 : 3 }}>
+      <Box sx={{ p: { xs: 0, sm: 0 } }}>
         {/* Stats Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
           <Grid item xs={6} sm={6} md={3}>
             <StatCard
-              icon={<ReceiptLong sx={{ fontSize: 24 }} />}
+              icon={<ReceiptLong />}
               title="Total Expenses"
               value={displayStats.totalExpenses}
               color={COLORS.primary.main}
+              index={0}
             />
           </Grid>
           <Grid item xs={6} sm={6} md={3}>
             <StatCard
-              icon={<CheckCircle sx={{ fontSize: 24 }} />}
+              icon={<CheckCircle />}
               title="Approved"
               value={displayStats.approvedCount}
               color={COLORS.success.main}
+              index={1}
             />
           </Grid>
           <Grid item xs={6} sm={6} md={3}>
             <StatCard
-              icon={<PendingActions sx={{ fontSize: 24 }} />}
+              icon={<PendingActions />}
               title="Pending"
               value={displayStats.pendingCount}
               color={COLORS.warning.main}
+              index={2}
             />
           </Grid>
           <Grid item xs={6} sm={6} md={3}>
             <StatCard
-              icon={<TrendingUp sx={{ fontSize: 24 }} />}
+              icon={<TrendingUp />}
               title="Average"
               value={expenses.length ? `₹${(displayStats.totalAmount / expenses.length).toFixed(0)}` : "₹0"}
               color={COLORS.info.main}
+              index={3}
             />
           </Grid>
         </Grid>
 
         {/* Tabs */}
-        <Paper sx={{ borderRadius: 3, mb: 2, overflow: "hidden", border: `1px solid ${COLORS.neutral[200]}` }}>
+        <Paper sx={{ borderRadius: 3, mb: 2, overflow: "hidden" }}>
           <Tabs
             value={activeTab}
             onChange={(e, newValue) => {
@@ -2150,164 +2393,186 @@ export default function ExpensesPage() {
           </Tabs>
         </Paper>
 
-        {/* Search and Filter Bar */}
-        <Paper sx={{ 
-          p: 2, 
-          borderRadius: 2, 
-          mb: 2,
-          border: `1px solid ${COLORS.neutral[200]}`,
-        }}>
-          <Box display="flex" gap={1}>
+        {/* Mobile Search Bar */}
+        {isMobile && (
+          <Box sx={{ mb: 2 }}>
             <TextField
               fullWidth
               size="small"
               placeholder="Search expenses..."
               value={filters.search}
               onChange={(e) => handleFilterChange("search", e.target.value)}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: 1,
-                },
-              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search sx={{ fontSize: 20, color: COLORS.neutral[400] }} />
+                    <Search />
                   </InputAdornment>
                 ),
                 endAdornment: filters.search && (
                   <InputAdornment position="end">
                     <IconButton size="small" onClick={() => handleFilterChange("search", "")}>
-                      <Close sx={{ fontSize: 16, color: COLORS.neutral[400] }} />
+                      <Close />
                     </IconButton>
                   </InputAdornment>
                 ),
               }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 3,
+                  bgcolor: "#fff",
+                },
+              }}
             />
-
-            {!isMobile ? (
-              <>
-                <FormControl size="small" sx={{ minWidth: 130 }}>
-                  <InputLabel sx={{ color: COLORS.neutral[600] }}>Category</InputLabel>
-                  <Select
-                    value={filters.category}
-                    onChange={(e) => handleFilterChange("category", e.target.value)}
-                    label="Category"
-                    sx={{ borderRadius: 1 }}
-                  >
-                    <MenuItem value="all">All Categories</MenuItem>
-                    {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
-                      <MenuItem key={key} value={key}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Box sx={{ color: config.color }}>{config.icon}</Box>
-                          <span>{config.label}</span>
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl size="small" sx={{ minWidth: 130 }}>
-                  <InputLabel sx={{ color: COLORS.neutral[600] }}>Period</InputLabel>
-                  <Select
-                    value={filters.period}
-                    onChange={(e) => handleFilterChange("period", e.target.value)}
-                    label="Period"
-                    sx={{ borderRadius: 1 }}
-                  >
-                    {TIME_PERIODS.map((p) => (
-                      <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl size="small" sx={{ minWidth: 120 }}>
-                  <Select
-                    value={filters.sortBy}
-                    onChange={(e) => handleFilterChange("sortBy", e.target.value)}
-                    displayEmpty
-                    sx={{ borderRadius: 1 }}
-                  >
-                    <MenuItem value="-createdAt">Newest First</MenuItem>
-                    <MenuItem value="createdAt">Oldest First</MenuItem>
-                    <MenuItem value="-amount">Highest Amount</MenuItem>
-                    <MenuItem value="amount">Lowest Amount</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <Tooltip title={viewMode === "table" ? "Card View" : "Table View"}>
-                  <IconButton
-                    onClick={() => setViewMode(viewMode === "table" ? "card" : "table")}
-                    sx={{ 
-                      border: `1px solid ${COLORS.neutral[300]}`,
-                      borderRadius: 1,
-                      color: COLORS.neutral[700],
-                      "&:hover": {
-                        borderColor: COLORS.primary.main,
-                        bgcolor: alpha(COLORS.primary.main, 0.05),
-                      },
-                    }}
-                  >
-                    {viewMode === "table" ? <GridView /> : <ViewList />}
-                  </IconButton>
-                </Tooltip>
-
-                <Tooltip title="Reset Filters">
-                  <IconButton
-                    onClick={handleResetFilters}
-                    sx={{ 
-                      border: `1px solid ${COLORS.neutral[300]}`,
-                      borderRadius: 1,
-                      color: COLORS.neutral[700],
-                      "&:hover": {
-                        borderColor: COLORS.primary.main,
-                        bgcolor: alpha(COLORS.primary.main, 0.05),
-                      },
-                    }}
-                  >
-                    <Refresh />
-                  </IconButton>
-                </Tooltip>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="outlined"
-                  startIcon={<FilterList />}
-                  onClick={() => setOpenFilterDrawer(true)}
-                  sx={{ 
-                    minWidth: "auto", 
-                    px: 2,
-                    borderRadius: 1,
-                    textTransform: "none",
-                    borderColor: COLORS.neutral[300],
-                    color: COLORS.neutral[700],
-                    "&:hover": {
-                      borderColor: COLORS.primary.main,
-                      bgcolor: alpha(COLORS.primary.main, 0.05),
-                    },
-                  }}
-                >
-                  Filter
-                </Button>
-                <IconButton
-                  onClick={() => setViewMode(viewMode === "table" ? "card" : "table")}
-                  sx={{ 
-                    border: `1px solid ${COLORS.neutral[300]}`,
-                    borderRadius: 2,
-                    color: COLORS.neutral[700],
-                    "&:hover": {
-                      borderColor: COLORS.primary.main,
-                      bgcolor: alpha(COLORS.primary.main, 0.05),
-                    },
-                  }}
-                >
-                  {viewMode === "table" ? <GridView /> : <ViewList />}
-                </IconButton>
-              </>
-            )}
           </Box>
-        </Paper>
+        )}
+
+        {/* Desktop Search and Filters */}
+        {!isMobile && (
+          <Paper sx={{ p: 2, borderRadius: 3, mb: 2 }}>
+            <Box display="flex" gap={1}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search expenses..."
+                value={filters.search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 2,
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ fontSize: 20, color: COLORS.neutral[400] }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: filters.search && (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => handleFilterChange("search", "")}>
+                        <Close sx={{ fontSize: 16, color: COLORS.neutral[400] }} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <FormControl size="small" sx={{ minWidth: 130 }}>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  value={filters.category}
+                  onChange={(e) => handleFilterChange("category", e.target.value)}
+                  label="Category"
+                  sx={{ borderRadius: 2 }}
+                >
+                  <MenuItem value="all">All Categories</MenuItem>
+                  {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
+                    <MenuItem key={key} value={key}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box sx={{ color: config.color }}>{config.icon}</Box>
+                        <span>{config.label}</span>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 130 }}>
+                <InputLabel>Period</InputLabel>
+                <Select
+                  value={filters.period}
+                  onChange={(e) => handleFilterChange("period", e.target.value)}
+                  label="Period"
+                  sx={{ borderRadius: 2 }}
+                >
+                  {TIME_PERIODS.map((p) => (
+                    <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <Select
+                  value={filters.sortBy}
+                  onChange={(e) => handleFilterChange("sortBy", e.target.value)}
+                  displayEmpty
+                  sx={{ borderRadius: 2 }}
+                >
+                  <MenuItem value="-createdAt">Newest First</MenuItem>
+                  <MenuItem value="createdAt">Oldest First</MenuItem>
+                  <MenuItem value="-amount">Highest Amount</MenuItem>
+                  <MenuItem value="amount">Lowest Amount</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {activeFilterCount > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+                  Active Filters:
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {filters.search && (
+                    <Chip
+                      label={`Search: ${filters.search}`}
+                      size="small"
+                      onDelete={() => handleFilterChange("search", "")}
+                      sx={{
+                        bgcolor: alpha(COLORS.primary.main, 0.1),
+                        color: COLORS.primary.main,
+                      }}
+                    />
+                  )}
+                  {filters.category !== "all" && (
+                    <Chip
+                      label={`Category: ${CATEGORY_CONFIG[filters.category]?.label}`}
+                      size="small"
+                      onDelete={() => handleFilterChange("category", "all")}
+                      sx={{
+                        bgcolor: alpha(COLORS.primary.main, 0.1),
+                        color: COLORS.primary.main,
+                      }}
+                    />
+                  )}
+                  {filters.status !== "all" && (
+                    <Chip
+                      label={`Status: ${filters.status}`}
+                      size="small"
+                      onDelete={() => handleFilterChange("status", "all")}
+                      sx={{
+                        bgcolor: alpha(COLORS.primary.main, 0.1),
+                        color: COLORS.primary.main,
+                      }}
+                    />
+                  )}
+                  {filters.period !== "month" && (
+                    <Chip
+                      label={`Period: ${PERIOD_OPTIONS.find(p => p.value === filters.period)?.label}`}
+                      size="small"
+                      onDelete={() => handleFilterChange("period", "month")}
+                      sx={{
+                        bgcolor: alpha(COLORS.primary.main, 0.1),
+                        color: COLORS.primary.main,
+                      }}
+                    />
+                  )}
+                  <Chip
+                    label="Clear All"
+                    size="small"
+                    variant="outlined"
+                    onClick={handleResetFilters}
+                    deleteIcon={<Close />}
+                    onDelete={handleResetFilters}
+                    sx={{
+                      borderColor: COLORS.primary.main,
+                      color: COLORS.primary.main,
+                    }}
+                  />
+                </Stack>
+              </Box>
+            )}
+          </Paper>
+        )}
 
         {/* Content */}
         {loading.expenses ? (
@@ -2317,47 +2582,20 @@ export default function ExpensesPage() {
             ))}
           </Box>
         ) : expenses.length === 0 ? (
-          <Paper sx={{ 
-            p: 6, 
-            borderRadius: 3, 
-            textAlign: "center",
-            border: `1px solid ${COLORS.neutral[200]}`,
-          }}>
-            <ReceiptLong sx={{ fontSize: 60, color: COLORS.neutral[300], mb: 2 }} />
-            <Typography variant="h6" fontWeight="600" sx={{ color: COLORS.neutral[800] }} gutterBottom>
-              No expenses found
-            </Typography>
-            <Typography color={COLORS.neutral[600]} sx={{ mb: 3 }}>
-              {filters.search || filters.category !== "all" || filters.status !== "all"
-                ? "Try adjusting your filters"
-                : canCreate
-                  ? "Get started by creating your first expense"
-                  : "No expenses available"}
-            </Typography>
-            {canCreate && (
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={() => {
-                  resetForm();
-                  setOpenModal(true);
-                }}
-                sx={{ 
-                  borderRadius: 2,
-                  textTransform: "none",
-                  bgcolor: COLORS.primary.main,
-                  "&:hover": { bgcolor: COLORS.primary.dark },
-                }}
-              >
-                Create Expense
-              </Button>
-            )}
-          </Paper>
+          <EmptyState
+            onClearFilters={handleResetFilters}
+            hasFilters={activeFilterCount > 0}
+            canCreate={canCreate}
+            onCreate={() => {
+              resetForm();
+              setOpenModal(true);
+            }}
+          />
         ) : (
           <>
             {isMobile || viewMode === "card" ? (
               <Box>
-                {expenses.map((expense) => (
+                {expenses.map((expense, index) => (
                   <MobileExpenseCard
                     key={expense._id}
                     expense={expense}
@@ -2366,26 +2604,23 @@ export default function ExpensesPage() {
                       setSelectedExpense(exp);
                       setOpenViewModal(true);
                     }}
+                    index={index}
                   />
                 ))}
               </Box>
             ) : (
-              <Paper sx={{ 
-                borderRadius: 3, 
-                overflow: "hidden",
-                border: `1px solid ${COLORS.neutral[200]}`,
-              }}>
+              <Paper sx={{ borderRadius: 3, overflow: "hidden" }}>
                 <TableContainer>
                   <Table>
-                    <TableHead sx={{ bgcolor: COLORS.neutral[50] }}>
+                    <TableHead sx={{ bgcolor: alpha(COLORS.primary.main, 0.05) }}>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 600, color: COLORS.neutral[700] }}>Expense</TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: COLORS.neutral[700] }}>Amount</TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: COLORS.neutral[700] }}>Category</TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: COLORS.neutral[700] }}>Date</TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: COLORS.neutral[700] }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 600, color: COLORS.neutral[700] }}>Created By</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600, color: COLORS.neutral[700] }}>Actions</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Expense</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Created By</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -2404,43 +2639,33 @@ export default function ExpensesPage() {
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (
-              <Box sx={{ 
-                mt: 3, 
-                display: "flex", 
-                justifyContent: "space-between", 
-                alignItems: "center", 
-                flexWrap: "wrap", 
-                gap: 2 
-              }}>
-                <Box display="flex" alignItems="center" gap={2}>
-                  {!isMobile && (
-                    <FormControl size="small" sx={{ minWidth: 100 }}>
-                      <Select
-                        value={pagination.limit}
-                        onChange={(e) => setPagination(prev => ({ ...prev, limit: e.target.value, page: 1 }))}
-                        sx={{ borderRadius: 2 }}
-                      >
-                        <MenuItem value={5}>5 / page</MenuItem>
-                        <MenuItem value={10}>10 / page</MenuItem>
-                        <MenuItem value={20}>20 / page</MenuItem>
-                      </Select>
-                    </FormControl>
-                  )}
-                  <Typography variant="body2" color={COLORS.neutral[600]}>
-                    Showing {(pagination.page - 1) * pagination.limit + 1} -{" "}
-                    {Math.min(pagination.page * pagination.limit, pagination.totalItems)} of {pagination.totalItems}
-                  </Typography>
-                </Box>
+              <Box
+                sx={{
+                  mt: 3,
+                  display: "flex",
+                  flexDirection: { xs: "column", sm: "row" },
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 2,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+                  {Math.min(pagination.page * pagination.limit, pagination.totalItems)} of {pagination.totalItems}
+                </Typography>
                 <Pagination
                   count={pagination.totalPages}
                   page={pagination.page}
-                  onChange={(e, newPage) => setPagination(prev => ({ ...prev, page: newPage }))}
+                  onChange={handleChangePage}
                   color="primary"
-                  shape="rounded"
                   size={isMobile ? "small" : "medium"}
                   sx={{
                     "& .MuiPaginationItem-root": {
                       borderRadius: 2,
+                      "&.Mui-selected": {
+                        bgcolor: COLORS.primary.main,
+                        color: "#fff",
+                      },
                     },
                   }}
                 />
@@ -2448,73 +2673,73 @@ export default function ExpensesPage() {
             )}
           </>
         )}
-      </Container>
+      </Box>
 
       {/* Mobile FAB */}
       {isMobile && canCreate && (
-        <Fab
-          color="primary"
-          sx={{
-            position: "fixed",
-            bottom: 20,
-            right: 20,
-            bgcolor: COLORS.primary.main,
-            "&:hover": { bgcolor: COLORS.primary.dark },
-          }}
-          onClick={() => {
-            resetForm();
-            setOpenModal(true);
-          }}
-        >
-          <Add />
-        </Fab>
+        <Zoom in={true}>
+          <Fab
+            color="primary"
+            aria-label="add"
+            onClick={() => {
+              resetForm();
+              setOpenModal(true);
+            }}
+            sx={{
+              position: "fixed",
+              bottom: 80,
+              right: 16,
+              zIndex: 1000,
+              bgcolor: COLORS.primary.main,
+              "&:hover": { bgcolor: COLORS.primary.dark },
+              boxShadow: `0 4px 12px ${alpha(COLORS.primary.main, 0.3)}`,
+            }}
+          >
+            <Add />
+          </Fab>
+        </Zoom>
       )}
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (
-        <Paper sx={{ 
-          position: "fixed", 
-          bottom: 0, 
-          left: 0, 
-          right: 0, 
-          zIndex: 1000,
-          borderTop: `1px solid ${COLORS.neutral[200]}`,
-        }} elevation={3}>
+        <Paper
+          sx={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            borderRadius: 0,
+            borderTop: `1px solid ${alpha(COLORS.primary.main, 0.1)}`,
+          }}
+          elevation={3}
+        >
           <BottomNavigation
             showLabels
             value={navValue}
             onChange={(event, newValue) => {
               setNavValue(newValue);
-              if (newValue === 1 && canViewSummary) {
-                setSelectedUser({ id: user?._id, name: user?.name });
-                setOpenUserSummaryModal(true);
+              if (newValue === 0) {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (newValue === 1) {
+                navigate("/dashboard");
               }
             }}
             sx={{
+              height: 64,
               "& .MuiBottomNavigationAction-root": {
-                color: COLORS.neutral[500],
-                "&.Mui-selected": {
-                  color: COLORS.primary.main,
-                },
+                color: "text.secondary",
+                "&.Mui-selected": { color: COLORS.primary.main },
               },
             }}
           >
             <BottomNavigationAction label="Expenses" icon={<ReceiptLong />} />
-            <BottomNavigationAction label="Summary" icon={<Person />} />
-            <BottomNavigationAction label="Stats" icon={<TrendingUp />} />
+            <BottomNavigationAction label="Dashboard" icon={<DashboardIcon />} />
           </BottomNavigation>
         </Paper>
       )}
 
       {/* Drawers and Modals */}
-      <FilterDrawer
-        open={openFilterDrawer}
-        onClose={() => setOpenFilterDrawer(false)}
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onReset={handleResetFilters}
-      />
-
       <ExpenseModal
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -2534,13 +2759,6 @@ export default function ExpensesPage() {
         expense={selectedExpense}
       />
 
-      <UserSummaryModal
-        open={openUserSummaryModal}
-        onClose={() => setOpenUserSummaryModal(false)}
-        userId={selectedUser?.id}
-        userName={selectedUser?.name}
-      />
-
       {/* Action Menu */}
       <Menu
         anchorEl={anchorEl}
@@ -2550,47 +2768,39 @@ export default function ExpensesPage() {
           sx: { 
             borderRadius: 2,
             minWidth: 180,
-            border: `1px solid ${COLORS.neutral[200]}`,
           } 
         }}
       >
         <MenuItem onClick={() => handleMenuAction("view")} sx={{ py: 1.5 }}>
-          <ListItemIcon><Visibility sx={{ fontSize: 18, color: COLORS.neutral[600] }} /></ListItemIcon>
-          <ListItemText sx={{ color: COLORS.neutral[700] }}>View Details</ListItemText>
+          <ListItemIcon><Visibility sx={{ fontSize: 18 }} /></ListItemIcon>
+          <ListItemText>View Details</ListItemText>
         </MenuItem>
 
         {selectedExpenseForMenu?.status === "Pending" && canEdit &&
           (selectedExpenseForMenu.createdBy?._id === user?._id || userRole === "Head_office") && (
             <MenuItem onClick={() => handleMenuAction("edit")} sx={{ py: 1.5 }}>
-              <ListItemIcon><Edit sx={{ fontSize: 18, color: COLORS.neutral[600] }} /></ListItemIcon>
-              <ListItemText sx={{ color: COLORS.neutral[700] }}>Edit</ListItemText>
+              <ListItemIcon><Edit sx={{ fontSize: 18 }} /></ListItemIcon>
+              <ListItemText>Edit</ListItemText>
             </MenuItem>
           )}
 
-        {canViewSummary && selectedExpenseForMenu?.createdBy?._id && (
-          <MenuItem onClick={() => handleMenuAction("userSummary")} sx={{ py: 1.5 }}>
-            <ListItemIcon><Person sx={{ fontSize: 18, color: COLORS.neutral[600] }} /></ListItemIcon>
-            <ListItemText sx={{ color: COLORS.neutral[700] }}>User Summary</ListItemText>
-          </MenuItem>
-        )}
-
         {canUpdateStatus && selectedExpenseForMenu?.status === "Pending" && (
           <>
-            <Divider sx={{ borderColor: COLORS.neutral[200] }} />
-            <MenuItem onClick={() => handleMenuAction("approve")} sx={{ py: 1.5 }}>
+            <Divider />
+            <MenuItem onClick={() => handleMenuAction("approve")} sx={{ py: 1.5, color: COLORS.success.main }}>
               <ListItemIcon><CheckCircle sx={{ fontSize: 18, color: COLORS.success.main }} /></ListItemIcon>
-              <ListItemText sx={{ color: COLORS.success.main }}>Approve</ListItemText>
+              <ListItemText>Approve</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => handleMenuAction("reject")} sx={{ py: 1.5 }}>
+            <MenuItem onClick={() => handleMenuAction("reject")} sx={{ py: 1.5, color: COLORS.error.main }}>
               <ListItemIcon><Cancel sx={{ fontSize: 18, color: COLORS.error.main }} /></ListItemIcon>
-              <ListItemText sx={{ color: COLORS.error.main }}>Reject</ListItemText>
+              <ListItemText>Reject</ListItemText>
             </MenuItem>
           </>
         )}
 
         {canDelete && (
           <>
-            <Divider sx={{ borderColor: COLORS.neutral[200] }} />
+            <Divider />
             <MenuItem onClick={() => handleMenuAction("delete")} sx={{ py: 1.5, color: COLORS.error.main }}>
               <ListItemIcon><Delete sx={{ fontSize: 18, color: COLORS.error.main }} /></ListItemIcon>
               <ListItemText>Delete</ListItemText>
@@ -2604,23 +2814,21 @@ export default function ExpensesPage() {
         open={openApproveDialog} 
         onClose={() => !loading.action && setOpenApproveDialog(false)}
         PaperProps={{
-          sx: { borderRadius: 2 }
+          sx: { borderRadius: 3 }
         }}
+        fullScreen={isMobile}
+        TransitionComponent={isMobile ? Slide : Fade}
+        transitionDuration={300}
       >
-        <DialogTitle>
-          <Typography variant="h6" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
+        <DialogTitle sx={{ bgcolor: COLORS.primary.main, color: "white" }}>
+          <Typography variant="h6" fontWeight="600">
             {actionType === "approve" ? "Approve Expense" : "Reject Expense"}
           </Typography>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ pt: 3 }}>
           <Alert 
             severity={actionType === "approve" ? "info" : "warning"} 
-            sx={{ 
-              mb: 2, 
-              borderRadius: 2,
-              bgcolor: actionType === "approve" ? alpha(COLORS.info.main, 0.1) : alpha(COLORS.warning.main, 0.1),
-              "& .MuiAlert-icon": { color: actionType === "approve" ? COLORS.info.main : COLORS.warning.main },
-            }}
+            sx={{ mb: 2, borderRadius: 2 }}
           >
             {actionType === "approve"
               ? "Are you sure you want to approve this expense?"
@@ -2628,7 +2836,7 @@ export default function ExpensesPage() {
           </Alert>
           {selectedExpense && (
             <Box>
-              <Typography variant="subtitle1" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
+              <Typography variant="subtitle1" fontWeight="600">
                 {selectedExpense.title}
               </Typography>
               <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.primary.main, mt: 1 }}>
@@ -2637,15 +2845,13 @@ export default function ExpensesPage() {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 2 }}>
+        <DialogActions sx={{ p: 3, pt: 0, gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
           <Button 
             onClick={() => setOpenApproveDialog(false)} 
             disabled={loading.action}
-            sx={{ 
-              borderRadius: 2,
-              textTransform: "none",
-              color: COLORS.neutral[700],
-            }}
+            fullWidth={isMobile}
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
           >
             Cancel
           </Button>
@@ -2653,9 +2859,9 @@ export default function ExpensesPage() {
             onClick={handleStatusUpdate}
             disabled={loading.action}
             variant="contained"
+            fullWidth={isMobile}
             sx={{ 
               borderRadius: 2,
-              textTransform: "none",
               bgcolor: actionType === "approve" ? COLORS.success.main : COLORS.error.main,
               "&:hover": { 
                 bgcolor: actionType === "approve" ? COLORS.success.dark : COLORS.error.dark,
@@ -2674,27 +2880,25 @@ export default function ExpensesPage() {
         PaperProps={{
           sx: { borderRadius: 3 }
         }}
+        fullScreen={isMobile}
+        TransitionComponent={isMobile ? Slide : Fade}
+        transitionDuration={300}
       >
-        <DialogTitle>
-          <Typography variant="h6" fontWeight="600" sx={{ color: COLORS.error.main }}>
+        <DialogTitle sx={{ bgcolor: COLORS.error.main, color: "white" }}>
+          <Typography variant="h6" fontWeight="600">
             Delete Expense
           </Typography>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ pt: 3 }}>
           <Alert 
             severity="error" 
-            sx={{ 
-              mb: 2, 
-              borderRadius: 2,
-              bgcolor: alpha(COLORS.error.main, 0.1),
-              "& .MuiAlert-icon": { color: COLORS.error.main },
-            }}
+            sx={{ mb: 2, borderRadius: 2 }}
           >
             This action cannot be undone.
           </Alert>
           {selectedExpense && (
             <Box>
-              <Typography variant="subtitle1" fontWeight="600" sx={{ color: COLORS.neutral[800] }}>
+              <Typography variant="subtitle1" fontWeight="600">
                 {selectedExpense.title}
               </Typography>
               <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.primary.main, mt: 1 }}>
@@ -2703,15 +2907,13 @@ export default function ExpensesPage() {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 2 }}>
+        <DialogActions sx={{ p: 3, pt: 0, gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
           <Button 
             onClick={() => setOpenDeleteDialog(false)} 
             disabled={loading.action}
-            sx={{ 
-              borderRadius: 2,
-              textTransform: "none",
-              color: COLORS.neutral[700],
-            }}
+            fullWidth={isMobile}
+            variant="outlined"
+            sx={{ borderRadius: 2 }}
           >
             Cancel
           </Button>
@@ -2719,9 +2921,9 @@ export default function ExpensesPage() {
             onClick={handleDelete} 
             disabled={loading.action} 
             variant="contained"
+            fullWidth={isMobile}
             sx={{ 
               borderRadius: 2,
-              textTransform: "none",
               bgcolor: COLORS.error.main,
               "&:hover": { bgcolor: COLORS.error.dark },
             }}
@@ -2736,19 +2938,16 @@ export default function ExpensesPage() {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{
+          vertical: isMobile ? "top" : "bottom",
+          horizontal: isMobile ? "center" : "right",
+        }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           variant="filled"
-          sx={{
-            width: "100%",
-            borderRadius: 2,
-            color: "#fff",
-            bgcolor: snackbar.severity === "success" ? COLORS.success.main : COLORS.error.main,
-            "& .MuiAlert-icon": { color: "#fff" },
-          }}
+          sx={{ width: "100%", borderRadius: 2 }}
         >
           {snackbar.message}
         </Alert>

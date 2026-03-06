@@ -145,7 +145,6 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile, isTablet }) => {
           icon: <Groups />,
           path: "/total-visits",
           roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-          badge: 12,
         },
         {
           text: "Registration",
@@ -158,7 +157,6 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile, isTablet }) => {
           icon: <FilterAlt />,
           path: "/all-leads",
           roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-          badge: 5,
         },
         {
           text: "Lead Funnel",

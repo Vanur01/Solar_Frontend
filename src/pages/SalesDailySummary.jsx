@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+// components/SalesDailySummary.jsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Container,
@@ -18,10 +19,6 @@ import {
   Snackbar,
   Badge,
   useMediaQuery,
-  Fade,
-  Zoom,
-  Grow,
-  Slide,
   Fab,
   BottomNavigation,
   BottomNavigationAction,
@@ -36,7 +33,14 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Tooltip
+  Tooltip,
+  Switch,
+  FormControlLabel,
+  Card,
+  CardContent,
+  Zoom,
+  Fade,
+  Collapse
 } from '@mui/material';
 import {
   Login as LoginIcon,
@@ -44,13 +48,10 @@ import {
   AddLocationAlt as AddLocationAltIcon,
   ArrowUpward as ArrowUpwardIcon,
   Verified as VerifiedIcon,
-  Image as ImageIcon,
   LocationOn as LocationOnIcon,
   Route as RouteIcon,
-  FiberManualRecord as FiberManualRecordIcon,
   Visibility as VisibilityIcon,
   Schedule as ScheduleIcon,
-  MoreVert as MoreVertIcon,
   Refresh as RefreshIcon,
   TrendingUp as TrendingUpIcon,
   AccessTime as AccessTimeIcon,
@@ -60,22 +61,28 @@ import {
   Dashboard as DashboardIcon,
   GpsFixed as GpsFixedIcon,
   GpsOff as GpsOffIcon,
-  Wifi as WifiIcon,
-  Public as PublicIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   History as HistoryIcon,
   Map as MapIcon,
-  Settings as SettingsIcon,
-  Help as HelpIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Wifi as WifiIcon,
+  WifiOff as WifiOffIcon,
+  People as PeopleIcon,
+  RadioButtonChecked as RadioButtonCheckedIcon,
+  RadioButtonUnchecked as RadioButtonUncheckedIcon,
+  FiberManualRecord as FiberManualRecordIcon,
+  AdminPanelSettings as AdminIcon,
+  SupervisorAccount as ManagerIcon,
+  Assessment as AssessmentIcon,
+  Settings as SettingsIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { format, isToday, isYesterday, formatDistance } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Animation variants
+// ========== ANIMATION VARIANTS ==========
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -90,7 +97,41 @@ const staggerContainer = {
   }
 };
 
-// Modern Stats Card
+const slideInRight = {
+  initial: { opacity: 0, x: 20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -20 }
+};
+
+// ========== ROLE CONFIGURATION ==========
+const ROLE_CONFIG = {
+  Head_office: {
+    label: 'Head Office',
+    icon: <AdminIcon />,
+    color: '#4569ea',
+    actions: ['view', 'manage', 'approve']
+  },
+  ZSM: {
+    label: 'Zone Manager',
+    icon: <ManagerIcon />,
+    color: '#4caf50',
+    actions: ['view', 'manage']
+  },
+  ASM: {
+    label: 'Area Manager',
+    icon: <ManagerIcon />,
+    color: '#ff9800',
+    actions: ['view', 'manage']
+  },
+  TEAM: {
+    label: 'Team Member',
+    icon: <PersonIcon />,
+    color: '#2196f3',
+    actions: ['view', 'punch', 'visit']
+  }
+};
+
+// ========== STYLED COMPONENTS ==========
 const ModernStatsCard = ({ icon: Icon, title, value, subValue, color = 'primary', trend, onClick }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -103,16 +144,18 @@ const ModernStatsCard = ({ icon: Icon, title, value, subValue, color = 'primary'
     >
       <Paper
         onClick={onClick}
+        elevation={0}
         sx={{
-          p: isMobile ? 2 : 2.5,
-          borderRadius: 4,
+          p: isMobile ? 1.5 : 2.5,
+          borderRadius: 3,
           background: `linear-gradient(135deg, ${alpha(theme.palette[color].main, 0.1)} 0%, ${alpha(theme.palette[color].main, 0.05)} 100%)`,
           backdropFilter: 'blur(10px)',
           border: `1px solid ${alpha(theme.palette[color].main, 0.2)}`,
           cursor: onClick ? 'pointer' : 'default',
           transition: 'all 0.3s ease',
-          height:"140px",
+          height: isMobile ? '120px' : '140px',
           position: 'relative',
+          ml: isMobile ? 2 : 3,
           overflow: 'hidden',
           '&::before': {
             content: '""',
@@ -133,16 +176,18 @@ const ModernStatsCard = ({ icon: Icon, title, value, subValue, color = 'primary'
                 color: 'text.secondary',
                 fontWeight: 600,
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                letterSpacing: '0.5px',
+                fontSize: isMobile ? '0.6rem' : '0.75rem'
               }}
             >
               {title}
             </Typography>
             <Typography
-              variant={isMobile ? "h5" : "h4"}
+              variant={isMobile ? "h6" : "h5"}
               sx={{
                 fontWeight: 800,
                 mt: 0.5,
+                fontSize: isMobile ? '1rem' : '1.4rem',
                 background: `linear-gradient(135deg, ${theme.palette[color].main}, ${alpha(theme.palette[color].main, 0.8)})`,
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
@@ -156,24 +201,24 @@ const ModernStatsCard = ({ icon: Icon, title, value, subValue, color = 'primary'
             sx={{
               bgcolor: alpha(theme.palette[color].main, 0.2),
               color: theme.palette[color].main,
-              width: isMobile ? 40 : 48,
-              height: isMobile ? 40 : 48
+              width: isMobile ? 26 : 40,
+              height: isMobile ? 26 : 40
             }}
           >
-            <Icon />
+            <Icon sx={{ fontSize: isMobile ? 14 : 18 }} />
           </Avatar>
         </Box>
 
         {subValue && (
-          <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block' }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
             {subValue}
           </Typography>
         )}
 
         {trend && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
-            <ArrowUpwardIcon sx={{ color: 'success.main', fontSize: 16 }} />
-            <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
+            <ArrowUpwardIcon sx={{ color: 'success.main', fontSize: isMobile ? 12 : 16 }} />
+            <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600, fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
               {trend}
             </Typography>
           </Box>
@@ -184,7 +229,7 @@ const ModernStatsCard = ({ icon: Icon, title, value, subValue, color = 'primary'
 };
 
 // Modern Visit Card
-const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
+const ModernVisitCard = ({ visit, onViewLiveRoute, index, userRole }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [imageError, setImageError] = useState(false);
@@ -213,10 +258,11 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
     <motion.div
       variants={fadeInUp}
       custom={index}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: isMobile ? 1 : 1.02 }}
       transition={{ type: 'spring', stiffness: 300 }}
     >
       <Paper
+        elevation={0}
         sx={{
           p: isMobile ? 1.5 : 2,
           borderRadius: 3,
@@ -231,7 +277,6 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        {/* Status Indicator */}
         <Box
           sx={{
             position: 'absolute',
@@ -244,14 +289,12 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
         />
 
         <Box sx={{ pl: 1.5 }}>
-          {/* Header */}
           <Box sx={{ display: 'flex', gap: 1.5, mb: expanded ? 1.5 : 0 }}>
-            {/* Image */}
             {visit.photos?.length > 0 && !imageError ? (
               <Box
                 sx={{
-                  width: isMobile ? 50 : 60,
-                  height: isMobile ? 50 : 60,
+                  width: isMobile ? 45 : 60,
+                  height: isMobile ? 45 : 60,
                   borderRadius: 2,
                   backgroundImage: `url(${visit.photos[0].url})`,
                   backgroundSize: 'cover',
@@ -270,9 +313,9 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
                       bottom: -4,
                       right: -4,
                       '& .MuiBadge-badge': {
-                        fontSize: 10,
-                        height: 18,
-                        minWidth: 18
+                        fontSize: 8,
+                        height: 16,
+                        minWidth: 16
                       }
                     }}
                   />
@@ -281,8 +324,8 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
             ) : (
               <Box
                 sx={{
-                  width: isMobile ? 50 : 60,
-                  height: isMobile ? 50 : 60,
+                  width: isMobile ? 45 : 60,
+                  height: isMobile ? 45 : 60,
                   borderRadius: 2,
                   bgcolor: alpha(statusColor.main, 0.1),
                   display: 'flex',
@@ -292,14 +335,13 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
                   border: `2px solid ${alpha(statusColor.main, 0.3)}`
                 }}
               >
-                <LocationOnIcon sx={{ color: alpha(statusColor.main, 0.5), fontSize: isMobile ? 24 : 30 }} />
+                <LocationOnIcon sx={{ color: alpha(statusColor.main, 0.5), fontSize: isMobile ? 20 : 30 }} />
               </Box>
             )}
 
-            {/* Basic Info */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: isMobile ? '0.9rem' : '1rem' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: isMobile ? '0.85rem' : '1rem' }}>
                   {visit.locationName || 'Unknown Location'}
                 </Typography>
                 <Chip
@@ -309,28 +351,28 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
                     bgcolor: alpha(statusColor.main, 0.1),
                     color: statusColor.main,
                     fontWeight: 600,
-                    fontSize: '0.65rem',
-                    height: 20
+                    fontSize: '0.6rem',
+                    height: 18
                   }}
                 />
               </Box>
 
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5, fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
                 {visit.address || 'Address not available'}
               </Typography>
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <ScheduleIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  <ScheduleIcon sx={{ fontSize: isMobile ? 10 : 12, color: 'text.disabled' }} />
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
                     {formatVisitTime(visit.visitDate || visit.createdAt)}
                   </Typography>
                 </Box>
 
                 {visit.distanceFromPreviousKm > 0 && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <RouteIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    <RouteIcon sx={{ fontSize: isMobile ? 10 : 12, color: 'text.disabled' }} />
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
                       {visit.distanceFromPreviousKm.toFixed(1)} km
                     </Typography>
                   </Box>
@@ -339,7 +381,6 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
             </Box>
           </Box>
 
-          {/* Expanded Details */}
           <AnimatePresence>
             {expanded && (
               <motion.div
@@ -351,10 +392,9 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
                 <Divider sx={{ my: 1.5 }} />
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {/* Photos */}
                   {visit.photos?.length > 0 && (
                     <Box>
-                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', mb: 0.5, display: 'block' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', mb: 0.5, display: 'block', fontSize: isMobile ? '0.6rem' : '0.75rem' }}>
                         Photos ({visit.photos.length})
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 0.5, overflowX: 'auto', pb: 0.5 }}>
@@ -365,8 +405,8 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
                             src={photo.url}
                             alt={`Visit ${idx + 1}`}
                             sx={{
-                              width: 60,
-                              height: 60,
+                              width: isMobile ? 45 : 60,
+                              height: isMobile ? 45 : 60,
                               borderRadius: 1,
                               objectFit: 'cover',
                               cursor: 'pointer',
@@ -382,27 +422,32 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
                     </Box>
                   )}
 
-                  {/* Actions */}
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 1 }}>
                     <Button
                       size="small"
                       variant="outlined"
-                      startIcon={<VisibilityIcon />}
+                      startIcon={<VisibilityIcon sx={{ fontSize: isMobile ? 14 : 18 }} />}
                       onClick={(e) => {
                         e.stopPropagation();
                         onViewLiveRoute(visit);
                       }}
-                      sx={{ borderRadius: 2 }}
+                      sx={{ 
+                        borderRadius: 2, 
+                        fontSize: isMobile ? '0.7rem' : '0.875rem',
+                        py: isMobile ? 0.5 : 1,
+                        px: isMobile ? 1 : 2
+                      }}
                     >
-                      Live Route
+                      {isMobile ? 'Route' : 'Live Route'}
                     </Button>
                     {visit.verified && (
                       <Chip
-                        icon={<VerifiedIcon />}
+                        icon={<VerifiedIcon sx={{ fontSize: isMobile ? 12 : 14 }} />}
                         label="Verified"
                         size="small"
                         color="success"
                         variant="outlined"
+                        sx={{ fontSize: isMobile ? '0.6rem' : '0.75rem', height: isMobile ? 22 : 28 }}
                       />
                     )}
                   </Box>
@@ -417,7 +462,7 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index }) => {
 };
 
 // Location Status Component
-const LocationStatus = ({ state, onRetry, onManual }) => {
+const LocationStatus = ({ state, onRetry, onManual, onToggleTracking, isTracking, userRole }) => {
   const theme = useTheme();
 
   const getStatusConfig = () => {
@@ -435,7 +480,7 @@ const LocationStatus = ({ state, onRetry, onManual }) => {
         message: `Location acquired (${state.accuracy?.toFixed(0)}m accuracy)`
       };
     }
-    if (state.isWatching) {
+    if (state.isWatching || isTracking) {
       return {
         icon: <GpsFixedIcon sx={{ animation: 'pulse 1s infinite' }} />,
         color: 'warning',
@@ -443,18 +488,23 @@ const LocationStatus = ({ state, onRetry, onManual }) => {
       };
     }
     return {
-      icon: <PublicIcon />,
+      icon: <GpsOffIcon />,
       color: 'info',
       message: 'Location not requested'
     };
   };
 
   const config = getStatusConfig();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  // Only show location status for TEAM role
+  if (userRole !== 'TEAM') return null;
 
   return (
     <Paper
+      elevation={0}
       sx={{
-        p: 2,
+        p: isMobile ? 1.5 : 2,
         borderRadius: 3,
         bgcolor: alpha(theme.palette[config.color].main, 0.1),
         border: `1px solid ${alpha(theme.palette[config.color].main, 0.2)}`,
@@ -462,28 +512,107 @@ const LocationStatus = ({ state, onRetry, onManual }) => {
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: 1
+        gap: 1,
+        mb: 2
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Box sx={{ color: theme.palette[config.color].main }}>
           {config.icon}
         </Box>
-        <Typography variant="body2" sx={{ color: theme.palette[config.color].main }}>
+        <Typography variant={isMobile ? "caption" : "body2"} sx={{ color: theme.palette[config.color].main }}>
           {config.message}
         </Typography>
       </Box>
 
-      {(state.error || !state.coords) && (
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button size="small" variant="outlined" onClick={onRetry}>
-            Retry
-          </Button>
-          <Button size="small" variant="contained" onClick={onManual}>
-            Manual
-          </Button>
-        </Box>
-      )}
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        {state.coords && (
+          <Tooltip title={isTracking ? "Stop Tracking" : "Start Live Tracking"}>
+            <IconButton 
+              size="small" 
+              onClick={onToggleTracking}
+              sx={{ color: isTracking ? theme.palette.success.main : theme.palette.primary.main }}
+            >
+              <RadioButtonCheckedIcon sx={{ animation: isTracking ? 'pulse 1s infinite' : 'none' }} />
+            </IconButton>
+          </Tooltip>
+        )}
+        {(state.error || !state.coords) && (
+          <>
+            <Button size="small" variant="outlined" onClick={onRetry} sx={{ fontSize: isMobile ? '0.7rem' : '0.875rem' }}>
+              Retry
+            </Button>
+            <Button size="small" variant="contained" onClick={onManual} sx={{ fontSize: isMobile ? '0.7rem' : '0.875rem' }}>
+              Manual
+            </Button>
+          </>
+        )}
+      </Box>
+    </Paper>
+  );
+};
+
+// Online Users Card
+const OnlineUsersCard = ({ users }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  if (users.length === 0) return null;
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: isMobile ? 1.5 : 2,
+        borderRadius: 3,
+        bgcolor: alpha(theme.palette.primary.main, 0.05),
+        border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+        mb: 2
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant={isMobile ? "subtitle2" : "subtitle1"} fontWeight={700}>
+          Team Online
+        </Typography>
+        <Chip
+          label={`${users.length} online`}
+          size="small"
+          color="success"
+          sx={{ fontSize: isMobile ? '0.6rem' : '0.75rem', height: isMobile ? 20 : 24 }}
+        />
+      </Box>
+      
+      <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5 }}>
+        {users.map((user) => (
+          <Tooltip key={user.userId} title={`${user.userData?.firstName || 'User'} - ${user.attendance || 'OFF DUTY'}`}>
+            <Badge
+              overlap="circular"
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              badgeContent={
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    bgcolor: user.location ? theme.palette.success.main : theme.palette.warning.main,
+                    border: `2px solid ${theme.palette.background.paper}`
+                  }}
+                />
+              }
+            >
+              <Avatar
+                sx={{
+                  width: isMobile ? 32 : 40,
+                  height: isMobile ? 32 : 40,
+                  bgcolor: theme.palette.primary.main
+                }}
+              >
+                {user.userData?.firstName?.[0] || 'U'}
+              </Avatar>
+            </Badge>
+          </Tooltip>
+        ))}
+      </Box>
     </Paper>
   );
 };
@@ -542,6 +671,41 @@ const ManualLocationDialog = ({ open, onClose, onSubmit }) => {
   );
 };
 
+// Role Info Card
+const RoleInfoCard = ({ user }) => {
+  const theme = useTheme();
+  const roleConfig = ROLE_CONFIG[user?.role] || ROLE_CONFIG.TEAM;
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: isMobile ? 1.5 : 2,
+        borderRadius: 3,
+        bgcolor: alpha(roleConfig.color, 0.1),
+        border: `1px solid ${alpha(roleConfig.color, 0.2)}`,
+        mb: 2,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2
+      }}
+    >
+      <Avatar sx={{ bgcolor: roleConfig.color, width: isMobile ? 40 : 48, height: isMobile ? 40 : 48 }}>
+        {roleConfig.icon}
+      </Avatar>
+      <Box>
+        <Typography variant="subtitle2" fontWeight={600}>
+          {roleConfig.label}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {user?.email}
+        </Typography>
+      </Box>
+    </Paper>
+  );
+};
+
 // Main Component
 const SalesDailySummary = () => {
   const theme = useTheme();
@@ -551,8 +715,8 @@ const SalesDailySummary = () => {
   
   const {
     user,
-    fetchAPI,
     locationState,
+    onlineUsers,
     requestLocationPermission,
     getLocationSmart,
     startWatchingPosition,
@@ -563,24 +727,26 @@ const SalesDailySummary = () => {
     getRecentVisits
   } = useAuth();
 
+  const userRole = user?.role;
+  const isTeamMember = userRole === 'TEAM';
+
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     visitsToday: 0,
     totalVisits: 0,
     totalDistanceKm: 0,
-    totalTravelTimeMinutes: 0
+    totalTravelTimeMinutes: 0,
+    totalCompletedVisits: 0
   });
   const [recentVisits, setRecentVisits] = useState([]);
   const [attendance, setAttendance] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [locationLoading, setLocationLoading] = useState(false);
   const [manualLocationOpen, setManualLocationOpen] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
   const [bottomNav, setBottomNav] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [date] = useState(new Date());
-
-  // Format date
-  const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
 
   // Load dashboard data
   const loadDashboardData = useCallback(async () => {
@@ -600,7 +766,6 @@ const SalesDailySummary = () => {
         setRecentVisits(visitsRes.result);
       }
 
-      // Load attendance from localStorage
       const savedAttendance = localStorage.getItem('attendance');
       if (savedAttendance) {
         setAttendance(JSON.parse(savedAttendance));
@@ -621,12 +786,16 @@ const SalesDailySummary = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // Handle Punch In
+  // Handle Punch In - Only for TEAM role
   const handlePunchIn = async () => {
+    if (!isTeamMember) {
+      showSnackbar('Only team members can punch in', 'warning');
+      return;
+    }
+
     try {
       setLocationLoading(true);
       
-      // Request permission
       const permResult = await requestLocationPermission();
       if (!permResult.success) {
         showSnackbar(permResult.error, 'error');
@@ -634,7 +803,6 @@ const SalesDailySummary = () => {
         return;
       }
 
-      // Get location
       const location = await getLocationSmart();
       
       if (!location.success) {
@@ -644,19 +812,12 @@ const SalesDailySummary = () => {
         return;
       }
 
-      // Punch in
       const result = await punchIn(location.lat, location.lng, location.source);
       
       if (result.success) {
         setAttendance(result.data);
         showSnackbar('Punched in successfully');
         loadDashboardData();
-        
-        // Start watching position
-        startWatchingPosition(
-          (pos) => console.log('Position updated:', pos),
-          (err) => console.error('Watch error:', err)
-        );
       } else {
         showSnackbar(result.error, 'error');
       }
@@ -667,8 +828,13 @@ const SalesDailySummary = () => {
     }
   };
 
-  // Handle Punch Out
+  // Handle Punch Out - Only for TEAM role
   const handlePunchOut = async () => {
+    if (!isTeamMember) {
+      showSnackbar('Only team members can punch out', 'warning');
+      return;
+    }
+
     try {
       setLocationLoading(true);
       
@@ -686,7 +852,9 @@ const SalesDailySummary = () => {
         setAttendance(result.data);
         showSnackbar('Punched out successfully');
         loadDashboardData();
-        stopWatchingPosition();
+        if (isTracking) {
+          stopTracking();
+        }
       } else {
         showSnackbar(result.error, 'error');
       }
@@ -697,8 +865,10 @@ const SalesDailySummary = () => {
     }
   };
 
-  // Handle Manual Location
+  // Handle Manual Location - Only for TEAM role
   const handleManualLocation = async (lat, lng) => {
+    if (!isTeamMember) return;
+    
     setLocationLoading(true);
     const result = await punchIn(lat, lng, 'manual');
     if (result.success) {
@@ -711,8 +881,51 @@ const SalesDailySummary = () => {
     setLocationLoading(false);
   };
 
+  // Toggle live tracking - Only for TEAM role
+  const toggleTracking = () => {
+    if (!isTeamMember) {
+      showSnackbar('Only team members can track location', 'warning');
+      return;
+    }
+
+    if (isTracking) {
+      stopTracking();
+    } else {
+      startTracking();
+    }
+  };
+
+  const startTracking = () => {
+    startWatchingPosition(
+      (pos) => {
+        console.log('Position updated:', pos);
+      },
+      (err) => {
+        console.error('Watch error:', err);
+        showSnackbar('Tracking error', 'error');
+      }
+    );
+    setIsTracking(true);
+    showSnackbar('Live tracking started');
+  };
+
+  const stopTracking = () => {
+    stopWatchingPosition();
+    setIsTracking(false);
+    showSnackbar('Live tracking stopped');
+  };
+
+  // Navigate to create visit - Only for TEAM role
+  const handleStartVisit = () => {
+    if (!isTeamMember) {
+      showSnackbar('Only team members can create visits', 'warning');
+      return;
+    }
+    navigate('/visit-details');
+  };
+
   // Get attendance status
-  const getAttendanceStatus = () => {
+  const getAttendanceStatus = useMemo(() => {
     if (!attendance) {
       return {
         text: 'OFF DUTY',
@@ -737,95 +950,150 @@ const SalesDailySummary = () => {
       action: 'Punch In',
       time: format(new Date(attendance.punchOutTime), 'h:mm a')
     };
-  };
+  }, [attendance]);
 
-  const status = getAttendanceStatus();
+  // Navigation items based on role
+  const navItems = useMemo(() => {
+    const items = [
+      { label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+      { label: 'Visits', icon: <HistoryIcon />, path: '/total-visits' },
+      { label: 'Map', icon: <MapIcon />, path: '/visit-route' },
+    ];
+
+    // Add Team Performance for managers
+    if (!isTeamMember) {
+      items.push({ label: 'Team', icon: <PeopleIcon />, path: '/team-performance-report' });
+    }
+
+    return items;
+  }, [isTeamMember]);
 
   return (
     <Box
       sx={{
         minHeight: '100vh',
         pb: isMobile ? 7 : 4,
-        ml : 3
+        bgcolor: '#f8fafc'
       }}
     >
-      <Container maxWidth="xl" sx={{ px: isMobile ? 2 : 3 }}>
-        {/* Action Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Paper
-            sx={{
-              p: 2,
-              mb: 3,
-              borderRadius: 3,
-              display: 'flex',
-              gap: 2,
-              flexDirection: isMobile ? 'column' : 'row',
-              bgcolor: alpha(theme.palette.background.paper, 0.6),
-              backdropFilter: 'blur(10px)'
-            }}
+      {/* Header with gradient */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: isMobile ? 2 : 3,
+          borderRadius: 0,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${alpha(theme.palette.primary.main, 0.8)})`,
+          color: 'white',
+          position: 'sticky',
+          top: 0,
+          ml: isMobile ? 2 : 3,
+          width: isMobile ? "92%" : "1160px",
+          zIndex: 100,
+          boxShadow: 3
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            <Typography variant={isMobile ? "h6" : "h5"} fontWeight={800}>
+              Visit Summary
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.9 }}>
+              {format(new Date(), 'EEEE, MMMM d, yyyy')}
+            </Typography>
+          </Box>
+        </Box>
+      </Paper>
+
+      <Container maxWidth="xl" sx={{ px: isMobile ? 2 : 3, mt: 2 }}>
+        {/* Action Buttons - Only for TEAM role */}
+        {isTeamMember && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
           >
-            <Button
-              fullWidth={isMobile}
-              variant="contained"
-              size="large"
-              startIcon={attendance?.status === 'ON DUTY' ? <LogoutIcon /> : <LoginIcon />}
-              onClick={attendance?.status === 'ON DUTY' ? handlePunchOut : handlePunchIn}
-              disabled={locationLoading}
+            <Paper
+              elevation={0}
               sx={{
-                py: 1.5,
-                borderRadius: 2,
-                background: attendance?.status === 'ON DUTY'
-                  ? `linear-gradient(135deg, ${theme.palette.error.main}, ${alpha(theme.palette.error.main, 0.8)})`
-                  : `linear-gradient(135deg, ${theme.palette.success.main}, ${alpha(theme.palette.success.main, 0.8)})`
+                p: isMobile ? 1.5 : 2,
+                mb: 2,
+                borderRadius: 3,
+                display: 'flex',
+                gap: 1,
+                flexDirection: isMobile ? 'column' : 'row',
+                bgcolor: alpha(theme.palette.background.paper, 0.8),
+                backdropFilter: 'blur(10px)'
               }}
             >
-              {locationLoading ? 'Getting Location...' : status.action}
-            </Button>
+              <Button
+                fullWidth={isMobile}
+                variant="contained"
+                size={isMobile ? "small" : "large"}
+                startIcon={attendance?.status === 'ON DUTY' ? <LogoutIcon /> : <LoginIcon />}
+                onClick={attendance?.status === 'ON DUTY' ? handlePunchOut : handlePunchIn}
+                disabled={locationLoading}
+                sx={{
+                  py: isMobile ? 1 : 1.5,
+                  borderRadius: 2,
+                  fontSize: isMobile ? '0.85rem' : '1rem',
+                  background: attendance?.status === 'ON DUTY'
+                    ? `linear-gradient(135deg, ${theme.palette.error.main}, ${alpha(theme.palette.error.main, 0.8)})`
+                    : `linear-gradient(135deg, ${theme.palette.success.main}, ${alpha(theme.palette.success.main, 0.8)})`
+                }}
+              >
+                {locationLoading ? 'Getting Location...' : getAttendanceStatus.action}
+              </Button>
 
-            <Button
-              fullWidth={isMobile}
-              variant="outlined"
-              size="large"
-              startIcon={<AddLocationAltIcon />}
-              onClick={() => navigate('/visit-details')}
-              sx={{ py: 1.5, borderRadius: 2 }}
-            >
-              Start Visit
-            </Button>
+              <Button
+                fullWidth={isMobile}
+                variant="outlined"
+                size={isMobile ? "small" : "large"}
+                startIcon={<AddLocationAltIcon />}
+                onClick={handleStartVisit}
+                sx={{ 
+                  py: isMobile ? 1 : 1.5, 
+                  borderRadius: 2,
+                  fontSize: isMobile ? '0.85rem' : '1rem'
+                }}
+              >
+                Start Visit
+              </Button>
 
-            <IconButton
-              onClick={loadDashboardData}
-              disabled={loading}
-              sx={{
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                borderRadius: 2,
-                width: isMobile ? '100%' : 56,
-                height: 56
-              }}
-            >
-              <RefreshIcon />
-            </IconButton>
-          </Paper>
-        </motion.div>
+              <IconButton
+                onClick={loadDashboardData}
+                disabled={loading}
+                sx={{
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  borderRadius: 2,
+                  width: isMobile ? '100%' : 56,
+                  height: isMobile ? 40 : 56
+                }}
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Paper>
+          </motion.div>
+        )}
 
-        {/* Location Status */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <LocationStatus
-            state={locationState}
-            onRetry={handlePunchIn}
-            onManual={() => setManualLocationOpen(true)}
-          />
-        </motion.div>
+        {/* Location Status - Only for TEAM role */}
+        {isTeamMember && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <LocationStatus
+              state={locationState}
+              onRetry={handlePunchIn}
+              onManual={() => setManualLocationOpen(true)}
+              onToggleTracking={toggleTracking}
+              isTracking={isTracking}
+              userRole={userRole}
+            />
+          </motion.div>
+        )}
 
-        {/* Stats Grid */}
+        {/* Stats Grid - Show for all roles */}
         <motion.div
           variants={staggerContainer}
           initial="initial"
@@ -834,13 +1102,13 @@ const SalesDailySummary = () => {
           <Grid container spacing={isMobile ? 1.5 : 3} sx={{ my: 2 }}>
             <Grid item xs={6} md={3}>
               {loading ? (
-                <Skeleton variant="rounded" height={isMobile ? 120 : 140} sx={{ borderRadius: 3 }} />
+                <Skeleton variant="rounded" height={isMobile ? 100 : 140} sx={{ borderRadius: 3 }} />
               ) : (
                 <ModernStatsCard
                   icon={TrendingUpIcon}
                   title="Today's Visits"
                   value={stats.visitsToday || 0}
-                  subValue={`${((stats.visitsToday / 12) * 100).toFixed(0)}% of target`}
+                  subValue={`${stats.totalCompletedVisits || 0} completed`}
                   color="primary"
                   onClick={() => navigate('/total-visits')}
                 />
@@ -849,7 +1117,7 @@ const SalesDailySummary = () => {
 
             <Grid item xs={6} md={3}>
               {loading ? (
-                <Skeleton variant="rounded" height={isMobile ? 120 : 140} sx={{ borderRadius: 3 }} />
+                <Skeleton variant="rounded" height={isMobile ? 100 : 140} sx={{ borderRadius: 3 }} />
               ) : (
                 <ModernStatsCard
                   icon={RouteIcon}
@@ -863,7 +1131,7 @@ const SalesDailySummary = () => {
 
             <Grid item xs={6} md={3}>
               {loading ? (
-                <Skeleton variant="rounded" height={isMobile ? 120 : 140} sx={{ borderRadius: 3 }} />
+                <Skeleton variant="rounded" height={isMobile ? 100 : 140} sx={{ borderRadius: 3 }} />
               ) : (
                 <ModernStatsCard
                   icon={AccessTimeIcon}
@@ -877,51 +1145,53 @@ const SalesDailySummary = () => {
 
             <Grid item xs={6} md={3}>
               {loading ? (
-                <Skeleton variant="rounded" height={isMobile ? 120 : 140} sx={{ borderRadius: 3 }} />
+                <Skeleton variant="rounded" height={isMobile ? 100 : 140} sx={{ borderRadius: 3 }} />
               ) : (
                 <ModernStatsCard
-                  icon={status.icon.type}
+                  icon={getAttendanceStatus.icon.type}
                   title="Status"
-                  value={status.text}
-                  subValue={status.time}
-                  color={status.text === 'ON DUTY' ? 'success' : 'info'}
+                  value={getAttendanceStatus.text}
+                  subValue={getAttendanceStatus.time}
+                  color={getAttendanceStatus.text === 'ON DUTY' ? 'success' : 'info'}
                 />
               )}
             </Grid>
           </Grid>
         </motion.div>
 
-        {/* Recent Visits */}
+        {/* Recent Visits - Show for all roles */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
           <Paper
+            elevation={0}
             sx={{
-              p: isMobile ? 2 : 3,
+              p: isMobile ? 1.5 : 3,
               borderRadius: 3,
               bgcolor: alpha(theme.palette.background.paper, 0.6),
-              backdropFilter: 'blur(10px)'
+              backdropFilter: 'blur(10px)',
+              mb: isMobile ? 2 : 0
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontWeight: 700 }}>
                 Recent Visits
               </Typography>
               <Button
                 size="small"
                 onClick={() => navigate('/team-performance-report')}
-                sx={{ borderRadius: 2 }}
+                sx={{ borderRadius: 2, fontSize: isMobile ? '0.75rem' : '0.875rem' }}
               >
                 View All
               </Button>
             </Box>
 
             {loading ? (
-              <Stack spacing={2}>
+              <Stack spacing={1.5}>
                 {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} variant="rounded" height={isMobile ? 100 : 120} sx={{ borderRadius: 2 }} />
+                  <Skeleton key={i} variant="rounded" height={isMobile ? 80 : 100} sx={{ borderRadius: 2 }} />
                 ))}
               </Stack>
             ) : recentVisits.length > 0 ? (
@@ -932,13 +1202,24 @@ const SalesDailySummary = () => {
                     visit={visit}
                     index={index}
                     onViewLiveRoute={(v) => navigate('/visit-route', { state: { visit: v } })}
+                    userRole={userRole}
                   />
                 ))}
               </Stack>
             ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <LocationOnIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-                <Typography color="text.secondary">No visits yet today</Typography>
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <LocationOnIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">No visits yet today</Typography>
+                {isTeamMember && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleStartVisit}
+                    sx={{ mt: 2, borderRadius: 2 }}
+                  >
+                    Create First Visit
+                  </Button>
+                )}
               </Box>
             )}
           </Paper>
@@ -948,6 +1229,7 @@ const SalesDailySummary = () => {
       {/* Mobile Bottom Navigation */}
       {isMobile && (
         <Paper
+          elevation={3}
           sx={{
             position: 'fixed',
             bottom: 0,
@@ -957,17 +1239,23 @@ const SalesDailySummary = () => {
             borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
             zIndex: 100
           }}
-          elevation={3}
         >
           <BottomNavigation
             value={bottomNav}
-            onChange={(e, newValue) => setBottomNav(newValue)}
+            onChange={(e, newValue) => {
+              setBottomNav(newValue);
+              navigate(navItems[newValue].path);
+            }}
             showLabels
+            sx={{ height: 56 }}
           >
-            <BottomNavigationAction label="Dashboard" icon={<DashboardIcon />} />
-            <BottomNavigationAction label="Visits" icon={<HistoryIcon />} />
-            <BottomNavigationAction label="Map" icon={<MapIcon />} />
-            <BottomNavigationAction label="Profile" icon={<PersonIcon />} />
+            {navItems.map((item) => (
+              <BottomNavigationAction
+                key={item.label}
+                label={item.label}
+                icon={item.icon}
+              />
+            ))}
           </BottomNavigation>
         </Paper>
       )}
@@ -995,7 +1283,7 @@ const SalesDailySummary = () => {
                 {user?.firstName} {user?.lastName}
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {user?.role}
+                {ROLE_CONFIG[userRole]?.label || userRole}
               </Typography>
             </Box>
           </Box>
@@ -1003,22 +1291,19 @@ const SalesDailySummary = () => {
           <Divider sx={{ my: 2 }} />
 
           <List>
-            <ListItem button onClick={() => navigate('/dashboard')}>
-              <ListItemIcon><DashboardIcon /></ListItemIcon>
-              <ListItemText primary="Dashboard" />
-            </ListItem>
-            <ListItem button onClick={() => navigate('/total-visits')}>
-              <ListItemIcon><HistoryIcon /></ListItemIcon>
-              <ListItemText primary="Visits" />
-            </ListItem>
-            <ListItem button onClick={() => navigate('/visit-route')}>
-              <ListItemIcon><MapIcon /></ListItemIcon>
-              <ListItemText primary="Route History" />
-            </ListItem>
-            <ListItem button onClick={() => navigate('/profile')}>
-              <ListItemIcon><PersonIcon /></ListItemIcon>
-              <ListItemText primary="Profile" />
-            </ListItem>
+            {navItems.map((item) => (
+              <ListItem 
+                button 
+                key={item.label}
+                onClick={() => { 
+                  setDrawerOpen(false); 
+                  navigate(item.path); 
+                }}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItem>
+            ))}
           </List>
 
           <Divider sx={{ my: 2 }} />
@@ -1032,12 +1317,14 @@ const SalesDailySummary = () => {
         </Box>
       </Drawer>
 
-      {/* Manual Location Dialog */}
-      <ManualLocationDialog
-        open={manualLocationOpen}
-        onClose={() => setManualLocationOpen(false)}
-        onSubmit={handleManualLocation}
-      />
+      {/* Manual Location Dialog - Only for TEAM role */}
+      {isTeamMember && (
+        <ManualLocationDialog
+          open={manualLocationOpen}
+          onClose={() => setManualLocationOpen(false)}
+          onSubmit={handleManualLocation}
+        />
+      )}
 
       {/* Snackbar */}
       <Snackbar
@@ -1050,7 +1337,7 @@ const SalesDailySummary = () => {
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ borderRadius: 2 }}
+          sx={{ borderRadius: 2, fontSize: isMobile ? '0.85rem' : '1rem' }}
         >
           {snackbar.message}
         </Alert>
@@ -1060,9 +1347,9 @@ const SalesDailySummary = () => {
       <style>
         {`
           @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
           }
         `}
       </style>
