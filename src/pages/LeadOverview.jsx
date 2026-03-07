@@ -4278,7 +4278,7 @@ const LeadOverview = () => {
           onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2 }}
+          sx={{ width: "100%", borderRadius: 2 , color:"#fff" }}
         >
           {snackbar.message}
         </Alert>

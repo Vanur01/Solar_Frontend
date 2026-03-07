@@ -1246,4 +1246,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default SalesDailySummary;
+export default AuthProvider;

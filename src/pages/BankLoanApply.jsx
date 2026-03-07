@@ -176,7 +176,7 @@ const LOAN_STATUS_CONFIG = {
 // Lead Status Configuration
 const LEAD_STATUS_OPTIONS = [
   "Bank Loan Apply",
-  "Document Submission",
+  "Bank at Pending",
   "Missed Leads",
 ];
 
@@ -187,7 +187,7 @@ const LEAD_STATUS_CONFIG = {
     icon: <AccountBalanceWallet sx={{ fontSize: 16 }} />,
     description: "Bank loan application in progress",
   },
-  "Document Submission": {
+  "Bank at Pending": {
     bg: alpha(PRIMARY, 0.08),
     color: PRIMARY,
     icon: <Description sx={{ fontSize: 16 }} />,

@@ -161,7 +161,7 @@ const PERIOD_OPTIONS = [
 // Lead Status Configuration for Document Submission Page
 const LEAD_STATUS_OPTIONS = [
   "Document Submission",
-  "Bank at Pending",
+  "Bank Loan Apply",
   "Missed Leads",
 ];
 
@@ -172,7 +172,7 @@ const LEAD_STATUS_CONFIG = {
     icon: <Description sx={{ fontSize: 16 }} />,
     description: "Documents submitted for verification",
   },
-  "Bank at Pending": {
+  "Bank Loan Apply": {
     bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <PendingActions sx={{ fontSize: 16 }} />,

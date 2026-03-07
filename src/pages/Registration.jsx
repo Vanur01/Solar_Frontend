@@ -179,7 +179,7 @@ const REGISTRATION_STATUS_CONFIG = {
 };
 
 // Lead Status Configuration
-const LEAD_STATUS_OPTIONS = ["Registration", "Bank Loan Apply", "Missed Leads"];
+const LEAD_STATUS_OPTIONS = ["Registration", "Document Submission", "Missed Leads"];
 
 const LEAD_STATUS_CONFIG = {
   Registration: {
@@ -188,7 +188,7 @@ const LEAD_STATUS_CONFIG = {
     icon: <HowToReg sx={{ fontSize: 16 }} />,
     description: "Customer registration process",
   },
-  "Bank Loan Apply": {
+  "Document Submission": {
     bg: alpha(PRIMARY, 0.08),
     color: PRIMARY,
     icon: <AccountBalance sx={{ fontSize: 16 }} />,
