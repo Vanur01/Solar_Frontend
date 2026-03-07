@@ -354,7 +354,7 @@ const ModernVisitCard = ({ visit, onViewLiveRoute, index, userRole }) => {
                         minWidth: 16,
                       },
                     }}
-                  />
+                />
                 )}
               </Box>
             ) : (
@@ -822,6 +822,7 @@ const SalesDailySummary = () => {
     punchOut,
     getVisitStats,
     getRecentVisits,
+    attendance: authAttendance, // Get attendance from AuthContext
   } = useAuth();
 
   const userRole = user?.role;
@@ -836,7 +837,6 @@ const SalesDailySummary = () => {
     totalCompletedVisits: 0,
   });
   const [recentVisits, setRecentVisits] = useState([]);
-  const [attendance, setAttendance] = useState(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -866,11 +866,6 @@ const SalesDailySummary = () => {
       if (visitsRes.success) {
         setRecentVisits(visitsRes.result);
       }
-
-      const savedAttendance = localStorage.getItem("attendance");
-      if (savedAttendance) {
-        setAttendance(JSON.parse(savedAttendance));
-      }
     } catch (error) {
       showSnackbar("Failed to load dashboard", "error");
     } finally {
@@ -896,6 +891,7 @@ const SalesDailySummary = () => {
 
     try {
       setLocationLoading(true);
+      showSnackbar("Getting your location...", "info");
 
       const permResult = await requestLocationPermission();
       if (!permResult.success) {
@@ -904,10 +900,17 @@ const SalesDailySummary = () => {
         return;
       }
 
-      const location = await getLocationSmart();
+      const location = await getLocationSmart(50); // Request 50m accuracy
 
       if (!location.success) {
-        showSnackbar("Could not get location. Try manual entry.", "warning");
+        if (location.errorType === 'LOW_ACCURACY') {
+          showSnackbar(
+            `Location accuracy too low (${location.accuracy?.toFixed(0)}m). Please move to an open area.`,
+            "warning"
+          );
+        } else {
+          showSnackbar("Could not get location. Try manual entry.", "warning");
+        }
         setManualLocationOpen(true);
         setLocationLoading(false);
         return;
@@ -916,13 +919,13 @@ const SalesDailySummary = () => {
       const result = await punchIn(location.lat, location.lng, location.source);
 
       if (result.success) {
-        setAttendance(result.data);
-        showSnackbar("Punched in successfully");
+        showSnackbar(`Punched in successfully (Accuracy: ${location.accuracy?.toFixed(0)}m)`, "success");
         loadDashboardData();
       } else {
         showSnackbar(result.error, "error");
       }
     } catch (error) {
+      console.error('Punch in error:', error);
       showSnackbar("Failed to punch in", "error");
     } finally {
       setLocationLoading(false);
@@ -938,11 +941,19 @@ const SalesDailySummary = () => {
 
     try {
       setLocationLoading(true);
+      showSnackbar("Getting your location for punch out...", "info");
 
-      const location = await getLocationSmart();
+      const location = await getLocationSmart(50); // Request 50m accuracy
 
       if (!location.success) {
-        showSnackbar("Could not get location", "warning");
+        if (location.errorType === 'LOW_ACCURACY') {
+          showSnackbar(
+            `Location accuracy too low (${location.accuracy?.toFixed(0)}m). Please move to an open area.`,
+            "warning"
+          );
+        } else {
+          showSnackbar("Could not get location", "warning");
+        }
         setLocationLoading(false);
         return;
       }
@@ -950,8 +961,7 @@ const SalesDailySummary = () => {
       const result = await punchOut(location.lat, location.lng);
 
       if (result.success) {
-        setAttendance(result.data);
-        showSnackbar("Punched out successfully");
+        showSnackbar("Punched out successfully", "success");
         loadDashboardData();
         if (isTracking) {
           stopTracking();
@@ -960,6 +970,7 @@ const SalesDailySummary = () => {
         showSnackbar(result.error, "error");
       }
     } catch (error) {
+      console.error('Punch out error:', error);
       showSnackbar("Failed to punch out", "error");
     } finally {
       setLocationLoading(false);
@@ -971,15 +982,19 @@ const SalesDailySummary = () => {
     if (!isTeamMember) return;
 
     setLocationLoading(true);
-    const result = await punchIn(lat, lng, "manual");
-    if (result.success) {
-      setAttendance(result.data);
-      showSnackbar("Punched in with manual location");
-      loadDashboardData();
-    } else {
-      showSnackbar(result.error, "error");
+    try {
+      const result = await punchIn(lat, lng, "manual");
+      if (result.success) {
+        showSnackbar("Punched in with manual location", "success");
+        loadDashboardData();
+      } else {
+        showSnackbar(result.error, "error");
+      }
+    } catch (error) {
+      showSnackbar("Failed to punch in with manual location", "error");
+    } finally {
+      setLocationLoading(false);
     }
-    setLocationLoading(false);
   };
 
   // Toggle live tracking - Only for TEAM role
@@ -1025,33 +1040,44 @@ const SalesDailySummary = () => {
     navigate("/visit-details");
   };
 
-  // Get attendance status
+  // Get attendance status from AuthContext
   const getAttendanceStatus = useMemo(() => {
-    if (!attendance) {
+    console.log('Current attendance from context:', authAttendance); // Debug log
+    
+    if (!authAttendance) {
       return {
         text: "OFF DUTY",
         color: "text.disabled",
         icon: <CancelIcon />,
         action: "Punch In",
+        showPunchIn: true,
+        showPunchOut: false,
       };
     }
-    if (attendance.status === "ON DUTY") {
+    
+    if (authAttendance.status === "ON DUTY") {
       return {
         text: "ON DUTY",
         color: "success.main",
         icon: <CheckCircleIcon />,
         action: "Punch Out",
-        time: format(new Date(attendance.punchInTime), "h:mm a"),
+        time: authAttendance.punchInTime ? format(new Date(authAttendance.punchInTime), "h:mm a") : "",
+        showPunchIn: false,
+        showPunchOut: true,
       };
     }
+    
+    // Completed (OFF DUTY)
     return {
-      text: "COMPLETED",
+      text: "OFF DUTY",
       color: "info.main",
       icon: <HistoryIcon />,
       action: "Punch In",
-      time: format(new Date(attendance.punchOutTime), "h:mm a"),
+      time: authAttendance.punchOutTime ? format(new Date(authAttendance.punchOutTime), "h:mm a") : "",
+      showPunchIn: true,
+      showPunchOut: false,
     };
-  }, [attendance]);
+  }, [authAttendance]);
 
   // Navigation items based on role
   const navItems = useMemo(() => {
@@ -1112,6 +1138,11 @@ const SalesDailySummary = () => {
               {format(new Date(), "EEEE, MMMM d, yyyy")}
             </Typography>
           </Box>
+          {isMobile && (
+            <IconButton color="inherit" onClick={() => setDrawerOpen(true)}>
+              <MenuIcon />
+            </IconButton>
+          )}
         </Box>
       </Paper>
 
@@ -1131,8 +1162,8 @@ const SalesDailySummary = () => {
                 borderRadius: 3,
                 display: "flex",
                 gap: 1,
-                width: isMobile ? "320px" : "1150px",
-                ml: isMobile ? 2 : 3,
+                width: isMobile ? "100%" : "1150px",
+                ml: isMobile ? 0 : 3,
                 flexDirection: isMobile ? "column" : "row",
                 bgcolor: alpha(theme.palette.background.paper, 0.8),
                 backdropFilter: "blur(10px)",
@@ -1141,45 +1172,58 @@ const SalesDailySummary = () => {
               <Button
                 fullWidth={isMobile}
                 variant="contained"
-                size={isMobile ? "small" : "large"}
+                size={isMobile ? "medium" : "large"}
                 startIcon={
-                  attendance?.status === "ON DUTY" ? (
+                  getAttendanceStatus.showPunchOut ? (
                     <LogoutIcon />
                   ) : (
                     <LoginIcon />
                   )
                 }
                 onClick={
-                  attendance?.status === "ON DUTY"
+                  getAttendanceStatus.showPunchOut
                     ? handlePunchOut
                     : handlePunchIn
                 }
                 disabled={locationLoading}
                 sx={{
-                  py: isMobile ? 1 : 1.5,
+                  py: isMobile ? 1.5 : 1.5,
                   borderRadius: 2,
-                  fontSize: isMobile ? "0.85rem" : "1rem",
-                  background:
-                    attendance?.status === "ON DUTY"
-                      ? `linear-gradient(135deg, ${theme.palette.error.main}, ${alpha(theme.palette.error.main, 0.8)})`
-                      : `linear-gradient(135deg, ${theme.palette.success.main}, ${alpha(theme.palette.success.main, 0.8)})`,
+                  fontSize: isMobile ? "0.9rem" : "1rem",
+                  fontWeight: 600,
+                  background: getAttendanceStatus.showPunchOut
+                    ? `linear-gradient(135deg, ${theme.palette.error.main}, ${alpha(theme.palette.error.main, 0.8)})`
+                    : `linear-gradient(135deg, ${theme.palette.success.main}, ${alpha(theme.palette.success.main, 0.8)})`,
+                  '&:hover': {
+                    background: getAttendanceStatus.showPunchOut
+                      ? theme.palette.error.dark
+                      : theme.palette.success.dark,
+                  }
                 }}
               >
                 {locationLoading
                   ? "Getting Location..."
-                  : getAttendanceStatus.action}
+                  : getAttendanceStatus.showPunchOut
+                    ? "Punch Out"
+                    : "Punch In"}
               </Button>
 
               <Button
                 fullWidth={isMobile}
                 variant="outlined"
-                size={isMobile ? "small" : "large"}
+                size={isMobile ? "medium" : "large"}
                 startIcon={<AddLocationAltIcon />}
                 onClick={handleStartVisit}
+                disabled={!getAttendanceStatus.showPunchOut} // Only enable Start Visit when on duty
                 sx={{
-                  py: isMobile ? 1 : 1.5,
+                  py: isMobile ? 1.5 : 1.5,
                   borderRadius: 2,
-                  fontSize: isMobile ? "0.85rem" : "1rem",
+                  fontSize: isMobile ? "0.9rem" : "1rem",
+                  fontWeight: 600,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                  }
                 }}
               >
                 Start Visit
@@ -1192,7 +1236,7 @@ const SalesDailySummary = () => {
                   bgcolor: alpha(theme.palette.primary.main, 0.1),
                   borderRadius: 2,
                   width: isMobile ? "100%" : 56,
-                  height: isMobile ? 40 : 56,
+                  height: isMobile ? 48 : 56,
                 }}
               >
                 <RefreshIcon />
@@ -1231,7 +1275,7 @@ const SalesDailySummary = () => {
                 <Skeleton
                   variant="rounded"
                   height={isMobile ? 100 : 140}
-                  sx={{ borderRadius: 3 }}
+                  sx={{ borderRadius: 3, ml: isMobile ? 0 : 3 }}
                 />
               ) : (
                 <ModernStatsCard
@@ -1317,6 +1361,8 @@ const SalesDailySummary = () => {
               bgcolor: alpha(theme.palette.background.paper, 0.6),
               backdropFilter: "blur(10px)",
               mb: isMobile ? 2 : 0,
+              ml: isMobile ? 0 : 3,
+              width: isMobile ? "100%" : "1150px",
             }}
           >
             <Box
@@ -1378,7 +1424,7 @@ const SalesDailySummary = () => {
                 <Typography variant="body2" color="text.secondary">
                   No visits yet today
                 </Typography>
-                {isTeamMember && (
+                {isTeamMember && getAttendanceStatus.showPunchOut && (
                   <Button
                     variant="outlined"
                     size="small"
@@ -1444,7 +1490,7 @@ const SalesDailySummary = () => {
         <Box sx={{ p: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
             <Avatar sx={{ bgcolor: "primary.main", width: 48, height: 48 }}>
-              {user?.firstName?.[0]}
+              {user?.firstName?.[0] || user?.name?.[0] || "U"}
             </Avatar>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
