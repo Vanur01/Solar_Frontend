@@ -6,6 +6,28 @@ const AuthContext = createContext({});
 const API_BASE_URL = "https://backend.sunergytechsolar.com/api/v1";
 const SOCKET_URL = "https://backend.sunergytechsolar.com";
 
+// Configuration for location accuracy
+const LOCATION_CONFIG = {
+  HIGH_ACCURACY: {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0, // Don't use cached locations
+    minimumAccuracy: 50 // meters
+  },
+  MEDIUM_ACCURACY: {
+    enableHighAccuracy: false,
+    timeout: 8000,
+    maximumAge: 0,
+    minimumAccuracy: 200 // meters
+  },
+  LOW_ACCURACY: {
+    enableHighAccuracy: false,
+    timeout: 5000,
+    maximumAge: 0,
+    minimumAccuracy: 1000 // meters
+  }
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -27,12 +49,15 @@ export const AuthProvider = ({ children }) => {
     accuracy: null,
     error: null,
     isWatching: false,
-    isOnline: false
+    isOnline: false,
+    lastUpdate: null
   });
   const [attendance, setAttendance] = useState(null);
   
   const watchIdRef = useRef(null);
   const locationIntervalRef = useRef(null);
+  const lastKnownLocationRef = useRef(null);
+  const locationRetryCountRef = useRef(0);
 
   // Initialize Socket.IO connection
   const initializeSocket = useCallback(() => {
@@ -163,6 +188,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, [socket, user, attendance]);
 
+  // Check if location is accurate enough
+  const isLocationAccurate = useCallback((accuracy, minAccuracy) => {
+    return accuracy <= minAccuracy;
+  }, []);
+
   // Request location permission with modern approach
   const requestLocationPermission = useCallback(async () => {
     if (!navigator.geolocation) {
@@ -179,6 +209,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
+      // First check permission state
       if (navigator.permissions?.query) {
         const permission = await navigator.permissions.query({ name: 'geolocation' });
         
@@ -193,107 +224,132 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      const result = await new Promise((resolve) => {
+      // Try to get a test location to verify permission is working
+      const testResult = await new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const locationData = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              speed: position.coords.speed,
-              heading: position.coords.heading
-            };
-
-            setLocationState(prev => ({
-              ...prev,
-              permission: 'granted',
-              coords: locationData,
-              accuracy: position.coords.accuracy,
-              error: null
-            }));
-
-            resolve({ 
-              success: true, 
-              ...locationData
-            });
-          },
-          (error) => {
-            let errorMessage = 'Location permission denied';
-            if (error.code === 1) errorMessage = 'Location access denied';
-            else if (error.code === 2) errorMessage = 'Location unavailable';
-            else if (error.code === 3) errorMessage = 'Location timeout';
-            
-            setLocationState(prev => ({
-              ...prev,
-              permission: 'denied',
-              error: errorMessage
-            }));
-            resolve({ success: false, error: errorMessage, code: error.code });
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0
+          (position) => resolve({ success: true, position }),
+          (error) => resolve({ success: false, error }),
+          { 
+            enableHighAccuracy: true, 
+            timeout: 5000, 
+            maximumAge: 0 
           }
         );
       });
+
+      if (testResult.success) {
+        setLocationState(prev => ({
+          ...prev,
+          permission: 'granted',
+          error: null
+        }));
+        return { success: true };
+      } else {
+        throw testResult.error;
+      }
       
-      return result;
     } catch (error) {
       console.error('Location permission error:', error);
-      return { success: false, error: 'Failed to request location' };
+      setLocationState(prev => ({
+        ...prev,
+        permission: 'denied',
+        error: error.message || 'Failed to get location permission'
+      }));
+      return { 
+        success: false, 
+        error: error.message || 'Failed to request location',
+        type: 'error'
+      };
     }
   }, []);
 
-  // Smart location fetching with fallbacks
-  const getCurrentPosition = useCallback(async (options = {}) => {
+  // Improved get current position with accuracy filtering
+  const getCurrentPosition = useCallback(async (config = LOCATION_CONFIG.HIGH_ACCURACY) => {
     if (!navigator.geolocation) {
       return { success: false, error: 'Geolocation not supported' };
     }
 
-    const defaultOptions = {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    };
-
-    const geolocationOptions = { ...defaultOptions, ...options };
+    const { enableHighAccuracy, timeout, maximumAge, minimumAccuracy } = config;
 
     try {
       const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, geolocationOptions);
-        
         const timeoutId = setTimeout(() => {
-          reject({ code: 3, message: 'Location timeout' });
-        }, geolocationOptions.timeout + 1000);
+          reject({ 
+            code: 3, 
+            message: `Location timeout after ${timeout}ms` 
+          });
+        }, timeout + 1000);
 
-        return () => clearTimeout(timeoutId);
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            clearTimeout(timeoutId);
+            resolve(pos);
+          },
+          (err) => {
+            clearTimeout(timeoutId);
+            reject(err);
+          },
+          { enableHighAccuracy, timeout, maximumAge }
+        );
       });
 
+      const accuracy = position.coords.accuracy;
+      
+      // Check if location meets accuracy requirements
+      if (!isLocationAccurate(accuracy, minimumAccuracy)) {
+        console.warn(`Location accuracy ${accuracy}m is below required ${minimumAccuracy}m`);
+        
+        // If we have a more accurate recent location, use that instead
+        if (lastKnownLocationRef.current && 
+            lastKnownLocationRef.current.accuracy < accuracy &&
+            (Date.now() - lastKnownLocationRef.current.timestamp) < 30000) { // Within 30 seconds
+          return {
+            ...lastKnownLocationRef.current,
+            fromCache: true,
+            message: 'Using recent more accurate location'
+          };
+        }
+        
+        return {
+          success: false,
+          error: `Location accuracy too low (${accuracy.toFixed(1)}m)`,
+          errorType: 'LOW_ACCURACY',
+          accuracy,
+          requiredAccuracy: minimumAccuracy
+        };
+      }
+
       const locationData = {
+        success: true,
         lat: position.coords.latitude,
         lng: position.coords.longitude,
         accuracy: position.coords.accuracy,
+        altitude: position.coords.altitude,
         speed: position.coords.speed,
         heading: position.coords.heading,
-        timestamp: position.timestamp
+        timestamp: position.timestamp,
+        source: enableHighAccuracy ? 'gps_high' : 'gps_low'
+      };
+
+      // Store as last known location
+      lastKnownLocationRef.current = {
+        ...locationData,
+        timestamp: Date.now()
       };
 
       setLocationState(prev => ({
         ...prev,
         coords: locationData,
         accuracy: position.coords.accuracy,
-        error: null
+        error: null,
+        lastUpdate: new Date().toISOString()
       }));
 
       // Send real-time update via socket
       sendLocationUpdate(locationData);
 
-      return {
-        success: true,
-        ...locationData,
-        source: 'gps'
-      };
+      return locationData;
+      
     } catch (error) {
       console.error('Get position error:', error);
       
@@ -304,14 +360,18 @@ export const AuthProvider = ({ children }) => {
         errorMessage = 'Location permission denied';
         errorType = 'PERMISSION_DENIED';
       } else if (error.code === 2) {
-        errorMessage = 'Location unavailable';
+        errorMessage = 'Location unavailable (GPS signal weak)';
         errorType = 'POSITION_UNAVAILABLE';
       } else if (error.code === 3) {
-        errorMessage = 'Location timeout - trying fallback...';
+        errorMessage = 'Location timeout - GPS taking too long';
         errorType = 'TIMEOUT';
       }
       
-      setLocationState(prev => ({ ...prev, error: errorMessage }));
+      setLocationState(prev => ({ 
+        ...prev, 
+        error: errorMessage,
+        lastUpdate: new Date().toISOString()
+      }));
       
       return { 
         success: false, 
@@ -320,50 +380,101 @@ export const AuthProvider = ({ children }) => {
         code: error.code 
       };
     }
-  }, [sendLocationUpdate]);
+  }, [sendLocationUpdate, isLocationAccurate]);
 
-  // Get location with intelligent fallbacks
-  const getLocationSmart = useCallback(async () => {
+  // Get location with intelligent fallbacks and accuracy requirements
+  const getLocationSmart = useCallback(async (requiredAccuracy = 50) => {
     setLocationState(prev => ({ ...prev, isWatching: true }));
-    
-    let result = await getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
-    
-    if (result.success) {
-      setLocationState(prev => ({ ...prev, isWatching: false }));
-      return result;
-    }
+    locationRetryCountRef.current = 0;
 
-    if (result.errorType === 'TIMEOUT') {
-      result = await getCurrentPosition({ 
-        enableHighAccuracy: false, 
-        timeout: 8000,
-        maximumAge: 60000 
+    const maxRetries = 3;
+
+    // Try high accuracy first (with retries)
+    while (locationRetryCountRef.current < maxRetries) {
+      const result = await getCurrentPosition({
+        ...LOCATION_CONFIG.HIGH_ACCURACY,
+        minimumAccuracy: requiredAccuracy
       });
       
       if (result.success) {
         setLocationState(prev => ({ ...prev, isWatching: false }));
+        locationRetryCountRef.current = 0;
         return {
           ...result,
-          source: 'network',
-          accuracy: 'low'
+          retryCount: locationRetryCountRef.current
         };
+      }
+
+      // If permission denied, don't retry
+      if (result.errorType === 'PERMISSION_DENIED') {
+        setLocationState(prev => ({ ...prev, isWatching: false }));
+        return result;
+      }
+
+      locationRetryCountRef.current++;
+      
+      if (locationRetryCountRef.current < maxRetries) {
+        // Wait longer between retries
+        await new Promise(resolve => setTimeout(resolve, 1000 * locationRetryCountRef.current));
       }
     }
 
+    // Try medium accuracy as fallback
+    console.log('Trying medium accuracy as fallback');
+    const mediumResult = await getCurrentPosition({
+      ...LOCATION_CONFIG.MEDIUM_ACCURACY,
+      minimumAccuracy: 200
+    });
+
+    if (mediumResult.success) {
+      setLocationState(prev => ({ ...prev, isWatching: false }));
+      locationRetryCountRef.current = 0;
+      return {
+        ...mediumResult,
+        fallback: true,
+        message: 'Using medium accuracy location'
+      };
+    }
+
+    // Last resort: try low accuracy with IP fallback
+    console.log('Trying low accuracy as last resort');
+    const lowResult = await getCurrentPosition({
+      ...LOCATION_CONFIG.LOW_ACCURACY,
+      minimumAccuracy: 1000
+    });
+
+    if (lowResult.success) {
+      setLocationState(prev => ({ ...prev, isWatching: false }));
+      locationRetryCountRef.current = 0;
+      return {
+        ...lowResult,
+        fallback: true,
+        lowAccuracy: true,
+        message: 'Using low accuracy location'
+      };
+    }
+
+    // If all GPS attempts fail, try IP-based location as absolute last resort
     try {
+      console.log('Trying IP-based location as emergency fallback');
       const ipResponse = await fetch('https://ipapi.co/json/');
       const ipData = await ipResponse.json();
       
       if (ipData.latitude && ipData.longitude) {
         setLocationState(prev => ({ ...prev, isWatching: false }));
+        locationRetryCountRef.current = 0;
         return {
           success: true,
           lat: ipData.latitude,
           lng: ipData.longitude,
           source: 'ip',
-          accuracy: 'ip',
+          accuracy: 5000, // IP accuracy is ~5km
+          lowAccuracy: true,
+          ipFallback: true,
+          message: 'Using IP-based location (very approximate)',
           city: ipData.city,
-          region: ipData.region
+          region: ipData.region,
+          country: ipData.country_name
         };
       }
     } catch (ipError) {
@@ -373,40 +484,59 @@ export const AuthProvider = ({ children }) => {
     setLocationState(prev => ({ ...prev, isWatching: false }));
     return {
       success: false,
-      error: 'Unable to get location',
+      error: 'Unable to get accurate location after multiple attempts',
       suggestions: [
-        'Enable GPS on your device',
-        'Move to an open area',
-        'Check location permissions',
-        'Try manual entry'
+        'Go outside for better GPS signal',
+        'Enable high accuracy mode on your device',
+        'Check if location services are enabled',
+        'Move away from buildings/trees',
+        'Try manual location entry'
       ]
     };
   }, [getCurrentPosition]);
 
-  // Start watching position with real-time updates
+  // Start watching position with real-time updates and accuracy filtering
   const startWatchingPosition = useCallback((onUpdate, onError, interval = 5000) => {
     if (!navigator.geolocation) {
       onError?.('Geolocation not supported');
       return null;
     }
 
+    let lastAccurateLocation = null;
+
     // Use watchPosition for continuous tracking
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
+        const accuracy = position.coords.accuracy;
+        
+        // Only accept reasonably accurate locations for tracking
+        if (accuracy > 100) {
+          console.warn(`Watch position accuracy too low: ${accuracy}m`);
+          return;
+        }
+
         const locationData = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy,
+          altitude: position.coords.altitude,
           speed: position.coords.speed,
           heading: position.coords.heading,
           timestamp: position.timestamp
+        };
+
+        // Store as last known location
+        lastKnownLocationRef.current = {
+          ...locationData,
+          timestamp: Date.now()
         };
         
         setLocationState(prev => ({
           ...prev,
           coords: locationData,
           accuracy: position.coords.accuracy,
-          isWatching: true
+          isWatching: true,
+          lastUpdate: new Date().toISOString()
         }));
 
         // Send real-time update via socket
@@ -416,7 +546,20 @@ export const AuthProvider = ({ children }) => {
       },
       (error) => {
         console.error('Watch position error:', error);
-        onError?.(error);
+        
+        // Provide user-friendly error messages
+        let errorMessage = 'Location tracking error';
+        if (error.code === 1) errorMessage = 'Location permission denied';
+        else if (error.code === 2) errorMessage = 'GPS signal lost';
+        else if (error.code === 3) errorMessage = 'Location timeout';
+        
+        setLocationState(prev => ({ 
+          ...prev, 
+          error: errorMessage,
+          lastUpdate: new Date().toISOString()
+        }));
+        
+        onError?.(errorMessage);
       },
       {
         enableHighAccuracy: true,
@@ -431,7 +574,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     locationIntervalRef.current = setInterval(async () => {
-      const result = await getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 });
+      const result = await getCurrentPosition(LOCATION_CONFIG.MEDIUM_ACCURACY);
       if (result.success) {
         sendLocationUpdate(result);
       }
@@ -450,7 +593,11 @@ export const AuthProvider = ({ children }) => {
       clearInterval(locationIntervalRef.current);
       locationIntervalRef.current = null;
     }
-    setLocationState(prev => ({ ...prev, isWatching: false }));
+    setLocationState(prev => ({ 
+      ...prev, 
+      isWatching: false,
+      lastUpdate: new Date().toISOString()
+    }));
     
     // Notify others that user stopped tracking
     if (socket?.connected && user?._id) {
@@ -617,16 +764,36 @@ export const AuthProvider = ({ children }) => {
       accuracy: null,
       error: null,
       isWatching: false,
-      isOnline: false
+      isOnline: false,
+      lastUpdate: null
     });
+    lastKnownLocationRef.current = null;
+    locationRetryCountRef.current = 0;
   }, [socket, user, stopWatchingPosition]);
 
-  // Punch In
+  // Punch In with improved location accuracy
   const punchIn = useCallback(async (latitude, longitude, source = 'gps') => {
     try {
+      // Validate coordinates
+      if (!latitude || !longitude || 
+          isNaN(latitude) || isNaN(longitude) ||
+          latitude < -90 || latitude > 90 ||
+          longitude < -180 || longitude > 180) {
+        return { 
+          success: false, 
+          error: 'Invalid coordinates provided' 
+        };
+      }
+
       const response = await fetchAPI("/attendance/punch-in", {
         method: "POST",
-        body: JSON.stringify({ latitude, longitude, source })
+        body: JSON.stringify({ 
+          latitude: parseFloat(latitude.toFixed(6)), 
+          longitude: parseFloat(longitude.toFixed(6)), 
+          source,
+          accuracy: locationState.accuracy,
+          timestamp: new Date().toISOString()
+        })
       });
 
       if (response.success || response.result) {
@@ -635,6 +802,7 @@ export const AuthProvider = ({ children }) => {
           punchInTime: new Date().toISOString(),
           punchOutTime: null,
           location: { latitude, longitude },
+          accuracy: locationState.accuracy,
           source,
           ...(response.result || {})
         };
@@ -646,7 +814,8 @@ export const AuthProvider = ({ children }) => {
           socket.emit('attendance:update', {
             userId: user?._id,
             status: 'ON DUTY',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            location: { latitude, longitude }
           });
         }
         
@@ -656,16 +825,36 @@ export const AuthProvider = ({ children }) => {
       throw new Error(response.message || "Punch in failed");
       
     } catch (err) {
-      return { success: false, error: err.message };
+      console.error('Punch in error:', err);
+      return { 
+        success: false, 
+        error: err.message || "Punch in failed" 
+      };
     }
-  }, [fetchAPI, socket, user]);
+  }, [fetchAPI, socket, user, locationState.accuracy]);
 
-  // Punch Out
+  // Punch Out with improved location accuracy
   const punchOut = useCallback(async (latitude, longitude) => {
     try {
+      // Validate coordinates
+      if (!latitude || !longitude || 
+          isNaN(latitude) || isNaN(longitude) ||
+          latitude < -90 || latitude > 90 ||
+          longitude < -180 || longitude > 180) {
+        return { 
+          success: false, 
+          error: 'Invalid coordinates provided' 
+        };
+      }
+
       const response = await fetchAPI("/attendance/punch-out", {
         method: "POST",
-        body: JSON.stringify({ latitude, longitude })
+        body: JSON.stringify({ 
+          latitude: parseFloat(latitude.toFixed(6)), 
+          longitude: parseFloat(longitude.toFixed(6)),
+          accuracy: locationState.accuracy,
+          timestamp: new Date().toISOString()
+        })
       });
 
       if (response.success || response.result) {
@@ -674,6 +863,7 @@ export const AuthProvider = ({ children }) => {
           punchInTime: attendance?.punchInTime,
           punchOutTime: new Date().toISOString(),
           location: { latitude, longitude },
+          accuracy: locationState.accuracy,
           ...(response.result || {})
         };
         setAttendance(attendanceData);
@@ -684,7 +874,8 @@ export const AuthProvider = ({ children }) => {
           socket.emit('attendance:update', {
             userId: user?._id,
             status: 'OFF DUTY',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            location: { latitude, longitude }
           });
         }
 
@@ -697,11 +888,15 @@ export const AuthProvider = ({ children }) => {
       throw new Error(response.message || "Punch out failed");
       
     } catch (err) {
-      return { success: false, error: err.message };
+      console.error('Punch out error:', err);
+      return { 
+        success: false, 
+        error: err.message || "Punch out failed" 
+      };
     }
-  }, [fetchAPI, attendance, socket, user, stopWatchingPosition]);
+  }, [fetchAPI, attendance, socket, user, stopWatchingPosition, locationState.accuracy]);
 
-  // Create visit
+  // Create visit with location validation
   const createVisit = useCallback(async (visitData, photoFile) => {
     try {
       setLoading(true);
@@ -710,9 +905,19 @@ export const AuthProvider = ({ children }) => {
       if (!visitData.locationName) {
         throw new Error('Location name is required');
       }
+      
+      // Validate coordinates
       if (!visitData.latitude || !visitData.longitude) {
         throw new Error('Location coordinates are required');
       }
+      
+      const lat = parseFloat(visitData.latitude);
+      const lng = parseFloat(visitData.longitude);
+      
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        throw new Error('Invalid coordinates');
+      }
+
       if (!photoFile) {
         throw new Error('Photo is required');
       }
@@ -727,8 +932,8 @@ export const AuthProvider = ({ children }) => {
 
       const formData = new FormData();
       formData.append('locationName', visitData.locationName);
-      formData.append('latitude', visitData.latitude.toString());
-      formData.append('longitude', visitData.longitude.toString());
+      formData.append('latitude', lat.toFixed(6));
+      formData.append('longitude', lng.toFixed(6));
       
       if (visitData.remarks) {
         formData.append('remarks', visitData.remarks);
@@ -999,14 +1204,14 @@ export const AuthProvider = ({ children }) => {
     canViewAllTeams,
     canManageTeam,
     
-    // Location methods
+    // Location methods (updated)
     requestLocationPermission,
     getCurrentPosition,
     getLocationSmart,
     startWatchingPosition,
     stopWatchingPosition,
     
-    // Attendance methods
+    // Attendance methods (updated)
     punchIn,
     punchOut,
     
@@ -1040,3 +1245,5 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+export default SalesDailySummary;
