@@ -167,7 +167,7 @@ const PERIOD_OPTIONS = [
 ];
 
 // Bank Status Configuration
-const BANK_STATUS_OPTIONS = ["pending", "approved", "rejected", "disbursed"];
+const BANK_STATUS_OPTIONS = ["pending", "approved", "rejected"];
 
 const BANK_STATUS_CONFIG = {
   pending: {
@@ -193,14 +193,6 @@ const BANK_STATUS_CONFIG = {
     label: "Rejected",
     description: "Bank rejected the application",
     order: 3,
-  },
-  disbursed: {
-    bg: alpha(PRIMARY_COLOR, 0.08),
-    color: PRIMARY_COLOR,
-    icon: <AttachMoney sx={{ fontSize: 16 }} />,
-    label: "Disbursed",
-    description: "Loan disbursed to customer",
-    order: 4,
   },
 };
 
@@ -1818,9 +1810,6 @@ const BankStatusUpdateModal = ({
                       break;
                     case "pending":
                       setSelectedLeadStatus("Bank at Pending");
-                      break;
-                    case "disbursed":
-                      setSelectedLeadStatus("Disbursement");
                       break;
                     default:
                       setSelectedLeadStatus("Bank at Pending");

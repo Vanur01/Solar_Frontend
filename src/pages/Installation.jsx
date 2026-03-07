@@ -293,7 +293,7 @@ const getUserPermissions = (userRole) => ({
 });
 
 const getInstallationStatusConfig = (status) => {
-  const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '_');
+  const normalizedStatus = status?.toLowerCase().replace(/\s+/g, "_");
   return (
     INSTALLATION_STATUS_CONFIG[normalizedStatus] || {
       bg: alpha(PRIMARY_COLOR, 0.08),
@@ -583,14 +583,20 @@ const MobileFilterDrawer = ({
                     Installation Status
                   </Typography>
                 </Stack>
-                {expandedSection === "installationStatus" ? <ExpandLess /> : <ExpandMore />}
+                {expandedSection === "installationStatus" ? (
+                  <ExpandLess />
+                ) : (
+                  <ExpandMore />
+                )}
               </Box>
               <Collapse in={expandedSection === "installationStatus"}>
                 <Box sx={{ p: 2 }}>
                   <FormControl fullWidth size="small">
                     <Select
                       value={installationStatusFilter}
-                      onChange={(e) => setInstallationStatusFilter(e.target.value)}
+                      onChange={(e) =>
+                        setInstallationStatusFilter(e.target.value)
+                      }
                       displayEmpty
                     >
                       <MenuItem value="All">All Statuses</MenuItem>
@@ -598,7 +604,11 @@ const MobileFilterDrawer = ({
                         const config = getInstallationStatusConfig(status);
                         return (
                           <MenuItem key={status} value={status}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1}
+                            >
                               {config.icon}
                               <span>{config.label}</span>
                             </Stack>
@@ -637,7 +647,11 @@ const MobileFilterDrawer = ({
                     Lead Status
                   </Typography>
                 </Stack>
-                {expandedSection === "leadStatus" ? <ExpandLess /> : <ExpandMore />}
+                {expandedSection === "leadStatus" ? (
+                  <ExpandLess />
+                ) : (
+                  <ExpandMore />
+                )}
               </Box>
               <Collapse in={expandedSection === "leadStatus"}>
                 <Box sx={{ p: 2 }}>
@@ -938,10 +952,17 @@ const MobileFilterDrawer = ({
 };
 
 // ========== MOBILE INSTALLATION CARD ==========
-const MobileInstallationCard = ({ lead, onView, onStatusUpdate, permissions }) => {
+const MobileInstallationCard = ({
+  lead,
+  onView,
+  onStatusUpdate,
+  permissions,
+}) => {
   const [expanded, setExpanded] = useState(false);
 
-  const installationStatusConfig = getInstallationStatusConfig(lead.installationStatus);
+  const installationStatusConfig = getInstallationStatusConfig(
+    lead.installationStatus,
+  );
   const leadStatusConfig = getLeadStatusConfig(lead.status);
   const initials = getInitials(lead.firstName, lead.lastName);
 
@@ -1024,7 +1045,12 @@ const MobileInstallationCard = ({ lead, onView, onStatusUpdate, permissions }) =
 
         {/* Installation Info */}
         <Box sx={{ mb: 1.5 }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ mb: 0.5 }}
+          >
             <CalendarToday
               sx={{ fontSize: 14, color: alpha(PRIMARY_COLOR, 0.6) }}
             />
@@ -1206,7 +1232,8 @@ const InstallationStatusUpdateModal = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [loading, setLoading] = useState(false);
-  const [selectedInstallationStatus, setSelectedInstallationStatus] = useState("");
+  const [selectedInstallationStatus, setSelectedInstallationStatus] =
+    useState("");
   const [selectedLeadStatus, setSelectedLeadStatus] = useState("");
   const [installationDate, setInstallationDate] = useState(null);
   const [installationNotes, setInstallationNotes] = useState("");
@@ -1265,7 +1292,9 @@ const InstallationStatusUpdateModal = ({
         installationStatus: selectedInstallationStatus,
         status: selectedLeadStatus,
         installationNotes: installationNotes.trim(),
-        installationDate: installationDate ? format(installationDate, "yyyy-MM-dd") : undefined,
+        installationDate: installationDate
+          ? format(installationDate, "yyyy-MM-dd")
+          : undefined,
         updatedBy: user?._id,
         updatedByRole: user?.role,
         updatedAt: new Date().toISOString(),
@@ -1444,7 +1473,11 @@ const InstallationStatusUpdateModal = ({
             <Typography variant="subtitle2" fontWeight={600} gutterBottom>
               New Installation Status *
             </Typography>
-            <FormControl fullWidth size="small" error={!!errors.installationStatus}>
+            <FormControl
+              fullWidth
+              size="small"
+              error={!!errors.installationStatus}
+            >
               <Select
                 value={selectedInstallationStatus}
                 onChange={(e) => {
@@ -1462,18 +1495,13 @@ const InstallationStatusUpdateModal = ({
                   const config = getInstallationStatusConfig(status);
                   return (
                     <MenuItem key={status} value={status}>
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        spacing={1.5}
-                      >
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
                         {config.icon}
                         <Box>
-                          <Typography variant="body2">{config.label}</Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                          >
+                          <Typography variant="body2">
+                            {config.label}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
                             {config.description}
                           </Typography>
                         </Box>
@@ -1505,18 +1533,11 @@ const InstallationStatusUpdateModal = ({
                   const config = getLeadStatusConfig(status);
                   return (
                     <MenuItem key={status} value={status}>
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        spacing={1.5}
-                      >
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
                         {config.icon}
                         <Box>
                           <Typography variant="body2">{status}</Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                          >
+                          <Typography variant="caption" color="text.secondary">
                             {config.description}
                           </Typography>
                         </Box>
@@ -1636,13 +1657,7 @@ const InstallationStatusUpdateModal = ({
 };
 
 // ========== VIEW LEAD MODAL ==========
-const ViewLeadModal = ({
-  open,
-  onClose,
-  lead,
-  userRole,
-  showSnackbar,
-}) => {
+const ViewLeadModal = ({ open, onClose, lead, userRole, showSnackbar }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [activeTab, setActiveTab] = useState(0);
@@ -1714,12 +1729,22 @@ const ViewLeadModal = ({
                   Installation Status
                 </Typography>
                 <Chip
-                  label={getInstallationStatusConfig(displayData.installationStatus).label}
-                  icon={getInstallationStatusConfig(displayData.installationStatus).icon}
+                  label={
+                    getInstallationStatusConfig(displayData.installationStatus)
+                      .label
+                  }
+                  icon={
+                    getInstallationStatusConfig(displayData.installationStatus)
+                      .icon
+                  }
                   size="small"
                   sx={{
-                    bgcolor: getInstallationStatusConfig(displayData.installationStatus).bg,
-                    color: getInstallationStatusConfig(displayData.installationStatus).color,
+                    bgcolor: getInstallationStatusConfig(
+                      displayData.installationStatus,
+                    ).bg,
+                    color: getInstallationStatusConfig(
+                      displayData.installationStatus,
+                    ).color,
                     fontWeight: 600,
                   }}
                 />
@@ -1781,7 +1806,10 @@ const ViewLeadModal = ({
               >
                 <Note sx={{ fontSize: 20 }} /> Installation Notes
               </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              <Typography
+                variant="body2"
+                sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+              >
                 {displayData.installationNotes}
               </Typography>
             </Paper>
@@ -1923,7 +1951,11 @@ const ViewLeadModal = ({
                   fontSize: { xs: "0.7rem", sm: "0.75rem" },
                 }}
               >
-                Installation Details • {getInstallationStatusConfig(displayData.installationStatus).label}
+                Installation Details •{" "}
+                {
+                  getInstallationStatusConfig(displayData.installationStatus)
+                    .label
+                }
               </Typography>
             </Box>
           </Box>
@@ -2216,7 +2248,8 @@ export default function InstallationPage() {
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState("");
-  const [installationStatusFilter, setInstallationStatusFilter] = useState("All");
+  const [installationStatusFilter, setInstallationStatusFilter] =
+    useState("All");
   const [leadStatusFilter, setLeadStatusFilter] = useState("All");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -2298,11 +2331,14 @@ export default function InstallationPage() {
           (lead) => lead.installationStatus?.toLowerCase() === "pending",
         ).length;
         const inProgressInstallations = filteredInstallations.filter(
-          (lead) => lead.installationStatus?.toLowerCase() === "installation_in_progress",
+          (lead) =>
+            lead.installationStatus?.toLowerCase() ===
+            "installation_in_progress",
         ).length;
         const jeeVerificationInstallations = filteredInstallations.filter(
-          (lead) => 
-            lead.installationStatus?.toLowerCase() === "sent_for_jee_verification" ||
+          (lead) =>
+            lead.installationStatus?.toLowerCase() ===
+              "sent_for_jee_verification" ||
             lead.installationStatus?.toLowerCase() === "jee_verified",
         ).length;
         const meterChargeInstallations = filteredInstallations.filter(
@@ -2324,7 +2360,9 @@ export default function InstallationPage() {
           },
         });
       } else {
-        throw new Error(response?.message || "Failed to fetch installation data");
+        throw new Error(
+          response?.message || "Failed to fetch installation data",
+        );
       }
     } catch (err) {
       console.error("Error fetching installation data:", err);
@@ -2761,7 +2799,7 @@ export default function InstallationPage() {
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2 }}
+          sx={{ width: "100%", borderRadius: 2, color: "#fff" }}
         >
           {snackbar.message}
         </Alert>
@@ -2987,14 +3025,20 @@ export default function InstallationPage() {
                   <Select
                     value={installationStatusFilter}
                     label="Installation Status"
-                    onChange={(e) => setInstallationStatusFilter(e.target.value)}
+                    onChange={(e) =>
+                      setInstallationStatusFilter(e.target.value)
+                    }
                   >
                     <MenuItem value="All">All Status</MenuItem>
                     {INSTALLATION_STATUS_OPTIONS.map((status) => {
                       const config = getInstallationStatusConfig(status);
                       return (
                         <MenuItem key={status} value={status}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                          >
                             {config.icon}
                             <span>{config.label}</span>
                           </Stack>
@@ -3392,12 +3436,9 @@ export default function InstallationPage() {
                 <TableBody>
                   {paginatedInstallations.length > 0 ? (
                     paginatedInstallations.map((lead) => {
-                      const installationStatusConfig = getInstallationStatusConfig(
-                        lead.installationStatus,
-                      );
-                      const leadStatusConfig = getLeadStatusConfig(
-                        lead.status,
-                      );
+                      const installationStatusConfig =
+                        getInstallationStatusConfig(lead.installationStatus);
+                      const leadStatusConfig = getLeadStatusConfig(lead.status);
 
                       return (
                         <TableRow
@@ -3410,13 +3451,17 @@ export default function InstallationPage() {
                           }}
                         >
                           <TableCell>
-                            <Stack direction="row" alignItems="center" spacing={1}>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1}
+                            >
                               <Avatar
                                 sx={{
                                   width: 32,
                                   height: 32,
                                   bgcolor: PRIMARY_COLOR,
-                                  fontSize: '0.875rem',
+                                  fontSize: "0.875rem",
                                 }}
                               >
                                 {getInitials(lead.firstName, lead.lastName)}
@@ -3425,8 +3470,11 @@ export default function InstallationPage() {
                                 <Typography variant="body2" fontWeight={500}>
                                   {lead.firstName} {lead.lastName}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {lead.phoneNumber || lead.phone || 'No phone'}
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {lead.phoneNumber || lead.phone || "No phone"}
                                 </Typography>
                               </Box>
                             </Stack>
@@ -3435,16 +3483,25 @@ export default function InstallationPage() {
                           <TableCell>
                             <Box>
                               <Typography variant="body2">
-                                {formatDate(lead.installationDate, "dd MMM yyyy")}
+                                {formatDate(
+                                  lead.installationDate,
+                                  "dd MMM yyyy",
+                                )}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
                                 Created: {formatDate(lead.createdAt, "dd MMM")}
                               </Typography>
                             </Box>
                           </TableCell>
 
                           <TableCell>
-                            <Tooltip title={installationStatusConfig.description} arrow>
+                            <Tooltip
+                              title={installationStatusConfig.description}
+                              arrow
+                            >
                               <Chip
                                 label={installationStatusConfig.label}
                                 icon={installationStatusConfig.icon}
@@ -3477,7 +3534,14 @@ export default function InstallationPage() {
 
                           <TableCell>
                             <Box sx={{ minWidth: 100 }}>
-                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 1,
+                                  mb: 0.5,
+                                }}
+                              >
                                 <Box sx={{ flex: 1 }}>
                                   <LinearProgress
                                     variant="determinate"
@@ -3485,7 +3549,10 @@ export default function InstallationPage() {
                                     sx={{
                                       height: 6,
                                       borderRadius: 3,
-                                      bgcolor: alpha(installationStatusConfig.color, 0.2),
+                                      bgcolor: alpha(
+                                        installationStatusConfig.color,
+                                        0.2,
+                                      ),
                                       "& .MuiLinearProgress-bar": {
                                         bgcolor: installationStatusConfig.color,
                                         borderRadius: 3,
@@ -3522,7 +3589,9 @@ export default function InstallationPage() {
                                 <Tooltip title="Update Status" arrow>
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleStatusUpdateClick(lead)}
+                                    onClick={() =>
+                                      handleStatusUpdateClick(lead)
+                                    }
                                     sx={{
                                       bgcolor: alpha(PRIMARY_COLOR, 0.1),
                                       color: PRIMARY_COLOR,
@@ -3601,8 +3670,11 @@ export default function InstallationPage() {
             >
               <Typography variant="body2">
                 Showing {page * rowsPerPage + 1} to{" "}
-                {Math.min((page + 1) * rowsPerPage, filteredInstallations.length)} of{" "}
-                {filteredInstallations.length}
+                {Math.min(
+                  (page + 1) * rowsPerPage,
+                  filteredInstallations.length,
+                )}{" "}
+                of {filteredInstallations.length}
               </Typography>
               <Pagination
                 count={totalPages}

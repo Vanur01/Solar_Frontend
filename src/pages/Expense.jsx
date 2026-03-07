@@ -1,5 +1,11 @@
-// pages/ExpensesPage.jsx (Fixed with Mobile View)
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+// pages/ExpensesPage.jsx (Updated with Fuel Auto Calculation)
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import {
   Box,
   Typography,
@@ -55,9 +61,14 @@ import {
   Tooltip,
   BottomNavigation,
   BottomNavigationAction,
-  SwipeableDrawer,Slide,
+  SwipeableDrawer,
+  Slide,
   Collapse,
   alpha,
+  FormHelperText,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -107,7 +118,6 @@ import {
   Dashboard,
   TrendingUp,
   TrendingDown,
-  AttachMoney,
   Person,
   Email,
   Phone,
@@ -125,6 +135,13 @@ import {
   Schedule,
   FiberManualRecord,
   Clear,
+  CurrencyRupee,
+  TwoWheeler,
+  DirectionsCar,
+  EvStation,
+  LocalGasStation as FuelIcon,
+  Speed,
+  Calculate,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -182,7 +199,44 @@ const COLORS = {
     700: "#334155",
     800: "#1e293b",
     900: "#0f172a",
-  }
+  },
+};
+
+// Fuel Rate Configuration
+const FUEL_RATES = {
+  Bike: {
+    Petrol: 2.5,
+    Electric: 0.8,
+  },
+  Car: {
+    Petrol: 4.5,
+    Diesel: 4.0,
+    CNG: 3.2,
+    Electric: 1.2,
+  },
+};
+
+// Vehicle Types
+const VEHICLE_TYPES = [
+  { value: "None", label: "Select Vehicle", icon: null },
+  { value: "Bike", label: "Bike", icon: <TwoWheeler /> },
+  { value: "Car", label: "Car", icon: <DirectionsCar /> },
+];
+
+// Fuel Types
+const FUEL_TYPES = {
+  Bike: [
+    { value: "None", label: "Select Fuel" },
+    { value: "Petrol", label: "Petrol", icon: <FuelIcon /> },
+    { value: "Electric", label: "Electric", icon: <EvStation /> },
+  ],
+  Car: [
+    { value: "None", label: "Select Fuel" },
+    { value: "Petrol", label: "Petrol", icon: <FuelIcon /> },
+    { value: "Diesel", label: "Diesel", icon: <FuelIcon /> },
+    { value: "CNG", label: "CNG", icon: <FuelIcon /> },
+    { value: "Electric", label: "Electric", icon: <EvStation /> },
+  ],
 };
 
 // Status Configuration
@@ -209,64 +263,78 @@ const STATUS_CONFIG = {
 
 // Category Configuration
 const CATEGORY_CONFIG = {
-  Travel: { 
-    color: "#4569ea", 
-    icon: <Flight sx={{ fontSize: 18 }} />, 
-    bg: "#eff6ff",
-    label: "Travel"
-  },
-  Food: { 
-    color: "#059669", 
-    icon: <Restaurant sx={{ fontSize: 18 }} />, 
+  Food: {
+    color: "#059669",
+    icon: <Restaurant sx={{ fontSize: 18 }} />,
     bg: "#ecfdf5",
-    label: "Food"
+    label: "Food",
   },
-  Accommodation: { 
-    color: "#7c3aed", 
-    icon: <Hotel sx={{ fontSize: 18 }} />, 
+  Accommodation: {
+    color: "#7c3aed",
+    icon: <Hotel sx={{ fontSize: 18 }} />,
     bg: "#f5f3ff",
-    label: "Accommodation"
+    label: "Accommodation",
   },
-  Fuel: { 
-    color: "#ea580c", 
-    icon: <LocalGasStation sx={{ fontSize: 18 }} />, 
+  Fuel: {
+    color: "#ea580c",
+    icon: <LocalGasStation sx={{ fontSize: 18 }} />,
     bg: "#fff7ed",
-    label: "Fuel"
+    label: "Fuel",
   },
-  Software: { 
-    color: "#0891b2", 
-    icon: <Wifi sx={{ fontSize: 18 }} />, 
+  Software: {
+    color: "#0891b2",
+    icon: <Wifi sx={{ fontSize: 18 }} />,
     bg: "#ecfeff",
-    label: "Software"
+    label: "Software",
   },
-  Hardware: { 
-    color: "#4f46e5", 
-    icon: <Build sx={{ fontSize: 18 }} />, 
+  Hardware: {
+    color: "#4f46e5",
+    icon: <Build sx={{ fontSize: 18 }} />,
     bg: "#eef2ff",
-    label: "Hardware"
+    label: "Hardware",
   },
-  Office: { 
-    color: "#b45309", 
-    icon: <Inventory sx={{ fontSize: 18 }} />, 
+  Office: {
+    color: "#b45309",
+    icon: <Inventory sx={{ fontSize: 18 }} />,
     bg: "#fffbeb",
-    label: "Office"
+    label: "Office",
   },
-  Miscellaneous: { 
-    color: COLORS.neutral[500], 
-    icon: <ListAlt sx={{ fontSize: 18 }} />, 
+  Miscellaneous: {
+    color: COLORS.neutral[500],
+    icon: <ListAlt sx={{ fontSize: 18 }} />,
     bg: COLORS.neutral[100],
-    label: "Miscellaneous"
+    label: "Miscellaneous",
   },
 };
 
 // Time Periods
 const TIME_PERIODS = [
   { value: "today", label: "Today", icon: <Today sx={{ fontSize: 18 }} /> },
-  { value: "week", label: "This Week", icon: <DateRange sx={{ fontSize: 18 }} /> },
-  { value: "month", label: "This Month", icon: <CalendarToday sx={{ fontSize: 18 }} /> },
-  { value: "quarter", label: "This Quarter", icon: <Timeline sx={{ fontSize: 18 }} /> },
-  { value: "year", label: "This Year", icon: <CalendarToday sx={{ fontSize: 18 }} /> },
-  { value: "custom", label: "Custom Range", icon: <DateRange sx={{ fontSize: 18 }} /> },
+  {
+    value: "week",
+    label: "This Week",
+    icon: <DateRange sx={{ fontSize: 18 }} />,
+  },
+  {
+    value: "month",
+    label: "This Month",
+    icon: <CalendarToday sx={{ fontSize: 18 }} />,
+  },
+  {
+    value: "quarter",
+    label: "This Quarter",
+    icon: <Timeline sx={{ fontSize: 18 }} />,
+  },
+  {
+    value: "year",
+    label: "This Year",
+    icon: <CalendarToday sx={{ fontSize: 18 }} />,
+  },
+  {
+    value: "custom",
+    label: "Custom Range",
+    icon: <DateRange sx={{ fontSize: 18 }} />,
+  },
 ];
 
 // Period Options for Mobile Filter
@@ -334,7 +402,11 @@ const MobileFilterDrawer = ({
           }}
         >
           <Box>
-            <Typography variant="h6" fontWeight="700" color={COLORS.primary.main}>
+            <Typography
+              variant="h6"
+              fontWeight="700"
+              color={COLORS.primary.main}
+            >
               Filter Expenses
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -392,7 +464,9 @@ const MobileFilterDrawer = ({
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
-                          <Search sx={{ color: "text.secondary", fontSize: 20 }} />
+                          <Search
+                            sx={{ color: "text.secondary", fontSize: 20 }}
+                          />
                         </InputAdornment>
                       ),
                       endAdornment: filters.search && (
@@ -432,7 +506,9 @@ const MobileFilterDrawer = ({
                 onClick={() => toggleSection("period")}
               >
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <DateRange sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <DateRange
+                    sx={{ color: COLORS.primary.main, fontSize: 20 }}
+                  />
                   <Typography variant="subtitle2" fontWeight={600}>
                     Time Period
                   </Typography>
@@ -447,7 +523,9 @@ const MobileFilterDrawer = ({
                         <Button
                           fullWidth
                           variant={
-                            filters.period === option.value ? "contained" : "outlined"
+                            filters.period === option.value
+                              ? "contained"
+                              : "outlined"
                           }
                           onClick={() => onFilterChange("period", option.value)}
                           startIcon={option.icon}
@@ -458,7 +536,9 @@ const MobileFilterDrawer = ({
                                 ? COLORS.primary.main
                                 : "transparent",
                             color:
-                              filters.period === option.value ? "#fff" : COLORS.primary.main,
+                              filters.period === option.value
+                                ? "#fff"
+                                : COLORS.primary.main,
                             borderColor: COLORS.primary.main,
                             "&:hover": {
                               bgcolor:
@@ -498,26 +578,40 @@ const MobileFilterDrawer = ({
                 onClick={() => toggleSection("category")}
               >
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <FilterAlt sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <FilterAlt
+                    sx={{ color: COLORS.primary.main, fontSize: 20 }}
+                  />
                   <Typography variant="subtitle2" fontWeight={600}>
                     Category
                   </Typography>
                 </Stack>
-                {expandedSection === "category" ? <ExpandLess /> : <ExpandMore />}
+                {expandedSection === "category" ? (
+                  <ExpandLess />
+                ) : (
+                  <ExpandMore />
+                )}
               </Box>
               <Collapse in={expandedSection === "category"}>
                 <Box sx={{ p: 2 }}>
                   <FormControl fullWidth size="small">
                     <Select
                       value={filters.category}
-                      onChange={(e) => onFilterChange("category", e.target.value)}
+                      onChange={(e) =>
+                        onFilterChange("category", e.target.value)
+                      }
                       displayEmpty
                     >
                       <MenuItem value="all">All Categories</MenuItem>
                       {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
                         <MenuItem key={key} value={key}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <Box sx={{ color: config.color }}>{config.icon}</Box>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                          >
+                            <Box sx={{ color: config.color }}>
+                              {config.icon}
+                            </Box>
                             <span>{config.label}</span>
                           </Stack>
                         </MenuItem>
@@ -549,7 +643,9 @@ const MobileFilterDrawer = ({
                 onClick={() => toggleSection("status")}
               >
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <CheckCircle sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <CheckCircle
+                    sx={{ color: COLORS.primary.main, fontSize: 20 }}
+                  />
                   <Typography variant="subtitle2" fontWeight={600}>
                     Status
                   </Typography>
@@ -567,7 +663,11 @@ const MobileFilterDrawer = ({
                       <MenuItem value="all">All Status</MenuItem>
                       {Object.entries(STATUS_CONFIG).map(([key, config]) => (
                         <MenuItem key={key} value={key}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                          >
                             {config.icon}
                             <span>{config.label}</span>
                           </Stack>
@@ -600,7 +700,9 @@ const MobileFilterDrawer = ({
                 onClick={() => toggleSection("sort")}
               >
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <FilterAlt sx={{ color: COLORS.primary.main, fontSize: 20 }} />
+                  <FilterAlt
+                    sx={{ color: COLORS.primary.main, fontSize: 20 }}
+                  />
                   <Typography variant="subtitle2" fontWeight={600}>
                     Sort By
                   </Typography>
@@ -678,26 +780,68 @@ const MobileFilterDrawer = ({
 const ExpenseCardSkeleton = () => (
   <Card sx={{ mb: 2, borderRadius: 3 }}>
     <CardContent sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="flex-start"
+      >
         <Box display="flex" gap={2}>
-          <Skeleton variant="circular" width={48} height={48} sx={{ bgcolor: COLORS.neutral[200] }} />
+          <Skeleton
+            variant="circular"
+            width={48}
+            height={48}
+            sx={{ bgcolor: COLORS.neutral[200] }}
+          />
           <Box>
-            <Skeleton variant="text" width={160} height={24} sx={{ bgcolor: COLORS.neutral[200] }} />
-            <Skeleton variant="text" width={100} height={20} sx={{ bgcolor: COLORS.neutral[200] }} />
+            <Skeleton
+              variant="text"
+              width={160}
+              height={24}
+              sx={{ bgcolor: COLORS.neutral[200] }}
+            />
+            <Skeleton
+              variant="text"
+              width={100}
+              height={20}
+              sx={{ bgcolor: COLORS.neutral[200] }}
+            />
           </Box>
         </Box>
-        <Skeleton variant="text" width={100} height={32} sx={{ bgcolor: COLORS.neutral[200] }} />
+        <Skeleton
+          variant="text"
+          width={100}
+          height={32}
+          sx={{ bgcolor: COLORS.neutral[200] }}
+        />
       </Box>
       <Box mt={2}>
-        <Skeleton variant="text" width="100%" height={20} sx={{ bgcolor: COLORS.neutral[200] }} />
-        <Skeleton variant="text" width="80%" height={20} sx={{ bgcolor: COLORS.neutral[200] }} />
+        <Skeleton
+          variant="text"
+          width="100%"
+          height={20}
+          sx={{ bgcolor: COLORS.neutral[200] }}
+        />
+        <Skeleton
+          variant="text"
+          width="80%"
+          height={20}
+          sx={{ bgcolor: COLORS.neutral[200] }}
+        />
       </Box>
     </CardContent>
   </Card>
 );
 
 // Stat Card Component
-const StatCard = ({ icon, title, value, subtitle, color = COLORS.primary.main, trend, index }) => {
+const StatCard = ({
+  icon,
+  title,
+  value,
+  subtitle,
+  color = COLORS.primary.main,
+  trend,
+  index,
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -749,7 +893,10 @@ const StatCard = ({ icon, title, value, subtitle, color = COLORS.primary.main, t
                 label={`${Math.abs(trend)}%`}
                 sx={{
                   borderRadius: 2,
-                  bgcolor: trend > 0 ? alpha(COLORS.success.main, 0.1) : alpha(COLORS.error.main, 0.1),
+                  bgcolor:
+                    trend > 0
+                      ? alpha(COLORS.success.main, 0.1)
+                      : alpha(COLORS.error.main, 0.1),
                   color: trend > 0 ? COLORS.success.main : COLORS.error.main,
                   height: 24,
                   "& .MuiChip-icon": { fontSize: 12, color: "inherit" },
@@ -771,8 +918,12 @@ const StatCard = ({ icon, title, value, subtitle, color = COLORS.primary.main, t
               sx={{
                 color: color,
                 fontSize: { xs: "1rem", sm: "1.3rem", md: "1.5rem" },
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
               }}
             >
+              <CurrencyRupee sx={{ fontSize: "inherit" }} />
               {value}
             </Typography>
             {subtitle && (
@@ -797,7 +948,8 @@ const MobileExpenseCard = ({ expense, onMenuOpen, onView, index }) => {
   const status = expense.status || "Pending";
   const category = expense.category || "Miscellaneous";
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.Pending;
-  const categoryConfig = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Miscellaneous;
+  const categoryConfig =
+    CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Miscellaneous;
 
   const getTimeAgo = (dateString) => {
     const date = parseISO(dateString);
@@ -807,7 +959,18 @@ const MobileExpenseCard = ({ expense, onMenuOpen, onView, index }) => {
     return format(date, "MMM dd, yyyy");
   };
 
-  const initials = expense.createdBy?.name?.charAt(0) || expense.createdBy?.email?.charAt(0) || "U";
+  const initials =
+    expense.createdBy?.name?.charAt(0) ||
+    expense.createdBy?.email?.charAt(0) ||
+    "U";
+
+  // Check if fuel expense
+  const isFuel = expense.category === "Fuel";
+  const hasFuelDetails =
+    isFuel &&
+    expense.vehicleType &&
+    expense.fuelType &&
+    expense.kilometersTraveled;
 
   return (
     <Fade in={true} timeout={500 + index * 50}>
@@ -871,15 +1034,23 @@ const MobileExpenseCard = ({ expense, onMenuOpen, onView, index }) => {
           <Grid container spacing={1} sx={{ mb: 1.5 }}>
             <Grid item xs={6}>
               <Stack direction="row" spacing={0.5} alignItems="center">
-                <AttachMoney sx={{ fontSize: 14, color: alpha(COLORS.primary.main, 0.6) }} />
-                <Typography variant="body2" fontWeight={600} sx={{ color: COLORS.primary.main }}>
-                  ₹{expense.amount?.toLocaleString()}
+                <CurrencyRupee
+                  sx={{ fontSize: 14, color: alpha(COLORS.primary.main, 0.6) }}
+                />
+                <Typography
+                  variant="body2"
+                  fontWeight={600}
+                  sx={{ color: COLORS.primary.main }}
+                >
+                  {expense.amount?.toLocaleString()}
                 </Typography>
               </Stack>
             </Grid>
             <Grid item xs={6}>
               <Stack direction="row" spacing={0.5} alignItems="center">
-                <CalendarToday sx={{ fontSize: 14, color: alpha(COLORS.primary.main, 0.6) }} />
+                <CalendarToday
+                  sx={{ fontSize: 14, color: alpha(COLORS.primary.main, 0.6) }}
+                />
                 <Typography variant="caption">
                   {getTimeAgo(expense.createdAt)}
                 </Typography>
@@ -930,9 +1101,39 @@ const MobileExpenseCard = ({ expense, onMenuOpen, onView, index }) => {
               {initials}
             </Avatar>
             <Typography variant="caption" color={COLORS.neutral[600]}>
-              {expense.createdBy?.name || expense.createdBy?.email?.split("@")[0] || "Unknown"}
+              {expense.createdBy?.name ||
+                expense.createdBy?.email?.split("@")[0] ||
+                "Unknown"}
             </Typography>
           </Box>
+
+          {/* Fuel Details Preview (if expanded) */}
+          {!expanded && isFuel && hasFuelDetails && (
+            <Box sx={{ mt: 1.5, display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <Chip
+                size="small"
+                icon={<TwoWheeler sx={{ fontSize: 12 }} />}
+                label={`${expense.vehicleType} • ${expense.fuelType}`}
+                sx={{
+                  bgcolor: alpha(COLORS.neutral[500], 0.1),
+                  color: COLORS.neutral[700],
+                  height: 22,
+                  fontSize: "0.65rem",
+                }}
+              />
+              <Chip
+                size="small"
+                icon={<Speed sx={{ fontSize: 12 }} />}
+                label={`${expense.kilometersTraveled} km`}
+                sx={{
+                  bgcolor: alpha(COLORS.neutral[500], 0.1),
+                  color: COLORS.neutral[700],
+                  height: 22,
+                  fontSize: "0.65rem",
+                }}
+              />
+            </Box>
+          )}
 
           {/* Expanded Details */}
           <Collapse in={expanded}>
@@ -943,22 +1144,112 @@ const MobileExpenseCard = ({ expense, onMenuOpen, onView, index }) => {
                 borderTop: `1px solid ${alpha(categoryConfig.color, 0.1)}`,
               }}
             >
+              {/* Fuel Details (if applicable) */}
+              {isFuel && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    gutterBottom
+                  >
+                    Fuel Details
+                  </Typography>
+                  <Grid container spacing={1}>
+                    <Grid item xs={4}>
+                      <Paper
+                        sx={{
+                          p: 1,
+                          bgcolor: alpha(COLORS.warning.main, 0.05),
+                          borderRadius: 1.5,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                        >
+                          Vehicle
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {expense.vehicleType || "N/A"}
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Paper
+                        sx={{
+                          p: 1,
+                          bgcolor: alpha(COLORS.warning.main, 0.05),
+                          borderRadius: 1.5,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                        >
+                          Fuel Type
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {expense.fuelType || "N/A"}
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Paper
+                        sx={{
+                          p: 1,
+                          bgcolor: alpha(COLORS.warning.main, 0.05),
+                          borderRadius: 1.5,
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                        >
+                          Distance
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {expense.kilometersTraveled || 0} km
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    {expense.fuelRatePerKm && (
+                      <Grid item xs={12}>
+                        <Typography variant="caption" color="text.secondary">
+                          Rate: ₹{expense.fuelRatePerKm}/km • Calculated
+                          automatically
+                        </Typography>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Box>
+              )}
+
               {/* Description */}
               {expense.description && (
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
                     Description
                   </Typography>
-                  <Typography variant="body2">
-                    {expense.description}
-                  </Typography>
+                  <Typography variant="body2">{expense.description}</Typography>
                 </Box>
               )}
 
               {/* Location */}
               {expense.location && (
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
                     Location
                   </Typography>
                   <Typography variant="body2">
@@ -971,7 +1262,11 @@ const MobileExpenseCard = ({ expense, onMenuOpen, onView, index }) => {
               {/* Dates */}
               <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
                     Created
                   </Typography>
                   <Typography variant="body2">
@@ -979,11 +1274,17 @@ const MobileExpenseCard = ({ expense, onMenuOpen, onView, index }) => {
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
                     Updated
                   </Typography>
                   <Typography variant="body2">
-                    {expense.updatedAt ? format(parseISO(expense.updatedAt), "dd MMM yyyy") : "N/A"}
+                    {expense.updatedAt
+                      ? format(parseISO(expense.updatedAt), "dd MMM yyyy")
+                      : "N/A"}
                   </Typography>
                 </Grid>
               </Grid>
@@ -1030,12 +1331,16 @@ const DesktopTableRow = ({ expense, onMenuOpen }) => {
   const status = expense.status || "Pending";
   const category = expense.category || "Miscellaneous";
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.Pending;
-  const categoryConfig = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Miscellaneous;
+  const categoryConfig =
+    CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Miscellaneous;
+
+  // Check if fuel expense
+  const isFuel = expense.category === "Fuel";
 
   return (
-    <TableRow 
-      hover 
-      sx={{ 
+    <TableRow
+      hover
+      sx={{
         "&:last-child td": { borderBottom: 0 },
         "&:hover": {
           bgcolor: alpha(COLORS.primary.main, 0.02),
@@ -1064,13 +1369,37 @@ const DesktopTableRow = ({ expense, onMenuOpen }) => {
                 {expense.description.slice(0, 40)}...
               </Typography>
             )}
+            {isFuel && expense.vehicleType && (
+              <Typography
+                variant="caption"
+                color={COLORS.neutral[500]}
+                sx={{ display: "block" }}
+              >
+                {expense.vehicleType} • {expense.fuelType} •{" "}
+                {expense.kilometersTraveled} km
+              </Typography>
+            )}
           </Box>
         </Box>
       </TableCell>
       <TableCell>
-        <Typography fontWeight="600" sx={{ color: COLORS.primary.main }}>
-          ₹{expense.amount?.toLocaleString()}
+        <Typography
+          fontWeight="600"
+          sx={{
+            color: COLORS.primary.main,
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+          }}
+        >
+          <CurrencyRupee sx={{ fontSize: 16 }} />
+          {expense.amount?.toLocaleString()}
         </Typography>
+        {isFuel && expense.fuelRatePerKm && (
+          <Typography variant="caption" color={COLORS.neutral[500]}>
+            ₹{expense.fuelRatePerKm}/km
+          </Typography>
+        )}
       </TableCell>
       <TableCell>
         <Chip
@@ -1103,10 +1432,10 @@ const DesktopTableRow = ({ expense, onMenuOpen }) => {
             fontSize: "0.75rem",
             borderRadius: 2,
             border: `1px solid ${alpha(statusConfig.color, 0.2)}`,
-            "& .MuiChip-icon": { 
-              fontSize: 14, 
+            "& .MuiChip-icon": {
+              fontSize: 14,
               color: statusConfig.color,
-              marginLeft: '6px',
+              marginLeft: "6px",
             },
           }}
         />
@@ -1122,16 +1451,20 @@ const DesktopTableRow = ({ expense, onMenuOpen }) => {
               borderRadius: 1.5,
             }}
           >
-            {expense.createdBy?.name?.charAt(0) || expense.createdBy?.email?.charAt(0) || "U"}
+            {expense.createdBy?.name?.charAt(0) ||
+              expense.createdBy?.email?.charAt(0) ||
+              "U"}
           </Avatar>
           <Typography variant="body2" color={COLORS.neutral[700]}>
-            {expense.createdBy?.name || expense.createdBy?.email?.split("@")[0] || "Unknown"}
+            {expense.createdBy?.name ||
+              expense.createdBy?.email?.split("@")[0] ||
+              "Unknown"}
           </Typography>
         </Box>
       </TableCell>
       <TableCell align="right">
-        <IconButton 
-          size="small" 
+        <IconButton
+          size="small"
           onClick={(e) => onMenuOpen(e, expense)}
           sx={{ color: COLORS.neutral[500] }}
         >
@@ -1142,7 +1475,7 @@ const DesktopTableRow = ({ expense, onMenuOpen }) => {
   );
 };
 
-// Expense Modal Component
+// Expense Modal Component with Fuel Fields
 const ExpenseModal = ({
   open,
   onClose,
@@ -1157,6 +1490,74 @@ const ExpenseModal = ({
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [calculatedAmount, setCalculatedAmount] = useState(null);
+  const [errors, setErrors] = useState({});
+
+  // Check if category is Fuel
+  const isFuel = formData.category === "Fuel";
+
+  // Get available fuel types based on vehicle
+  const availableFuelTypes = useMemo(() => {
+    if (!isFuel || !formData.vehicleType || formData.vehicleType === "None")
+      return [];
+    return FUEL_TYPES[formData.vehicleType] || [];
+  }, [isFuel, formData.vehicleType]);
+
+  // Calculate amount when fuel details change
+  useEffect(() => {
+    if (
+      isFuel &&
+      formData.vehicleType &&
+      formData.vehicleType !== "None" &&
+      formData.fuelType &&
+      formData.fuelType !== "None" &&
+      formData.kilometersTraveled &&
+      formData.kilometersTraveled > 0
+    ) {
+      const rate = FUEL_RATES[formData.vehicleType]?.[formData.fuelType];
+      if (rate) {
+        const amount = formData.kilometersTraveled * rate;
+        setCalculatedAmount(amount);
+        setFormData((prev) => ({ ...prev, amount: amount.toString() }));
+      }
+    } else if (isFuel) {
+      setCalculatedAmount(null);
+    }
+  }, [
+    isFuel,
+    formData.vehicleType,
+    formData.fuelType,
+    formData.kilometersTraveled,
+    setFormData,
+  ]);
+
+  // Validate fuel fields
+  const validateFuelFields = () => {
+    if (!isFuel) return true;
+
+    const newErrors = {};
+
+    if (!formData.vehicleType || formData.vehicleType === "None") {
+      newErrors.vehicleType = "Vehicle type is required";
+    }
+    if (!formData.fuelType || formData.fuelType === "None") {
+      newErrors.fuelType = "Fuel type is required";
+    }
+    if (!formData.kilometersTraveled || formData.kilometersTraveled <= 0) {
+      newErrors.kilometersTraveled = "Kilometers must be greater than 0";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Handle form submission with validation
+  const handleSubmit = () => {
+    if (isFuel && !validateFuelFields()) {
+      return;
+    }
+    onSubmit();
+  };
 
   return (
     <Dialog
@@ -1199,7 +1600,9 @@ const ExpenseModal = ({
                 {selectedExpense ? "Edit Expense" : "New Expense"}
               </Typography>
               <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                {selectedExpense ? "Update expense details" : "Create a new expense"}
+                {selectedExpense
+                  ? "Update expense details"
+                  : "Create a new expense"}
               </Typography>
             </Box>
           </Box>
@@ -1215,32 +1618,13 @@ const ExpenseModal = ({
             fullWidth
             label="Title"
             value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.target.value })
+            }
             size={isMobile ? "small" : "medium"}
             required
             sx={{
               "& .MuiOutlinedInput-root": { borderRadius: 2 },
-            }}
-          />
-
-          <TextField
-            fullWidth
-            label="Amount"
-            type="number"
-            value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-            size={isMobile ? "small" : "medium"}
-            required
-            sx={{
-              "& .MuiOutlinedInput-root": { borderRadius: 2 },
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <AttachMoney sx={{ fontSize: 18, color: COLORS.neutral[500] }} />
-                </InputAdornment>
-              ),
-              inputProps: { min: 0, step: 1 },
             }}
           />
 
@@ -1248,7 +1632,21 @@ const ExpenseModal = ({
             <InputLabel>Category</InputLabel>
             <Select
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              onChange={(e) => {
+                // Reset fuel fields when category changes
+                if (e.target.value !== "Fuel") {
+                  setFormData({
+                    ...formData,
+                    category: e.target.value,
+                    vehicleType: "None",
+                    fuelType: "None",
+                    kilometersTraveled: 0,
+                  });
+                  setErrors({});
+                } else {
+                  setFormData({ ...formData, category: e.target.value });
+                }
+              }}
               label="Category"
               sx={{ borderRadius: 2 }}
             >
@@ -1263,13 +1661,261 @@ const ExpenseModal = ({
             </Select>
           </FormControl>
 
+          {/* Fuel Fields - Only show when category is Fuel */}
+          {isFuel && (
+            <>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(COLORS.warning.main, 0.05),
+                  borderRadius: 2,
+                  border: `1px solid ${alpha(COLORS.warning.main, 0.2)}`,
+                }}
+              >
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={600}
+                  sx={{
+                    color: COLORS.warning.main,
+                    mb: 2,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <Calculate sx={{ fontSize: 20 }} />
+                  Fuel Auto-Calculation
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {/* Vehicle Type */}
+                  <Grid item xs={12} sm={6}>
+                    <FormControl
+                      fullWidth
+                      size="small"
+                      error={!!errors.vehicleType}
+                    >
+                      <InputLabel>Vehicle Type *</InputLabel>
+                      <Select
+                        value={formData.vehicleType || "None"}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            vehicleType: e.target.value,
+                            fuelType: "None", // Reset fuel type when vehicle changes
+                          });
+                          if (errors.vehicleType) {
+                            setErrors({ ...errors, vehicleType: null });
+                          }
+                        }}
+                        label="Vehicle Type *"
+                      >
+                        {VEHICLE_TYPES.map((v) => (
+                          <MenuItem
+                            key={v.value}
+                            value={v.value}
+                            disabled={v.value === "None"}
+                          >
+                            <Box display="flex" alignItems="center" gap={1}>
+                              {v.icon}
+                              <span>{v.label}</span>
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {errors.vehicleType && (
+                        <FormHelperText>{errors.vehicleType}</FormHelperText>
+                      )}
+                    </FormControl>
+                  </Grid>
+
+                  {/* Fuel Type */}
+                  <Grid item xs={12} sm={6}>
+                    <FormControl
+                      fullWidth
+                      size="small"
+                      disabled={
+                        !formData.vehicleType || formData.vehicleType === "None"
+                      }
+                      error={!!errors.fuelType}
+                    >
+                      <InputLabel>Fuel Type *</InputLabel>
+                      <Select
+                        value={formData.fuelType || "None"}
+                        onChange={(e) => {
+                          setFormData({
+                            ...formData,
+                            fuelType: e.target.value,
+                          });
+                          if (errors.fuelType) {
+                            setErrors({ ...errors, fuelType: null });
+                          }
+                        }}
+                        label="Fuel Type *"
+                      >
+                        {availableFuelTypes.map((f) => (
+                          <MenuItem
+                            key={f.value}
+                            value={f.value}
+                            disabled={f.value === "None"}
+                          >
+                            <Box display="flex" alignItems="center" gap={1}>
+                              {f.icon}
+                              <span>{f.label}</span>
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {errors.fuelType && (
+                        <FormHelperText>{errors.fuelType}</FormHelperText>
+                      )}
+                    </FormControl>
+                  </Grid>
+
+                  {/* Kilometers Traveled */}
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Kilometers Traveled *"
+                      type="number"
+                      value={formData.kilometersTraveled || ""}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        setFormData({ ...formData, kilometersTraveled: value });
+                        if (errors.kilometersTraveled) {
+                          setErrors({ ...errors, kilometersTraveled: null });
+                        }
+                      }}
+                      size="small"
+                      error={!!errors.kilometersTraveled}
+                      helperText={errors.kilometersTraveled}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Speed
+                              sx={{ fontSize: 18, color: COLORS.neutral[500] }}
+                            />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">km</InputAdornment>
+                        ),
+                        inputProps: { min: 0, step: 0.1 },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Calculated Amount Preview */}
+                  {calculatedAmount !== null && (
+                    <Grid item xs={12}>
+                      <Alert
+                        severity="info"
+                        sx={{
+                          borderRadius: 2,
+                          bgcolor: alpha(COLORS.info.main, 0.1),
+                        }}
+                      >
+                        <Box
+                          display="flex"
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <Typography variant="body2">
+                            Calculated Amount:
+                          </Typography>
+                          <Typography
+                            variant="h6"
+                            fontWeight={700}
+                            sx={{
+                              color: COLORS.primary.main,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            <CurrencyRupee sx={{ fontSize: 18 }} />
+                            {calculatedAmount.toFixed(2)}
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Rate: ₹
+                          {
+                            FUEL_RATES[formData.vehicleType]?.[
+                              formData.fuelType
+                            ]
+                          }
+                          /km × {formData.kilometersTraveled} km
+                        </Typography>
+                      </Alert>
+                    </Grid>
+                  )}
+                </Grid>
+              </Paper>
+            </>
+          )}
+
+          {/* Amount Field - Hidden/Disabled for Fuel */}
+          {!isFuel ? (
+            <TextField
+              fullWidth
+              label="Amount (₹)"
+              type="number"
+              value={formData.amount}
+              onChange={(e) =>
+                setFormData({ ...formData, amount: e.target.value })
+              }
+              size={isMobile ? "small" : "medium"}
+              required
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <CurrencyRupee
+                      sx={{ fontSize: 18, color: COLORS.neutral[500] }}
+                    />
+                  </InputAdornment>
+                ),
+                inputProps: { min: 0, step: 1 },
+              }}
+            />
+          ) : (
+            <TextField
+              fullWidth
+              label="Amount (₹) - Auto Calculated"
+              type="number"
+              value={formData.amount || ""}
+              disabled
+              size={isMobile ? "small" : "medium"}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 2,
+                  bgcolor: alpha(COLORS.neutral[100], 0.5),
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <CurrencyRupee
+                      sx={{ fontSize: 18, color: COLORS.neutral[500] }}
+                    />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
+
           <TextField
             fullWidth
             label="Description"
             multiline
             rows={isMobile ? 2 : 3}
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, description: e.target.value })
+            }
             size={isMobile ? "small" : "medium"}
             placeholder="Add additional details..."
             sx={{
@@ -1278,7 +1924,12 @@ const ExpenseModal = ({
           />
 
           <Box>
-            <Typography variant="subtitle2" gutterBottom fontWeight="500" sx={{ color: COLORS.neutral[700] }}>
+            <Typography
+              variant="subtitle2"
+              gutterBottom
+              fontWeight="500"
+              sx={{ color: COLORS.neutral[700] }}
+            >
               Bill Attachment
             </Typography>
             <Button
@@ -1286,8 +1937,8 @@ const ExpenseModal = ({
               variant="outlined"
               startIcon={<CloudUpload />}
               fullWidth
-              sx={{ 
-                py: 1.5, 
+              sx={{
+                py: 1.5,
                 borderRadius: 2,
                 textTransform: "none",
                 borderColor: COLORS.neutral[300],
@@ -1299,14 +1950,19 @@ const ExpenseModal = ({
               }}
             >
               Upload File
-              <input type="file" hidden accept="image/*,.pdf" onChange={handleFileSelect} />
+              <input
+                type="file"
+                hidden
+                accept="image/*,.pdf"
+                onChange={handleFileSelect}
+              />
             </Button>
 
             {(selectedFile || filePreview) && (
-              <Alert 
-                severity="info" 
-                sx={{ 
-                  mt: 2, 
+              <Alert
+                severity="info"
+                sx={{
+                  mt: 2,
                   borderRadius: 2,
                   bgcolor: alpha(COLORS.info.main, 0.1),
                 }}
@@ -1316,12 +1972,21 @@ const ExpenseModal = ({
                     <img
                       src={filePreview}
                       alt="Preview"
-                      style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6 }}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        objectFit: "cover",
+                        borderRadius: 6,
+                      }}
                     />
                   ) : (
                     <AttachFile sx={{ fontSize: 20 }} />
                   )}
-                  <Typography variant="body2" noWrap sx={{ color: COLORS.neutral[700] }}>
+                  <Typography
+                    variant="body2"
+                    noWrap
+                    sx={{ color: COLORS.neutral[700] }}
+                  >
                     {selectedFile?.name || "File selected"}
                   </Typography>
                 </Box>
@@ -1355,24 +2020,35 @@ const ExpenseModal = ({
           Cancel
         </Button>
         <Button
-          onClick={onSubmit}
+          onClick={handleSubmit}
           variant="contained"
           fullWidth={isMobile}
-          disabled={!formData.title || !formData.amount || !formData.category || loading}
+          disabled={
+            !formData.title ||
+            (!isFuel && (!formData.amount || formData.amount <= 0)) ||
+            !formData.category ||
+            loading
+          }
           sx={{
             borderRadius: 2,
             bgcolor: COLORS.primary.main,
             "&:hover": { bgcolor: COLORS.primary.dark },
           }}
         >
-          {loading ? <CircularProgress size={24} sx={{ color: "white" }} /> : selectedExpense ? "Update" : "Create"}
+          {loading ? (
+            <CircularProgress size={24} sx={{ color: "white" }} />
+          ) : selectedExpense ? (
+            "Update"
+          ) : (
+            "Create"
+          )}
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-// View Expense Modal
+// View Expense Modal with Fuel Details
 const ViewExpenseModal = ({ open, onClose, expense }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -1382,7 +2058,9 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
   const status = expense.status || "Pending";
   const category = expense.category || "Miscellaneous";
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.Pending;
-  const categoryConfig = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Miscellaneous;
+  const categoryConfig =
+    CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Miscellaneous;
+  const isFuel = expense.category === "Fuel";
 
   return (
     <Dialog
@@ -1438,7 +2116,13 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
       <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
         <Stack spacing={3}>
           {/* Header */}
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="flex-start"
+            flexWrap="wrap"
+            gap={2}
+          >
             <Box>
               <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
                 <Chip
@@ -1450,7 +2134,6 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
                     color: categoryConfig.color,
                     fontWeight: 600,
                     borderRadius: 2,
-                    mt: 3
                   }}
                 />
                 <Chip
@@ -1462,13 +2145,35 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
                     color: statusConfig.color,
                     fontWeight: 600,
                     borderRadius: 2,
-                    mt: 3
                   }}
                 />
+                {isFuel && expense.vehicleType && (
+                  <Chip
+                    size="small"
+                    icon={<TwoWheeler sx={{ fontSize: 14 }} />}
+                    label={`${expense.vehicleType}`}
+                    sx={{
+                      bgcolor: alpha(COLORS.warning.main, 0.1),
+                      color: COLORS.warning.main,
+                      fontWeight: 600,
+                      borderRadius: 2,
+                    }}
+                  />
+                )}
               </Box>
             </Box>
-            <Typography variant="h4" fontWeight="700" sx={{ color: COLORS.primary.main , mt: 3 }}>
-              ₹{expense.amount?.toLocaleString()}
+            <Typography
+              variant="h4"
+              fontWeight="700"
+              sx={{
+                color: COLORS.primary.main,
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+              }}
+            >
+              <CurrencyRupee sx={{ fontSize: 28 }} />
+              {expense.amount?.toLocaleString()}
             </Typography>
           </Box>
 
@@ -1477,11 +2182,18 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
           {/* Details Grid */}
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+              <Typography
+                variant="subtitle2"
+                fontWeight="600"
+                color={COLORS.neutral[600]}
+                gutterBottom
+              >
                 Date
               </Typography>
               <Box display="flex" alignItems="center" gap={1}>
-                <CalendarToday sx={{ fontSize: 16, color: COLORS.primary.main }} />
+                <CalendarToday
+                  sx={{ fontSize: 16, color: COLORS.primary.main }}
+                />
                 <Typography sx={{ color: COLORS.neutral[800] }}>
                   {format(parseISO(expense.createdAt), "MMMM dd, yyyy")}
                 </Typography>
@@ -1489,23 +2201,34 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+              <Typography
+                variant="subtitle2"
+                fontWeight="600"
+                color={COLORS.neutral[600]}
+                gutterBottom
+              >
                 Created By
               </Typography>
               <Box display="flex" alignItems="center" gap={1}>
-                <Avatar 
-                  sx={{ 
-                    width: 28, 
-                    height: 28, 
+                <Avatar
+                  sx={{
+                    width: 28,
+                    height: 28,
                     bgcolor: COLORS.neutral[500],
                     borderRadius: 1.5,
-                    fontSize: "0.75rem"
+                    fontSize: "0.75rem",
                   }}
                 >
-                  {expense.createdBy?.name?.charAt(0) || expense.createdBy?.email?.charAt(0) || "U"}
+                  {expense.createdBy?.name?.charAt(0) ||
+                    expense.createdBy?.email?.charAt(0) ||
+                    "U"}
                 </Avatar>
                 <Box>
-                  <Typography variant="body2" fontWeight="500" sx={{ color: COLORS.neutral[800] }}>
+                  <Typography
+                    variant="body2"
+                    fontWeight="500"
+                    sx={{ color: COLORS.neutral[800] }}
+                  >
                     {expense.createdBy?.name || "Unknown"}
                   </Typography>
                   <Typography variant="caption" color={COLORS.neutral[500]}>
@@ -1515,41 +2238,186 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
               </Box>
             </Grid>
 
+            {/* Fuel Details Section */}
+            {isFuel && (
+              <Grid item xs={12}>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight="600"
+                  color={COLORS.neutral[600]}
+                  gutterBottom
+                >
+                  Fuel Details
+                </Typography>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    borderColor: alpha(COLORS.warning.main, 0.3),
+                    bgcolor: alpha(COLORS.warning.main, 0.02),
+                  }}
+                >
+                  <Grid container spacing={2}>
+                    <Grid item xs={4}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
+                        Vehicle Type
+                      </Typography>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        {expense.vehicleType === "Bike" ? (
+                          <TwoWheeler
+                            sx={{ fontSize: 16, color: COLORS.warning.main }}
+                          />
+                        ) : expense.vehicleType === "Car" ? (
+                          <DirectionsCar
+                            sx={{ fontSize: 16, color: COLORS.warning.main }}
+                          />
+                        ) : null}
+                        <Typography variant="body2" fontWeight={600}>
+                          {expense.vehicleType || "N/A"}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
+                        Fuel Type
+                      </Typography>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        {expense.fuelType === "Electric" ? (
+                          <EvStation
+                            sx={{ fontSize: 16, color: COLORS.warning.main }}
+                          />
+                        ) : (
+                          <FuelIcon
+                            sx={{ fontSize: 16, color: COLORS.warning.main }}
+                          />
+                        )}
+                        <Typography variant="body2" fontWeight={600}>
+                          {expense.fuelType || "N/A"}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
+                        Distance
+                      </Typography>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <Speed
+                          sx={{ fontSize: 16, color: COLORS.warning.main }}
+                        />
+                        <Typography variant="body2" fontWeight={600}>
+                          {expense.kilometersTraveled || 0} km
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    {expense.fuelRatePerKm && (
+                      <Grid item xs={12}>
+                        <Divider sx={{ my: 1 }} />
+                        <Box
+                          display="flex"
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            Rate per km:
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            fontWeight={600}
+                            sx={{ color: COLORS.primary.main }}
+                          >
+                            ₹{expense.fuelRatePerKm}/km
+                          </Typography>
+                        </Box>
+                        <Box
+                          display="flex"
+                          justifyContent="space-between"
+                          alignItems="center"
+                          mt={0.5}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            Calculation:
+                          </Typography>
+                          <Typography variant="body2">
+                            {expense.kilometersTraveled} km × ₹
+                            {expense.fuelRatePerKm}/km = ₹{expense.amount}
+                          </Typography>
+                        </Box>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ mt: 1, display: "block" }}
+                        >
+                          * Amount automatically calculated
+                        </Typography>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Paper>
+              </Grid>
+            )}
+
             {expense.description && (
               <Grid item xs={12}>
-                <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight="600"
+                  color={COLORS.neutral[600]}
+                  gutterBottom
+                >
                   Description
                 </Typography>
-                <Paper 
-                  variant="outlined" 
-                  sx={{ 
-                    p: 2, 
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
                     borderRadius: 2,
                     borderColor: COLORS.neutral[200],
                     bgcolor: COLORS.neutral[50],
                   }}
                 >
-                  <Typography sx={{ color: COLORS.neutral[700] }}>{expense.description}</Typography>
+                  <Typography sx={{ color: COLORS.neutral[700] }}>
+                    {expense.description}
+                  </Typography>
                 </Paper>
               </Grid>
             )}
 
             {expense.location && (
               <Grid item xs={12}>
-                <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight="600"
+                  color={COLORS.neutral[600]}
+                  gutterBottom
+                >
                   Location
                 </Typography>
-                <Paper 
-                  variant="outlined" 
-                  sx={{ 
-                    p: 2, 
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
                     borderRadius: 2,
                     borderColor: COLORS.neutral[200],
                     bgcolor: COLORS.neutral[50],
                   }}
                 >
                   <Box display="flex" alignItems="center" gap={1}>
-                    <LocationOn sx={{ fontSize: 18, color: COLORS.primary.main }} />
+                    <LocationOn
+                      sx={{ fontSize: 18, color: COLORS.primary.main }}
+                    />
                     <Typography sx={{ color: COLORS.neutral[700] }}>
                       {expense.location.address ||
                         `Lat: ${expense.location.lat?.toFixed(6)}, Lng: ${expense.location.lng?.toFixed(6)}`}
@@ -1561,7 +2429,12 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
 
             {expense.billAttachment && (
               <Grid item xs={12}>
-                <Typography variant="subtitle2" fontWeight="600" color={COLORS.neutral[600]} gutterBottom>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight="600"
+                  color={COLORS.neutral[600]}
+                  gutterBottom
+                >
                   Bill Attachment
                 </Typography>
                 <Button
@@ -1569,9 +2442,9 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
                   startIcon={<AttachFile />}
                   onClick={() => window.open(expense.billAttachment, "_blank")}
                   fullWidth
-                  sx={{ 
-                    mt: 0.5, 
-                    py: 1.5, 
+                  sx={{
+                    mt: 0.5,
+                    py: 1.5,
                     borderRadius: 2,
                     textTransform: "none",
                     borderColor: COLORS.neutral[300],
@@ -1589,14 +2462,18 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
 
             {expense.rejectionReason && (
               <Grid item xs={12}>
-                <Alert 
-                  severity="error" 
-                  sx={{ 
+                <Alert
+                  severity="error"
+                  sx={{
                     borderRadius: 2,
                     bgcolor: alpha(COLORS.error.main, 0.1),
                   }}
                 >
-                  <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.error.main }}>
+                  <Typography
+                    variant="subtitle2"
+                    fontWeight="600"
+                    sx={{ color: COLORS.error.main }}
+                  >
                     Rejection Reason
                   </Typography>
                   <Typography variant="body2" sx={{ color: COLORS.error.main }}>
@@ -1608,22 +2485,33 @@ const ViewExpenseModal = ({ open, onClose, expense }) => {
 
             {expense.approvedBy && (
               <Grid item xs={12}>
-                <Alert 
-                  severity="success" 
-                  sx={{ 
+                <Alert
+                  severity="success"
+                  sx={{
                     borderRadius: 2,
                     bgcolor: alpha(COLORS.success.main, 0.1),
                   }}
                 >
-                  <Typography variant="subtitle2" fontWeight="600" sx={{ color: COLORS.success.main }}>
+                  <Typography
+                    variant="subtitle2"
+                    fontWeight="600"
+                    sx={{ color: COLORS.success.main }}
+                  >
                     Approved By
                   </Typography>
-                  <Typography variant="body2" sx={{ color: COLORS.success.main }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: COLORS.success.main }}
+                  >
                     {expense.approvedBy?.name || "Unknown"} on{" "}
-                    {expense.approvedAt && format(parseISO(expense.approvedAt), "MMM dd, yyyy")}
+                    {expense.approvedAt &&
+                      format(parseISO(expense.approvedAt), "MMM dd, yyyy")}
                   </Typography>
                   {expense.approverRemarks && (
-                    <Typography variant="body2" sx={{ color: COLORS.success.main, mt: 0.5 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: COLORS.success.main, mt: 0.5 }}
+                    >
                       Remarks: {expense.approverRemarks}
                     </Typography>
                   )}
@@ -1733,7 +2621,10 @@ const EmptyState = ({ onClearFilters, hasFilters, canCreate, onCreate }) => (
         variant="contained"
         onClick={onClearFilters}
         startIcon={<Clear />}
-        sx={{ bgcolor: COLORS.primary.main, "&:hover": { bgcolor: COLORS.primary.dark } }}
+        sx={{
+          bgcolor: COLORS.primary.main,
+          "&:hover": { bgcolor: COLORS.primary.dark },
+        }}
       >
         Clear All Filters
       </Button>
@@ -1743,7 +2634,10 @@ const EmptyState = ({ onClearFilters, hasFilters, canCreate, onCreate }) => (
         variant="contained"
         onClick={onCreate}
         startIcon={<Add />}
-        sx={{ bgcolor: COLORS.primary.main, "&:hover": { bgcolor: COLORS.primary.dark } }}
+        sx={{
+          bgcolor: COLORS.primary.main,
+          "&:hover": { bgcolor: COLORS.primary.dark },
+        }}
       >
         Create Expense
       </Button>
@@ -1811,6 +2705,9 @@ export default function ExpensesPage() {
     description: "",
     latitude: "",
     longitude: "",
+    vehicleType: "None",
+    fuelType: "None",
+    kilometersTraveled: 0,
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -1853,7 +2750,7 @@ export default function ExpensesPage() {
     if (!isAuthenticated()) return;
 
     try {
-      setLoading(prev => ({ ...prev, expenses: true }));
+      setLoading((prev) => ({ ...prev, expenses: true }));
 
       const params = new URLSearchParams({
         page: pagination.page,
@@ -1861,11 +2758,14 @@ export default function ExpensesPage() {
         ...(filters.search && { search: filters.search }),
         ...(filters.status !== "all" && { status: filters.status }),
         ...(filters.category !== "all" && { category: filters.category }),
-        ...(filters.period !== "custom" && filters.period !== "all" && { period: filters.period }),
-        ...(filters.startDate && filters.endDate && filters.period === "custom" && {
-          startDate: filters.startDate.toISOString(),
-          endDate: filters.endDate.toISOString(),
-        }),
+        ...(filters.period !== "custom" &&
+          filters.period !== "all" && { period: filters.period }),
+        ...(filters.startDate &&
+          filters.endDate &&
+          filters.period === "custom" && {
+            startDate: filters.startDate.toISOString(),
+            endDate: filters.endDate.toISOString(),
+          }),
         sortBy: filters.sortBy.replace("-", ""),
         sortOrder: filters.sortBy.startsWith("-") ? "desc" : "asc",
       });
@@ -1874,7 +2774,7 @@ export default function ExpensesPage() {
 
       if (response?.success) {
         setExpenses(response.result.expenses || []);
-        setPagination(prev => ({
+        setPagination((prev) => ({
           ...prev,
           totalPages: response.result.pagination?.totalPages || 1,
           totalItems: response.result.pagination?.total || 0,
@@ -1884,24 +2784,37 @@ export default function ExpensesPage() {
       console.error("Error fetching expenses:", error);
       showSnackbar("Failed to fetch expenses", "error");
     } finally {
-      setLoading(prev => ({ ...prev, expenses: false }));
+      setLoading((prev) => ({ ...prev, expenses: false }));
     }
-  }, [isAuthenticated, safeFetchAPI, pagination.page, pagination.limit, filters]);
+  }, [
+    isAuthenticated,
+    safeFetchAPI,
+    pagination.page,
+    pagination.limit,
+    filters,
+  ]);
 
   // Fetch Stats
   const fetchStats = useCallback(async () => {
     if (!isAuthenticated()) return;
 
     try {
-      setLoading(prev => ({ ...prev, stats: true }));
-      const response = await safeFetchAPI(`/expense/stats?period=${filters.period}`);
+      setLoading((prev) => ({ ...prev, stats: true }));
+      const response = await safeFetchAPI(
+        `/expense/stats?period=${filters.period}`,
+      );
       if (response?.success) {
-        setStats(response.result || { byStatus: [], totals: { totalExpenses: 0, grandTotal: 0 } });
+        setStats(
+          response.result || {
+            byStatus: [],
+            totals: { totalExpenses: 0, grandTotal: 0 },
+          },
+        );
       }
     } catch (error) {
       console.error("Error fetching stats:", error);
     } finally {
-      setLoading(prev => ({ ...prev, stats: false }));
+      setLoading((prev) => ({ ...prev, stats: false }));
     }
   }, [isAuthenticated, safeFetchAPI, filters.period]);
 
@@ -1924,19 +2837,55 @@ export default function ExpensesPage() {
   const handleSubmit = async () => {
     if (!isAuthenticated() || !canCreate) return;
 
-    if (!formData.title || !formData.amount || !formData.category) {
+    if (!formData.title || !formData.category) {
       showSnackbar("Please fill all required fields", "error");
       return;
     }
 
+    // For non-fuel expenses, amount is required
+    if (
+      formData.category !== "Fuel" &&
+      (!formData.amount || formData.amount <= 0)
+    ) {
+      showSnackbar("Please enter a valid amount", "error");
+      return;
+    }
+
+    // For fuel expenses, validate fuel fields
+    if (formData.category === "Fuel") {
+      if (
+        !formData.vehicleType ||
+        formData.vehicleType === "None" ||
+        !formData.fuelType ||
+        formData.fuelType === "None" ||
+        !formData.kilometersTraveled ||
+        formData.kilometersTraveled <= 0
+      ) {
+        showSnackbar("Please fill all fuel details", "error");
+        return;
+      }
+    }
+
     try {
-      setLoading(prev => ({ ...prev, action: true }));
+      setLoading((prev) => ({ ...prev, action: true }));
 
       const submitData = new FormData();
       submitData.append("title", formData.title);
-      submitData.append("amount", parseFloat(formData.amount));
+
+      // For fuel expenses, amount is calculated on server
+      if (formData.category !== "Fuel") {
+        submitData.append("amount", parseFloat(formData.amount));
+      }
+
       submitData.append("category", formData.category);
       submitData.append("description", formData.description || "");
+
+      // Add fuel fields if category is Fuel
+      if (formData.category === "Fuel") {
+        submitData.append("vehicleType", formData.vehicleType);
+        submitData.append("fuelType", formData.fuelType);
+        submitData.append("kilometersTraveled", formData.kilometersTraveled);
+      }
 
       if (formData.latitude && formData.longitude) {
         submitData.append("latitude", formData.latitude);
@@ -1947,7 +2896,9 @@ export default function ExpensesPage() {
         submitData.append("billAttachment", selectedFile);
       }
 
-      const endpoint = selectedExpense ? `/expense/update/${selectedExpense._id}` : "/expense/create";
+      const endpoint = selectedExpense
+        ? `/expense/update/${selectedExpense._id}`
+        : "/expense/create";
       const method = selectedExpense ? "PUT" : "POST";
 
       const response = await fetchAPI(endpoint, {
@@ -1958,8 +2909,10 @@ export default function ExpensesPage() {
 
       if (response?.success) {
         showSnackbar(
-          selectedExpense ? "Expense updated successfully" : "Expense created successfully",
-          "success"
+          selectedExpense
+            ? "Expense updated successfully"
+            : "Expense created successfully",
+          "success",
         );
         setOpenModal(false);
         resetForm();
@@ -1972,7 +2925,7 @@ export default function ExpensesPage() {
       console.error("Error saving expense:", error);
       showSnackbar(error.message || "Operation failed", "error");
     } finally {
-      setLoading(prev => ({ ...prev, action: false }));
+      setLoading((prev) => ({ ...prev, action: false }));
     }
   };
 
@@ -1981,15 +2934,17 @@ export default function ExpensesPage() {
     if (!isAuthenticated() || !canUpdateStatus || !selectedExpense) return;
 
     try {
-      setLoading(prev => ({ ...prev, action: true }));
+      setLoading((prev) => ({ ...prev, action: true }));
 
-      const endpoint = actionType === "approve"
-        ? `/expense/approve/${selectedExpense._id}`
-        : `/expense/reject/${selectedExpense._id}`;
+      const endpoint =
+        actionType === "approve"
+          ? `/expense/approve/${selectedExpense._id}`
+          : `/expense/reject/${selectedExpense._id}`;
 
-      const body = actionType === "reject"
-        ? { reason: "Rejected by approver" }
-        : { remarks: "Approved" };
+      const body =
+        actionType === "reject"
+          ? { reason: "Rejected by approver" }
+          : { remarks: "Approved" };
 
       const response = await fetchAPI(endpoint, {
         method: "PUT",
@@ -2010,7 +2965,7 @@ export default function ExpensesPage() {
       console.error(`Error ${actionType}ing expense:`, error);
       showSnackbar(error.message || `${actionType} failed`, "error");
     } finally {
-      setLoading(prev => ({ ...prev, action: false }));
+      setLoading((prev) => ({ ...prev, action: false }));
     }
   };
 
@@ -2019,11 +2974,14 @@ export default function ExpensesPage() {
     if (!isAuthenticated() || !canDelete || !selectedExpense) return;
 
     try {
-      setLoading(prev => ({ ...prev, action: true }));
+      setLoading((prev) => ({ ...prev, action: true }));
 
-      const response = await fetchAPI(`/expense/delete/${selectedExpense._id}`, {
-        method: "DELETE",
-      });
+      const response = await fetchAPI(
+        `/expense/delete/${selectedExpense._id}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       if (response?.success) {
         showSnackbar("Expense deleted successfully", "success");
@@ -2038,7 +2996,7 @@ export default function ExpensesPage() {
       console.error("Error deleting expense:", error);
       showSnackbar(error.message || "Delete failed", "error");
     } finally {
-      setLoading(prev => ({ ...prev, action: false }));
+      setLoading((prev) => ({ ...prev, action: false }));
     }
   };
 
@@ -2067,6 +3025,9 @@ export default function ExpensesPage() {
       description: expense.description || "",
       latitude: expense.location?.lat || "",
       longitude: expense.location?.lng || "",
+      vehicleType: expense.vehicleType || "None",
+      fuelType: expense.fuelType || "None",
+      kilometersTraveled: expense.kilometersTraveled || 0,
     });
     setSelectedFile(null);
     setFilePreview(expense.billAttachment || null);
@@ -2086,7 +3047,7 @@ export default function ExpensesPage() {
 
   const handleMenuAction = (action) => {
     handleMenuClose();
-    
+
     if (action === "view") {
       setSelectedExpense(selectedExpenseForMenu);
       setOpenViewModal(true);
@@ -2119,6 +3080,9 @@ export default function ExpensesPage() {
       description: "",
       latitude: "",
       longitude: "",
+      vehicleType: "None",
+      fuelType: "None",
+      kilometersTraveled: 0,
     });
     setSelectedFile(null);
     setFilePreview(null);
@@ -2126,8 +3090,8 @@ export default function ExpensesPage() {
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
   const handleResetFilters = () => {
@@ -2140,19 +3104,23 @@ export default function ExpensesPage() {
       endDate: null,
       sortBy: "-createdAt",
     });
-    setPagination(prev => ({ ...prev, page: 1 }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
     setOpenFilterDrawer(false);
   };
 
   const handleChangePage = (event, newPage) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
+    setPagination((prev) => ({ ...prev, page: newPage }));
     if (containerRef.current) {
       containerRef.current.scrollIntoView({ behavior: "smooth" });
     }
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setPagination(prev => ({ ...prev, limit: parseInt(event.target.value, 10), page: 1 }));
+    setPagination((prev) => ({
+      ...prev,
+      limit: parseInt(event.target.value, 10),
+      page: 1,
+    }));
   };
 
   // Initial Data Fetch
@@ -2168,22 +3136,43 @@ export default function ExpensesPage() {
     if (isAuthenticated()) {
       fetchExpenses();
     }
-  }, [filters.period, filters.status, filters.category, filters.sortBy, pagination.page, pagination.limit]);
+  }, [
+    filters.period,
+    filters.status,
+    filters.category,
+    filters.sortBy,
+    pagination.page,
+    pagination.limit,
+  ]);
 
   // Calculate Display Stats
   const displayStats = useMemo(() => {
     const totalExpenses = expenses.length;
-    const totalAmount = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const approvedCount = expenses.filter(exp => exp.status === "Approved").length;
-    const pendingCount = expenses.filter(exp => exp.status === "Pending").length;
+    const totalAmount = expenses.reduce(
+      (sum, exp) => sum + (exp.amount || 0),
+      0,
+    );
+    const approvedCount = expenses.filter(
+      (exp) => exp.status === "Approved",
+    ).length;
+    const pendingCount = expenses.filter(
+      (exp) => exp.status === "Pending",
+    ).length;
     const approvedAmount = expenses
-      .filter(exp => exp.status === "Approved")
+      .filter((exp) => exp.status === "Approved")
       .reduce((sum, exp) => sum + (exp.amount || 0), 0);
     const pendingAmount = expenses
-      .filter(exp => exp.status === "Pending")
+      .filter((exp) => exp.status === "Pending")
       .reduce((sum, exp) => sum + (exp.amount || 0), 0);
 
-    return { totalExpenses, totalAmount, approvedCount, pendingCount, approvedAmount, pendingAmount };
+    return {
+      totalExpenses,
+      totalAmount,
+      approvedCount,
+      pendingCount,
+      approvedAmount,
+      pendingAmount,
+    };
   }, [expenses]);
 
   // Loading state
@@ -2249,36 +3238,56 @@ export default function ExpensesPage() {
 
           <Box sx={{ display: "flex", gap: 1 }}>
             {isMobile && (
-              <Button
-                variant="contained"
-                startIcon={<FilterAlt />}
-                onClick={() => setOpenFilterDrawer(true)}
-                size="small"
-                sx={{
-                  bgcolor: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                  position: "relative",
-                }}
-              >
-                Filter
-                {activeFilterCount > 0 && (
-                  <Badge
-                    badgeContent={activeFilterCount}
-                    color="error"
-                    sx={{
-                      position: "absolute",
-                      top: -8,
-                      right: -8,
-                      "& .MuiBadge-badge": {
-                        fontSize: "0.6rem",
-                        minWidth: 16,
-                        height: 16,
-                      },
+              <>
+                <Button
+                  variant="contained"
+                  startIcon={<FilterAlt />}
+                  onClick={() => setOpenFilterDrawer(true)}
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                    position: "relative",
+                  }}
+                >
+                  Filter
+                  {activeFilterCount > 0 && (
+                    <Badge
+                      badgeContent={activeFilterCount}
+                      color="error"
+                      sx={{
+                        position: "absolute",
+                        top: -8,
+                        right: -8,
+                        "& .MuiBadge-badge": {
+                          fontSize: "0.6rem",
+                          minWidth: 16,
+                          height: 16,
+                        },
+                      }}
+                    />
+                  )}
+                </Button>
+                {canCreate && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={() => {
+                      resetForm();
+                      setOpenModal(true);
                     }}
-                  />
+                    size="small"
+                    sx={{
+                      bgcolor: "rgba(255,255,255,0.2)",
+                      color: "#fff",
+                      "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                    }}
+                  >
+                    New
+                  </Button>
                 )}
-              </Button>
+              </>
             )}
             <Button
               variant="contained"
@@ -2354,7 +3363,11 @@ export default function ExpensesPage() {
             <StatCard
               icon={<TrendingUp />}
               title="Average"
-              value={expenses.length ? `₹${(displayStats.totalAmount / expenses.length).toFixed(0)}` : "₹0"}
+              value={
+                expenses.length
+                  ? `₹${(displayStats.totalAmount / expenses.length).toFixed(0)}`
+                  : "0"
+              }
               color={COLORS.info.main}
               index={3}
             />
@@ -2367,7 +3380,10 @@ export default function ExpensesPage() {
             value={activeTab}
             onChange={(e, newValue) => {
               setActiveTab(newValue);
-              handleFilterChange("status", tabs[newValue].value !== "all" ? tabs[newValue].value : "all");
+              handleFilterChange(
+                "status",
+                tabs[newValue].value !== "all" ? tabs[newValue].value : "all",
+              );
             }}
             variant={isMobile ? "scrollable" : "fullWidth"}
             scrollButtons={isMobile}
@@ -2388,7 +3404,12 @@ export default function ExpensesPage() {
             }}
           >
             {tabs.map((tab, index) => (
-              <Tab key={index} icon={tab.icon} iconPosition="start" label={tab.label} />
+              <Tab
+                key={index}
+                icon={tab.icon}
+                iconPosition="start"
+                label={tab.label}
+              />
             ))}
           </Tabs>
         </Paper>
@@ -2410,7 +3431,10 @@ export default function ExpensesPage() {
                 ),
                 endAdornment: filters.search && (
                   <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => handleFilterChange("search", "")}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleFilterChange("search", "")}
+                    >
                       <Close />
                     </IconButton>
                   </InputAdornment>
@@ -2444,13 +3468,20 @@ export default function ExpensesPage() {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Search sx={{ fontSize: 20, color: COLORS.neutral[400] }} />
+                      <Search
+                        sx={{ fontSize: 20, color: COLORS.neutral[400] }}
+                      />
                     </InputAdornment>
                   ),
                   endAdornment: filters.search && (
                     <InputAdornment position="end">
-                      <IconButton size="small" onClick={() => handleFilterChange("search", "")}>
-                        <Close sx={{ fontSize: 16, color: COLORS.neutral[400] }} />
+                      <IconButton
+                        size="small"
+                        onClick={() => handleFilterChange("search", "")}
+                      >
+                        <Close
+                          sx={{ fontSize: 16, color: COLORS.neutral[400] }}
+                        />
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -2461,7 +3492,9 @@ export default function ExpensesPage() {
                 <InputLabel>Category</InputLabel>
                 <Select
                   value={filters.category}
-                  onChange={(e) => handleFilterChange("category", e.target.value)}
+                  onChange={(e) =>
+                    handleFilterChange("category", e.target.value)
+                  }
                   label="Category"
                   sx={{ borderRadius: 2 }}
                 >
@@ -2486,7 +3519,9 @@ export default function ExpensesPage() {
                   sx={{ borderRadius: 2 }}
                 >
                   {TIME_PERIODS.map((p) => (
-                    <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
+                    <MenuItem key={p.value} value={p.value}>
+                      {p.label}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -2508,7 +3543,11 @@ export default function ExpensesPage() {
 
             {activeFilterCount > 0 && (
               <Box sx={{ mt: 2 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mb: 1, display: "block" }}
+                >
                   Active Filters:
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -2547,7 +3586,7 @@ export default function ExpensesPage() {
                   )}
                   {filters.period !== "month" && (
                     <Chip
-                      label={`Period: ${PERIOD_OPTIONS.find(p => p.value === filters.period)?.label}`}
+                      label={`Period: ${PERIOD_OPTIONS.find((p) => p.value === filters.period)?.label}`}
                       size="small"
                       onDelete={() => handleFilterChange("period", "month")}
                       sx={{
@@ -2612,15 +3651,21 @@ export default function ExpensesPage() {
               <Paper sx={{ borderRadius: 3, overflow: "hidden" }}>
                 <TableContainer>
                   <Table>
-                    <TableHead sx={{ bgcolor: alpha(COLORS.primary.main, 0.05) }}>
+                    <TableHead
+                      sx={{ bgcolor: alpha(COLORS.primary.main, 0.05) }}
+                    >
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600 }}>Expense</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Created By</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>
+                          Created By
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>
+                          Actions
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -2651,7 +3696,11 @@ export default function ExpensesPage() {
               >
                 <Typography variant="body2" color="text.secondary">
                   Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-                  {Math.min(pagination.page * pagination.limit, pagination.totalItems)} of {pagination.totalItems}
+                  {Math.min(
+                    pagination.page * pagination.limit,
+                    pagination.totalItems,
+                  )}{" "}
+                  of {pagination.totalItems}
                 </Typography>
                 <Pagination
                   count={pagination.totalPages}
@@ -2734,7 +3783,10 @@ export default function ExpensesPage() {
             }}
           >
             <BottomNavigationAction label="Expenses" icon={<ReceiptLong />} />
-            <BottomNavigationAction label="Dashboard" icon={<DashboardIcon />} />
+            <BottomNavigationAction
+              label="Dashboard"
+              icon={<DashboardIcon />}
+            />
           </BottomNavigation>
         </Paper>
       )}
@@ -2764,22 +3816,28 @@ export default function ExpensesPage() {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
-        PaperProps={{ 
-          sx: { 
+        PaperProps={{
+          sx: {
             borderRadius: 2,
             minWidth: 180,
-          } 
+          },
         }}
       >
         <MenuItem onClick={() => handleMenuAction("view")} sx={{ py: 1.5 }}>
-          <ListItemIcon><Visibility sx={{ fontSize: 18 }} /></ListItemIcon>
+          <ListItemIcon>
+            <Visibility sx={{ fontSize: 18 }} />
+          </ListItemIcon>
           <ListItemText>View Details</ListItemText>
         </MenuItem>
 
-        {selectedExpenseForMenu?.status === "Pending" && canEdit &&
-          (selectedExpenseForMenu.createdBy?._id === user?._id || userRole === "Head_office") && (
+        {selectedExpenseForMenu?.status === "Pending" &&
+          canEdit &&
+          (selectedExpenseForMenu.createdBy?._id === user?._id ||
+            userRole === "Head_office") && (
             <MenuItem onClick={() => handleMenuAction("edit")} sx={{ py: 1.5 }}>
-              <ListItemIcon><Edit sx={{ fontSize: 18 }} /></ListItemIcon>
+              <ListItemIcon>
+                <Edit sx={{ fontSize: 18 }} />
+              </ListItemIcon>
               <ListItemText>Edit</ListItemText>
             </MenuItem>
           )}
@@ -2787,12 +3845,24 @@ export default function ExpensesPage() {
         {canUpdateStatus && selectedExpenseForMenu?.status === "Pending" && (
           <>
             <Divider />
-            <MenuItem onClick={() => handleMenuAction("approve")} sx={{ py: 1.5, color: COLORS.success.main }}>
-              <ListItemIcon><CheckCircle sx={{ fontSize: 18, color: COLORS.success.main }} /></ListItemIcon>
+            <MenuItem
+              onClick={() => handleMenuAction("approve")}
+              sx={{ py: 1.5, color: COLORS.success.main }}
+            >
+              <ListItemIcon>
+                <CheckCircle
+                  sx={{ fontSize: 18, color: COLORS.success.main }}
+                />
+              </ListItemIcon>
               <ListItemText>Approve</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => handleMenuAction("reject")} sx={{ py: 1.5, color: COLORS.error.main }}>
-              <ListItemIcon><Cancel sx={{ fontSize: 18, color: COLORS.error.main }} /></ListItemIcon>
+            <MenuItem
+              onClick={() => handleMenuAction("reject")}
+              sx={{ py: 1.5, color: COLORS.error.main }}
+            >
+              <ListItemIcon>
+                <Cancel sx={{ fontSize: 18, color: COLORS.error.main }} />
+              </ListItemIcon>
               <ListItemText>Reject</ListItemText>
             </MenuItem>
           </>
@@ -2801,8 +3871,13 @@ export default function ExpensesPage() {
         {canDelete && (
           <>
             <Divider />
-            <MenuItem onClick={() => handleMenuAction("delete")} sx={{ py: 1.5, color: COLORS.error.main }}>
-              <ListItemIcon><Delete sx={{ fontSize: 18, color: COLORS.error.main }} /></ListItemIcon>
+            <MenuItem
+              onClick={() => handleMenuAction("delete")}
+              sx={{ py: 1.5, color: COLORS.error.main }}
+            >
+              <ListItemIcon>
+                <Delete sx={{ fontSize: 18, color: COLORS.error.main }} />
+              </ListItemIcon>
               <ListItemText>Delete</ListItemText>
             </MenuItem>
           </>
@@ -2810,11 +3885,11 @@ export default function ExpensesPage() {
       </Menu>
 
       {/* Approve/Reject Dialog */}
-      <Dialog 
-        open={openApproveDialog} 
+      <Dialog
+        open={openApproveDialog}
         onClose={() => !loading.action && setOpenApproveDialog(false)}
         PaperProps={{
-          sx: { borderRadius: 3 }
+          sx: { borderRadius: 3 },
         }}
         fullScreen={isMobile}
         TransitionComponent={isMobile ? Slide : Fade}
@@ -2826,8 +3901,8 @@ export default function ExpensesPage() {
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
-          <Alert 
-            severity={actionType === "approve" ? "info" : "warning"} 
+          <Alert
+            severity={actionType === "approve" ? "info" : "warning"}
             sx={{ mb: 2, borderRadius: 2 }}
           >
             {actionType === "approve"
@@ -2839,15 +3914,33 @@ export default function ExpensesPage() {
               <Typography variant="subtitle1" fontWeight="600">
                 {selectedExpense.title}
               </Typography>
-              <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.primary.main, mt: 1 }}>
-                ₹{selectedExpense.amount?.toLocaleString()}
+              <Typography
+                variant="h6"
+                fontWeight="700"
+                sx={{
+                  color: COLORS.primary.main,
+                  mt: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                <CurrencyRupee sx={{ fontSize: 20 }} />
+                {selectedExpense.amount?.toLocaleString()}
               </Typography>
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 0, gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
-          <Button 
-            onClick={() => setOpenApproveDialog(false)} 
+        <DialogActions
+          sx={{
+            p: 3,
+            pt: 0,
+            gap: 2,
+            flexDirection: { xs: "column", sm: "row" },
+          }}
+        >
+          <Button
+            onClick={() => setOpenApproveDialog(false)}
             disabled={loading.action}
             fullWidth={isMobile}
             variant="outlined"
@@ -2860,25 +3953,37 @@ export default function ExpensesPage() {
             disabled={loading.action}
             variant="contained"
             fullWidth={isMobile}
-            sx={{ 
+            sx={{
               borderRadius: 2,
-              bgcolor: actionType === "approve" ? COLORS.success.main : COLORS.error.main,
-              "&:hover": { 
-                bgcolor: actionType === "approve" ? COLORS.success.dark : COLORS.error.dark,
+              bgcolor:
+                actionType === "approve"
+                  ? COLORS.success.main
+                  : COLORS.error.main,
+              "&:hover": {
+                bgcolor:
+                  actionType === "approve"
+                    ? COLORS.success.dark
+                    : COLORS.error.dark,
               },
             }}
           >
-            {loading.action ? <CircularProgress size={24} sx={{ color: "white" }} /> : actionType === "approve" ? "Approve" : "Reject"}
+            {loading.action ? (
+              <CircularProgress size={24} sx={{ color: "white" }} />
+            ) : actionType === "approve" ? (
+              "Approve"
+            ) : (
+              "Reject"
+            )}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Dialog */}
-      <Dialog 
-        open={openDeleteDialog} 
+      <Dialog
+        open={openDeleteDialog}
         onClose={() => !loading.action && setOpenDeleteDialog(false)}
         PaperProps={{
-          sx: { borderRadius: 3 }
+          sx: { borderRadius: 3 },
         }}
         fullScreen={isMobile}
         TransitionComponent={isMobile ? Slide : Fade}
@@ -2890,10 +3995,7 @@ export default function ExpensesPage() {
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
-          <Alert 
-            severity="error" 
-            sx={{ mb: 2, borderRadius: 2 }}
-          >
+          <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
             This action cannot be undone.
           </Alert>
           {selectedExpense && (
@@ -2901,15 +4003,33 @@ export default function ExpensesPage() {
               <Typography variant="subtitle1" fontWeight="600">
                 {selectedExpense.title}
               </Typography>
-              <Typography variant="h6" fontWeight="700" sx={{ color: COLORS.primary.main, mt: 1 }}>
-                ₹{selectedExpense.amount?.toLocaleString()}
+              <Typography
+                variant="h6"
+                fontWeight="700"
+                sx={{
+                  color: COLORS.primary.main,
+                  mt: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                <CurrencyRupee sx={{ fontSize: 20 }} />
+                {selectedExpense.amount?.toLocaleString()}
               </Typography>
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 0, gap: 2, flexDirection: { xs: "column", sm: "row" } }}>
-          <Button 
-            onClick={() => setOpenDeleteDialog(false)} 
+        <DialogActions
+          sx={{
+            p: 3,
+            pt: 0,
+            gap: 2,
+            flexDirection: { xs: "column", sm: "row" },
+          }}
+        >
+          <Button
+            onClick={() => setOpenDeleteDialog(false)}
             disabled={loading.action}
             fullWidth={isMobile}
             variant="outlined"
@@ -2917,18 +4037,22 @@ export default function ExpensesPage() {
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleDelete} 
-            disabled={loading.action} 
+          <Button
+            onClick={handleDelete}
+            disabled={loading.action}
             variant="contained"
             fullWidth={isMobile}
-            sx={{ 
+            sx={{
               borderRadius: 2,
               bgcolor: COLORS.error.main,
               "&:hover": { bgcolor: COLORS.error.dark },
             }}
           >
-            {loading.action ? <CircularProgress size={24} sx={{ color: "white" }} /> : "Delete"}
+            {loading.action ? (
+              <CircularProgress size={24} sx={{ color: "white" }} />
+            ) : (
+              "Delete"
+            )}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2947,7 +4071,7 @@ export default function ExpensesPage() {
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2 }}
+          sx={{ width: "100%", borderRadius: 2, color: "#fff" }}
         >
           {snackbar.message}
         </Alert>

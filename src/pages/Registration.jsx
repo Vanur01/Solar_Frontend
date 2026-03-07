@@ -157,9 +157,6 @@ const ALLOWED_FILE_TYPES = [
 const REGISTRATION_STATUS_OPTIONS = [
   "pending",
   "completed",
-  "in_progress",
-  "rejected",
-  "approved",
 ];
 
 const REGISTRATION_STATUS_CONFIG = {
@@ -178,30 +175,6 @@ const REGISTRATION_STATUS_CONFIG = {
     label: "Completed",
     description: "Registration completed successfully",
     order: 2,
-  },
-  in_progress: {
-    bg: alpha(PRIMARY, 0.08),
-    color: PRIMARY,
-    icon: <AccessTime sx={{ fontSize: 16 }} />,
-    label: "In Progress",
-    description: "Registration is in progress",
-    order: 3,
-  },
-  rejected: {
-    bg: alpha(PRIMARY, 0.08),
-    color: PRIMARY,
-    icon: <Cancel sx={{ fontSize: 16 }} />,
-    label: "Rejected",
-    description: "Registration was rejected",
-    order: 4,
-  },
-  approved: {
-    bg: alpha(PRIMARY, 0.08),
-    color: PRIMARY,
-    icon: <Verified sx={{ fontSize: 16 }} />,
-    label: "Approved",
-    description: "Registration approved",
-    order: 5,
   },
 };
 

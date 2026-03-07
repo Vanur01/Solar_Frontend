@@ -1,8 +1,7 @@
 // services/attendanceService.js
 import { authFetch, handleResponse, createFormData } from '../utils/apiUtils';
 
-const API_BASE_URL = '
-https://backend.sunergytechsolar.com/api/v1';
+const API_BASE_URL = 'https://backend.sunergytechsolar.com/api/v1';
 
 class AttendanceService {
   constructor() {
