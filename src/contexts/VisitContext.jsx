@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useCallback, useRef } from 
 import { useAuth } from "./AuthContext";
 
 const VisitContext = createContext({});
-const API_BASE_URL = "http://localhost:9001/api/v1";
+const API_BASE_URL = "https://backend.sunergytechsolar.com/api/v1";
 
 export const useVisit = () => {
   const context = useContext(VisitContext);

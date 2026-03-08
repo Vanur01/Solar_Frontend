@@ -4,7 +4,7 @@ import io from "socket.io-client";
 import { useAuth } from "./AuthContext";
 
 const SocketContext = createContext({});
-const SOCKET_URL = "http://localhost:9001";
+const SOCKET_URL = "https://backend.sunergytechsolar.com";
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
