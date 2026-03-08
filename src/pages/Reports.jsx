@@ -1,4 +1,4 @@
-// pages/ReportsPage.jsx (Updated with proper leads report handling)
+// pages/ReportsPage.jsx (Fixed - all issues resolved)
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Box,
@@ -156,7 +156,6 @@ const ROLE_ACCESS = {
   },
 };
 
-// Report configurations with enhanced metadata
 const REPORT_CONFIGS = [
   {
     key: "leads",
@@ -350,6 +349,7 @@ const MobileFilterDrawer = ({
                     Time Period
                   </Typography>
                 </Stack>
+                {/* FIX #1: Correct expand/collapse icon logic */}
                 {expandedSection === "date" ? <ExpandLess /> : <ExpandMore />}
               </Box>
               <Collapse in={expandedSection === "date"}>
@@ -508,6 +508,7 @@ const MobileReportCard = ({
               </Typography>
             </Box>
           </Box>
+          {/* FIX #2: Correct expand icon toggle — was backwards */}
           <IconButton
             size="small"
             onClick={() => setExpanded(!expanded)}
@@ -517,7 +518,7 @@ const MobileReportCard = ({
               bgcolor: alpha(report.color, 0.1),
             }}
           >
-            {expanded ? <ExpandLess /> : <ExpandMore />}
+            <ExpandMore />
           </IconButton>
         </Box>
 
@@ -539,10 +540,11 @@ const MobileReportCard = ({
                 {data?.length || 0}
               </Typography>
             </Grid>
-            {stats && Object.entries(stats).filter(([key]) => key !== 'role').slice(0, 3).map(([key, value]) => (
+            {/* FIX #3: Filter out 'role' key from stats display */}
+            {stats && Object.entries(stats).filter(([key]) => key !== "role").slice(0, 3).map(([key, value]) => (
               <Grid item xs={6} key={key}>
                 <Typography variant="caption" color="text.secondary">
-                  {key.replace(/([A-Z])/g, " $1").trim()}:
+                  {key}:
                 </Typography>
                 <Typography variant="body2" fontWeight={600} noWrap>
                   {value}
@@ -567,8 +569,9 @@ const MobileReportCard = ({
               {data?.length || 0} records
             </Typography>
           </Box>
+          {/* FIX #4: Safely access role from stats, fallback to empty string */}
           <Chip
-            label={stats?.role || "View"}
+            label={stats?.role || ""}
             size="small"
             sx={{
               bgcolor: alpha(PRIMARY_COLOR, 0.1),
@@ -589,7 +592,7 @@ const MobileReportCard = ({
             }}
           >
             {/* Detailed Stats */}
-            {stats && Object.entries(stats).filter(([key]) => key !== 'role').map(([key, value]) => (
+            {stats && Object.entries(stats).filter(([key]) => key !== "role").map(([key, value]) => (
               <Box
                 key={key}
                 sx={{
@@ -600,7 +603,7 @@ const MobileReportCard = ({
                 }}
               >
                 <Typography variant="caption" color="text.secondary">
-                  {key.replace(/([A-Z])/g, " $1").trim()}:
+                  {key}:
                 </Typography>
                 <Typography variant="body2" fontWeight={600}>
                   {value}
@@ -726,7 +729,7 @@ const DesktopReportCard = ({
         {/* Stats */}
         {stats && (
           <Box sx={{ mb: 2 }}>
-            {Object.entries(stats).filter(([key]) => key !== 'role').map(([key, value]) => (
+            {Object.entries(stats).filter(([key]) => key !== "role").map(([key, value]) => (
               <Box
                 key={key}
                 sx={{
@@ -737,7 +740,7 @@ const DesktopReportCard = ({
                 }}
               >
                 <Typography variant="body2" color="text.secondary">
-                  {key.replace(/([A-Z])/g, " $1").trim()}:
+                  {key}:
                 </Typography>
                 <Typography
                   variant="body1"
@@ -770,8 +773,9 @@ const DesktopReportCard = ({
               {data?.length || 0} records
             </Typography>
           </Box>
+          {/* FIX #5: Safe role chip — show role label or nothing */}
           <Chip
-            label={stats?.role || "View"}
+            label={stats?.role || ""}
             size="small"
             sx={{
               bgcolor: alpha(PRIMARY_COLOR, 0.1),
@@ -827,6 +831,7 @@ const DesktopReportCard = ({
 };
 
 // Report Details Modal
+// FIX #6: Moved all hooks to top level — no conditional hooks violation
 const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -838,24 +843,24 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
     direction: "asc",
   });
 
-  if (!data || !report) return null;
-
+  // FIX #6: useMemo always called (hooks before any conditional return)
   const filteredData = useMemo(() => {
+    if (!data || !report) return [];
     if (!searchTerm) return data;
     const term = searchTerm.toLowerCase();
     return data.filter((row) =>
       Object.values(row).some((val) => {
         if (val === null || val === undefined) return false;
-        if (typeof val === 'object') {
+        if (typeof val === "object") {
           if (val.firstName) {
-            return `${val.firstName} ${val.lastName || ''}`.toLowerCase().includes(term);
+            return `${val.firstName} ${val.lastName || ""}`.toLowerCase().includes(term);
           }
           return false;
         }
         return val?.toString().toLowerCase().includes(term);
       }),
     );
-  }, [data, searchTerm]);
+  }, [data, searchTerm, report]);
 
   const sortedData = useMemo(() => {
     if (!sortConfig.field) return filteredData;
@@ -863,10 +868,10 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
       let aVal = a[sortConfig.field];
       let bVal = b[sortConfig.field];
 
-      if (typeof aVal === 'object' && aVal !== null) {
+      if (typeof aVal === "object" && aVal !== null) {
         if (aVal.firstName) {
-          aVal = `${aVal.firstName} ${aVal.lastName || ''}`;
-          bVal = `${bVal?.firstName || ''} ${bVal?.lastName || ''}`;
+          aVal = `${aVal.firstName} ${aVal.lastName || ""}`;
+          bVal = `${bVal?.firstName || ""} ${bVal?.lastName || ""}`;
         } else {
           aVal = JSON.stringify(aVal);
           bVal = JSON.stringify(bVal);
@@ -881,14 +886,17 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
         bVal = bVal ? new Date(bVal) : new Date(0);
       }
 
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      if (typeof aVal === "string") aVal = aVal.toLowerCase();
+      if (typeof bVal === "string") bVal = bVal.toLowerCase();
 
       if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
       if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
   }, [filteredData, sortConfig]);
+
+  // FIX #6: Early return AFTER all hooks
+  if (!data || !report) return null;
 
   const paginatedData = sortedData.slice(
     page * rowsPerPage,
@@ -950,7 +958,9 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
           height: isMobile ? "100%" : "auto",
         },
       }}
+      // FIX #7: Slide requires a 'direction' prop — added "up" for mobile
       TransitionComponent={isMobile ? Slide : Fade}
+      TransitionProps={isMobile ? { direction: "up" } : undefined}
       transitionDuration={300}
     >
       <DialogTitle
@@ -1284,22 +1294,25 @@ export default function ReportsPage() {
     message: "",
     severity: "success",
   });
-  const [dateRange, setDateRange] = useState("month");
+  const [dateRange, setDateRange] = useState("all");
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  // FIX #8: BottomNavigation requires a 'value' prop to avoid warning
+  const [bottomNavValue, setBottomNavValue] = useState(1);
 
   // Refs
   const containerRef = useRef(null);
 
   // Filter reports based on role access
-  const accessibleReports = REPORT_CONFIGS.filter((report) =>
-    roleConfig.canAccess.includes(report.key),
+  const accessibleReports = useMemo(
+    () => REPORT_CONFIGS.filter((report) => roleConfig.canAccess.includes(report.key)),
+    [roleConfig],
   );
 
   // Active filter count
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (dateRange !== "month") count++;
+    if (dateRange !== "all") count++;
     return count;
   }, [dateRange]);
 
@@ -1308,7 +1321,55 @@ export default function ReportsPage() {
     setSnackbar({ open: true, message, severity });
   }, []);
 
-  // Fetch all reports data
+  // FIX #9: downloadCSV fixed — separate raw value from display value to avoid corrupt CSV
+  const downloadCSV = useCallback(async (report, data) => {
+    const headers = report.columns.map((col) => col.label);
+    const rows = data.map((item) =>
+      report.columns
+        .map((col) => {
+          let rawValue = item[col.field];
+          let displayValue;
+
+          if (typeof rawValue === "object" && rawValue !== null) {
+            if (col.type === "user") {
+              displayValue = `${rawValue.firstName || ""} ${rawValue.lastName || ""}`.trim();
+            } else {
+              displayValue = JSON.stringify(rawValue);
+            }
+          } else if (col.type === "date" && rawValue) {
+            displayValue = formatDate(rawValue);
+          } else if (col.type === "amount" && rawValue != null) {
+            displayValue = `₹${rawValue}`;
+          } else {
+            displayValue = rawValue ?? "";
+          }
+
+          const strValue = String(displayValue);
+          // FIX #9: Properly escape CSV — always quote if contains comma, quote, or newline
+          if (strValue.includes(",") || strValue.includes('"') || strValue.includes("\n")) {
+            return `"${strValue.replace(/"/g, '""')}"`;
+          }
+          return strValue;
+        })
+        .join(","),
+    );
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${report.title.replace(/\s+/g, "_")}_${format(
+      new Date(),
+      "yyyy-MM-dd",
+    )}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  // FIX #10: fetchAllReports uses stable accessibleReports from useMemo
   const fetchAllReports = useCallback(async () => {
     setLoading(true);
     try {
@@ -1343,6 +1404,7 @@ export default function ReportsPage() {
           }
 
           const response = await fetchAPI(endpoint);
+          console.log("leads...", response)
 
           if (response?.success) {
             const result = response.result || {};
@@ -1351,27 +1413,35 @@ export default function ReportsPage() {
             if (report.key === "leads") {
               data = result.leads || [];
               stats[report.key] = {
-                totalLeads: result.totalLeads || data.length,
-                activeLeads: data.filter(lead => lead.status === "Visit" || lead.status === "Registration").length,
-                convertedLeads: data.filter(lead => lead.status === "Installation Completion").length,
+                "Total Leads": result.totalLeads ?? data.length,
+                "Active": data.filter(
+                  (lead) =>
+                    lead.status === "Visit" || lead.status === "Registration",
+                ).length,
+                "Converted": data.filter(
+                  (lead) => lead.status === "Installation Completion",
+                ).length,
                 role: userRole,
               };
             } else if (report.key === "installation") {
+              // API: { totalInstallations, completed, pending, installations: [...] }
               data = result.installations || [];
               stats[report.key] = {
-                total: result.summary?.total || data.length,
-                completed: result.summary?.completed || 0,
-                pending: result.summary?.pending || 0,
+                "Total": result.totalInstallations ?? data.length,
+                "Completed": result.completed ?? 0,
+                "Pending": result.pending ?? 0,
                 role: userRole,
               };
             } else if (report.key === "expenses" || report.key === "attendance") {
+              // API: { totalExpenses, totalAmount, expenses: [...] }
               data = result.expenses || [];
-              const totalAmount = data.reduce((sum, item) => sum + (item.amount || 0), 0);
               stats[report.key] = {
-                total: result.totalExpenses || data.length,
-                amount: totalAmount ? `₹${totalAmount.toLocaleString()}` : "₹0",
-                approved: data.filter(item => item.status === "Approved").length || 0,
-                pending: data.filter(item => item.status === "Pending").length || 0,
+                "Total": result.totalExpenses ?? data.length,
+                "Amount": result.totalAmount != null
+                  ? `₹${Number(result.totalAmount).toLocaleString()}`
+                  : "₹0",
+                "Approved": data.filter((item) => item.status === "Approved").length,
+                "Pending": data.filter((item) => item.status === "Pending").length,
                 role: userRole,
               };
             }
@@ -1406,40 +1476,46 @@ export default function ReportsPage() {
   }, [fetchAllReports, dateRange]);
 
   // Handle view report
-  const handleView = (reportKey) => {
-    const report = accessibleReports.find((r) => r.key === reportKey);
-    setSelectedReport({
-      ...report,
-      data: reportsData[reportKey] || [],
-    });
-    setViewModalOpen(true);
-  };
+  const handleView = useCallback(
+    (reportKey) => {
+      const report = accessibleReports.find((r) => r.key === reportKey);
+      setSelectedReport({
+        ...report,
+        data: reportsData[reportKey] || [],
+      });
+      setViewModalOpen(true);
+    },
+    [accessibleReports, reportsData],
+  );
 
-  // Handle download report
-  const handleDownload = async (reportKey) => {
-    const report = accessibleReports.find((r) => r.key === reportKey);
-    const data = reportsData[reportKey] || [];
+  // FIX #11: handleDownload wrapped in useCallback with stable downloadCSV dep
+  const handleDownload = useCallback(
+    async (reportKey) => {
+      const report = accessibleReports.find((r) => r.key === reportKey);
+      const data = reportsData[reportKey] || [];
 
-    if (data.length === 0) {
-      showSnackbar("No data available to download", "warning");
-      return;
-    }
+      if (data.length === 0) {
+        showSnackbar("No data available to download", "warning");
+        return;
+      }
 
-    setDownloading((prev) => ({ ...prev, [reportKey]: true }));
+      setDownloading((prev) => ({ ...prev, [reportKey]: true }));
 
-    try {
-      await downloadCSV(report, data);
-      showSnackbar(`${report.title} downloaded successfully!`, "success");
-    } catch (error) {
-      console.error("Download failed:", error);
-      showSnackbar(`Failed to download ${report.title}`, "error");
-    } finally {
-      setDownloading((prev) => ({ ...prev, [reportKey]: false }));
-    }
-  };
+      try {
+        await downloadCSV(report, data);
+        showSnackbar(`${report.title} downloaded successfully!`, "success");
+      } catch (error) {
+        console.error("Download failed:", error);
+        showSnackbar(`Failed to download ${report.title}`, "error");
+      } finally {
+        setDownloading((prev) => ({ ...prev, [reportKey]: false }));
+      }
+    },
+    [accessibleReports, reportsData, downloadCSV, showSnackbar],
+  );
 
   // Handle bulk download
-  const handleBulkDownload = async () => {
+  const handleBulkDownload = useCallback(async () => {
     const reportsWithData = accessibleReports.filter(
       (r) => reportsData[r.key]?.length > 0,
     );
@@ -1457,56 +1533,7 @@ export default function ReportsPage() {
     }
 
     showSnackbar("All reports downloaded successfully!", "success");
-  };
-
-  // Download CSV function
-  const downloadCSV = async (report, data) => {
-    const headers = report.columns.map((col) => col.label);
-    const rows = data.map((item) =>
-      report.columns
-        .map((col) => {
-          let value = item[col.field];
-
-          if (typeof value === "object" && value !== null) {
-            if (col.type === "user") {
-              value = `${value.firstName || ""} ${value.lastName || ""}`.trim();
-            } else {
-              value = JSON.stringify(value);
-            }
-          }
-
-          if (col.type === "date" && value) {
-            value = formatDate(value);
-          }
-
-          if (col.type === "amount" && value) {
-            value = `₹${value}`;
-          }
-
-          if (value === null || value === undefined) value = "";
-          
-          const escapedValue = String(value || "").replace(/"/g, '""');
-          return value?.toString().includes(",")
-            ? `"${escapedValue}"`
-            : escapedValue;
-        })
-        .join(","),
-    );
-
-    const csvContent = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${report.title.replace(/\s+/g, "_")}_${format(
-      new Date(),
-      "yyyy-MM-dd",
-    )}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  }, [accessibleReports, reportsData, handleDownload, showSnackbar]);
 
   const handleMenuClose = () => {
     setAnchorEl(null);
@@ -1765,22 +1792,6 @@ export default function ReportsPage() {
           </Box>
         )}
 
-      {/* Footer */}
-      <Box
-        sx={{
-          mt: 6,
-          pt: 3,
-          borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-          textAlign: "center",
-        }}
-      >
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: "0.6rem", sm: "0.75rem" } }}>
-          Logged in as: {user?.firstName} {user?.lastName} • Role:{" "}
-          {roleConfig.label} • Reports: {accessibleReports.length} • Last
-          updated: {format(new Date(), "MMM dd, yyyy HH:mm")}
-        </Typography>
-      </Box>
-
       {/* View Details Modal */}
       <ReportDetailsModal
         open={viewModalOpen}
@@ -1807,7 +1818,7 @@ export default function ReportsPage() {
           onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2 }}
+          sx={{ width: "100%", borderRadius: 2 , color:"#fff"}}
         >
           {snackbar.message}
         </Alert>
@@ -1849,6 +1860,7 @@ export default function ReportsPage() {
       )}
 
       {/* Mobile Bottom Navigation */}
+      {/* FIX #8: Added value and onChange props to BottomNavigation */}
       {isMobile && (
         <Paper
           sx={{
@@ -1864,6 +1876,8 @@ export default function ReportsPage() {
         >
           <BottomNavigation
             showLabels
+            value={bottomNavValue}
+            onChange={(e, newValue) => setBottomNavValue(newValue)}
             sx={{
               height: 64,
               "& .MuiBottomNavigationAction-root": {

@@ -1,5 +1,11 @@
 // pages/UserManagement.jsx (Updated with Mobile View)
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Box,
   Typography,
@@ -50,6 +56,7 @@ import {
   alpha,
   Skeleton,
   Divider,
+  LinearProgress,
 } from "@mui/material";
 import {
   Add,
@@ -87,6 +94,14 @@ import {
   ViewList,
   ViewModule,
   FiberManualRecord,
+  Key,
+  Warning,
+  ManageAccounts,
+  AssignmentInd,
+  Shield,
+  VerifiedUser,
+  PersonRemove,
+  ErrorOutline,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -147,6 +162,89 @@ const STATUS_CONFIG = {
     label: "Inactive",
   },
 };
+
+// ========== SHARED MODAL HEADER ==========
+const ModalHeader = ({ icon, title, subtitle, color = PRIMARY_COLOR, onClose, isMobile }) => (
+  <Box
+    sx={{
+      position: "relative",
+      background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)`,
+      px: { xs: 2.5, sm: 3.5 },
+      pt: { xs: 2.5, sm: 3 },
+      pb: { xs: 3, sm: 3.5 },
+      overflow: "hidden",
+      "&::before": {
+        content: '""',
+        position: "absolute",
+        top: -40,
+        right: -40,
+        width: 140,
+        height: 140,
+        borderRadius: "50%",
+        background: "rgba(255,255,255,0.08)",
+      },
+      "&::after": {
+        content: '""',
+        position: "absolute",
+        bottom: -20,
+        left: "30%",
+        width: 80,
+        height: 80,
+        borderRadius: "50%",
+        background: "rgba(255,255,255,0.05)",
+      },
+    }}
+  >
+    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative", zIndex: 1 }}>
+      <Stack direction="row" spacing={2} alignItems="center">
+        <Box
+          sx={{
+            width: { xs: 44, sm: 52 },
+            height: { xs: 44, sm: 52 },
+            borderRadius: 2.5,
+            bgcolor: "rgba(255,255,255,0.18)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid rgba(255,255,255,0.25)",
+            flexShrink: 0,
+          }}
+        >
+          {React.cloneElement(icon, { sx: { color: "#fff", fontSize: { xs: 22, sm: 26 } } })}
+        </Box>
+        <Box>
+          <Typography
+            variant="h6"
+            fontWeight={700}
+            color="#fff"
+            sx={{ fontSize: { xs: "1rem", sm: "1.15rem" }, lineHeight: 1.2 }}
+          >
+            {title}
+          </Typography>
+          {subtitle && (
+            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.78)", fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+      </Stack>
+      <IconButton
+        onClick={onClose}
+        size="small"
+        sx={{
+          color: "rgba(255,255,255,0.85)",
+          bgcolor: "rgba(255,255,255,0.12)",
+          "&:hover": { bgcolor: "rgba(255,255,255,0.22)" },
+          width: 32,
+          height: 32,
+        }}
+      >
+        <Close fontSize="small" />
+      </IconButton>
+    </Box>
+  </Box>
+);
 
 // ========== MOBILE FILTER DRAWER ==========
 const MobileFilterDrawer = ({
@@ -381,7 +479,9 @@ const MobileFilterDrawer = ({
                 onClick={() => toggleSection("role")}
               >
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <SupervisorAccount sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
+                  <SupervisorAccount
+                    sx={{ color: PRIMARY_COLOR, fontSize: 20 }}
+                  />
                   <Typography variant="subtitle2" fontWeight={600}>
                     Role
                   </Typography>
@@ -397,14 +497,20 @@ const MobileFilterDrawer = ({
                       displayEmpty
                     >
                       <MenuItem value="all">All Roles</MenuItem>
-                      {roleOptions.filter(opt => opt.value !== "all").map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            {option.icon}
-                            <span>{option.label}</span>
-                          </Stack>
-                        </MenuItem>
-                      ))}
+                      {roleOptions
+                        .filter((opt) => opt.value !== "all")
+                        .map((option) => (
+                          <MenuItem key={option.value} value={option.value}>
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1}
+                            >
+                              {option.icon}
+                              <span>{option.label}</span>
+                            </Stack>
+                          </MenuItem>
+                        ))}
                     </Select>
                   </FormControl>
                 </Box>
@@ -752,7 +858,7 @@ const MobileUserCard = ({
   const [expanded, setExpanded] = useState(false);
   const roleConfig = ROLE_CONFIG[user.role] || ROLE_CONFIG.TEAM;
   const statusConfig = STATUS_CONFIG[user.status] || STATUS_CONFIG.active;
-  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`;
+  const initials = `${user.firstName?.[0] || ""}${user.lastName?.[0] || ""}`;
 
   const canEdit = useMemo(() => {
     if (!currentUserRole || !user) return false;
@@ -890,7 +996,11 @@ const MobileUserCard = ({
         {/* Manager Info */}
         {user.supervisor && (
           <Box sx={{ mb: 1.5 }}>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              display="block"
+            >
               Manager
             </Typography>
             <Typography variant="body2">
@@ -919,9 +1029,7 @@ const MobileUserCard = ({
                   >
                     Zone
                   </Typography>
-                  <Typography variant="body2">
-                    {user.zone}
-                  </Typography>
+                  <Typography variant="body2">{user.zone}</Typography>
                 </Grid>
               )}
               <Grid item xs={6}>
@@ -933,7 +1041,9 @@ const MobileUserCard = ({
                   Created
                 </Typography>
                 <Typography variant="body2">
-                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}
+                  {user.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString()
+                    : "N/A"}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
@@ -945,7 +1055,9 @@ const MobileUserCard = ({
                   Last Updated
                 </Typography>
                 <Typography variant="body2">
-                  {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : "N/A"}
+                  {user.updatedAt
+                    ? new Date(user.updatedAt).toLocaleDateString()
+                    : "N/A"}
                 </Typography>
               </Grid>
             </Grid>
@@ -956,7 +1068,7 @@ const MobileUserCard = ({
                 <Button
                   size="small"
                   variant="contained"
-                  startIcon={<Edit sx={{ ml : 1}} />}
+                  startIcon={<Edit sx={{ ml: 1 }} />}
                   onClick={() => onEdit(user)}
                   sx={{
                     flex: 1,
@@ -964,32 +1076,37 @@ const MobileUserCard = ({
                     "&:hover": { bgcolor: SECONDARY_COLOR },
                     fontSize: "0.7rem",
                   }}
-                >
-                </Button>
+                ></Button>
               )}
 
               {canToggleStatus && (
                 <Button
                   size="small"
                   variant="outlined"
-                  startIcon={user.status === "active" ? <Lock sx={{ ml : 1}} /> : <LockOpen sx={{ ml : 1}} />}
+                  startIcon={
+                    user.status === "active" ? (
+                      <Lock sx={{ ml: 1 }} />
+                    ) : (
+                      <LockOpen sx={{ ml: 1 }} />
+                    )
+                  }
                   onClick={() => onToggleStatus(user)}
                   disabled={statusLoading[user._id]}
                   sx={{
                     flex: 1,
-                    borderColor: user.status === "active" ? "#f44336" : "#4caf50",
+                    borderColor:
+                      user.status === "active" ? "#f44336" : "#4caf50",
                     color: user.status === "active" ? "#f44336" : "#4caf50",
                     fontSize: "0.7rem",
                   }}
-                >
-                </Button>
+                ></Button>
               )}
 
               {canAssign && (
                 <Button
                   size="small"
                   variant="outlined"
-                  startIcon={<PersonAdd sx={{ ml : 1}} />}
+                  startIcon={<PersonAdd sx={{ ml: 1 }} />}
                   onClick={() => onAssign(user)}
                   sx={{
                     flex: 1,
@@ -997,15 +1114,14 @@ const MobileUserCard = ({
                     color: "#00bcd4",
                     fontSize: "0.7rem",
                   }}
-                >
-                </Button>
+                ></Button>
               )}
 
               {canViewPassword && (
                 <Button
                   size="small"
                   variant="outlined"
-                  startIcon={<Visibility sx={{ ml : 1}} />}
+                  startIcon={<Visibility sx={{ ml: 1 }} />}
                   onClick={() => onViewPassword(user)}
                   sx={{
                     flex: 1,
@@ -1013,30 +1129,28 @@ const MobileUserCard = ({
                     color: "#ff9800",
                     fontSize: "0.7rem",
                   }}
-                >
-                </Button>
+                ></Button>
               )}
             </Stack>
 
-              {canDelete && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  startIcon={<Delete />}
-                  onClick={() => onDelete(user)}
-                  sx={{
-                    flex: 1,
-                    borderColor: "#f44336",
-                    color: "#f44336",
-                    fontSize: "0.7rem",
-                    mt : 1
-                  }}
-                >
-                  Delete
-                </Button>
-              )}
-              
+            {canDelete && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                startIcon={<Delete />}
+                onClick={() => onDelete(user)}
+                sx={{
+                  flex: 1,
+                  borderColor: "#f44336",
+                  color: "#f44336",
+                  fontSize: "0.7rem",
+                  mt: 1,
+                }}
+              >
+                Delete
+              </Button>
+            )}
           </Box>
         </Collapse>
       </Box>
@@ -1134,8 +1248,17 @@ const EmptyState = ({ onClearFilters, hasFilters, canAddUser, onAddUser }) => (
   </Box>
 );
 
-// Edit User Modal Component
-const EditUserModal = ({ open, onClose, user, onSave, currentUserRole, currentUser }) => {
+// ============================
+// REDESIGNED EDIT USER MODAL
+// ============================
+const EditUserModal = ({
+  open,
+  onClose,
+  user,
+  onSave,
+  currentUserRole,
+  currentUser,
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { safeFetchAPI } = useAuth();
@@ -1286,6 +1409,24 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole, currentUs
     }
   };
 
+  const roleConfig = user ? ROLE_CONFIG[user.role] || ROLE_CONFIG.TEAM : null;
+
+  const fieldSx = {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: 2,
+      bgcolor: "#f8fafd",
+      "&:hover .MuiOutlinedInput-notchedOutline": {
+        borderColor: PRIMARY_COLOR,
+      },
+      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+        borderColor: PRIMARY_COLOR,
+      },
+    },
+    "& .MuiInputLabel-root.Mui-focused": {
+      color: PRIMARY_COLOR,
+    },
+  };
+
   return (
     <Dialog
       open={open}
@@ -1295,72 +1436,43 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole, currentUs
       fullScreen={isMobile}
       PaperProps={{
         sx: {
-          borderRadius: isMobile ? 0 : 4,
-          margin: isMobile ? 0 : 24,
+          borderRadius: isMobile ? 0 : 3,
+          margin: isMobile ? 0 : 3,
+          overflow: "hidden",
+          boxShadow: "0 24px 64px rgba(69,105,234,0.18)",
         },
       }}
       TransitionComponent={isMobile ? Slide : Fade}
       transitionDuration={300}
     >
-      <DialogTitle
-        sx={{
-          bgcolor: PRIMARY_COLOR,
-          color: "white",
-          pb: 2,
-          px: { xs: 2, sm: 3 },
-        }}
-      >
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <Box display="flex" alignItems="center" gap={2}>
-            <Avatar
-              sx={{
-                bgcolor: "white",
-                color: PRIMARY_COLOR,
-                width: { xs: 40, sm: 48 },
-                height: { xs: 40, sm: 48 },
-                fontWeight: 600,
-              }}
-            >
-              {user?.firstName?.[0] || "U"}
-            </Avatar>
-            <Box>
-              <Typography
-                variant="h6"
-                fontWeight={700}
-                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
-              >
-                Edit User
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  opacity: 0.9,
-                  fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                }}
-              >
-                {user?.firstName} {user?.lastName}
-              </Typography>
-            </Box>
-          </Box>
-          <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
-            <Close />
-          </IconButton>
-        </Stack>
-      </DialogTitle>
+      {/* Header */}
+      <ModalHeader
+        icon={<ManageAccounts />}
+        title="Edit User"
+        subtitle={user ? `${user.firstName} ${user.lastName} • ${roleConfig?.label}` : ""}
+        color={PRIMARY_COLOR}
+        onClose={onClose}
+        isMobile={isMobile}
+      />
 
-      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+      {loading && (
+        <LinearProgress sx={{ height: 3, bgcolor: alpha(PRIMARY_COLOR, 0.1), "& .MuiLinearProgress-bar": { bgcolor: PRIMARY_COLOR } }} />
+      )}
+
+      <DialogContent sx={{ py: 3, px: { xs: 2.5, sm: 3.5 }, bgcolor: "#fafbff" }}>
         {errors.submit && (
-          <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2.5, borderRadius: 2, border: `1px solid ${alpha("#f44336", 0.2)}` }}
+            icon={<ErrorOutline />}
+          >
             {errors.submit}
           </Alert>
         )}
 
-        <Stack spacing={3} sx={{ mt: 1 }}>
-          <Grid container spacing={isMobile ? 2 : 3}>
+        <Stack spacing={2.5}>
+          {/* Name Row */}
+          <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -1371,11 +1483,7 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole, currentUs
                 helperText={errors.firstName}
                 required
                 size={isMobile ? "small" : "medium"}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                  },
-                }}
+                sx={fieldSx}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1388,122 +1496,154 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole, currentUs
                 helperText={errors.lastName}
                 required
                 size={isMobile ? "small" : "medium"}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                  },
-                }}
+                sx={fieldSx}
               />
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange("email")}
-                error={!!errors.email}
-                helperText={errors.email}
-                required
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={formData.phoneNumber}
-                onChange={handleChange("phoneNumber")}
-                error={!!errors.phoneNumber}
-                helperText={errors.phoneNumber}
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-            </Grid>
-
-            {canEditRole && (
-              <Grid item xs={12}>
-                <FormControl fullWidth size={isMobile ? "small" : "medium"} error={!!errors.role} required>
-                  <InputLabel>Role</InputLabel>
-                  <Select
-                    value={formData.role}
-                    onChange={handleChange("role")}
-                    label="Role"
-                    sx={{ borderRadius: 2 }}
-                  >
-                    {getAvailableRoles.map((role) => (
-                      <MenuItem key={role.value} value={role.value}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          {role.icon}
-                          <Typography>{role.label}</Typography>
-                        </Stack>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.role && (
-                    <Typography variant="caption" color="error">
-                      {errors.role}
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
-            )}
           </Grid>
 
+          {/* Email */}
+          <TextField
+            fullWidth
+            label="Email Address"
+            type="email"
+            value={formData.email}
+            onChange={handleChange("email")}
+            error={!!errors.email}
+            helperText={errors.email}
+            required
+            size={isMobile ? "small" : "medium"}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Email sx={{ color: alpha(PRIMARY_COLOR, 0.5), fontSize: 20 }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={fieldSx}
+          />
+
+          {/* Phone */}
+          <TextField
+            fullWidth
+            label="Phone Number"
+            value={formData.phoneNumber}
+            onChange={handleChange("phoneNumber")}
+            error={!!errors.phoneNumber}
+            helperText={errors.phoneNumber}
+            size={isMobile ? "small" : "medium"}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Phone sx={{ color: alpha(PRIMARY_COLOR, 0.5), fontSize: 20 }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={fieldSx}
+          />
+
+          {/* Role */}
+          {canEditRole && (
+            <FormControl
+              fullWidth
+              size={isMobile ? "small" : "medium"}
+              error={!!errors.role}
+              required
+            >
+              <InputLabel sx={{ "&.Mui-focused": { color: PRIMARY_COLOR } }}>Role</InputLabel>
+              <Select
+                value={formData.role}
+                onChange={handleChange("role")}
+                label="Role"
+                sx={{
+                  borderRadius: 2,
+                  bgcolor: "#f8fafd",
+                  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: PRIMARY_COLOR },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: PRIMARY_COLOR },
+                }}
+              >
+                {getAvailableRoles.map((role) => (
+                  <MenuItem key={role.value} value={role.value}>
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                      <Box sx={{ color: PRIMARY_COLOR, display: "flex" }}>{role.icon}</Box>
+                      <Typography>{role.label}</Typography>
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+              {errors.role && (
+                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                  {errors.role}
+                </Typography>
+              )}
+            </FormControl>
+          )}
+
+          {/* Status */}
           {canEditStatus && (
-            <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Account Status
-              </Typography>
-              <FormControl component="fieldset" fullWidth>
-                <RadioGroup
-                  value={formData.status}
-                  onChange={handleChange("status")}
-                >
-                  <FormControlLabel
-                    value="active"
-                    control={<Radio />}
-                    label={
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <CheckCircle sx={{ color: STATUS_CONFIG.active.color }} />
-                        <Typography>Active</Typography>
-                      </Stack>
-                    }
-                  />
-                  <FormControlLabel
-                    value="inactive"
-                    control={<Radio />}
-                    label={
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <Block sx={{ color: STATUS_CONFIG.inactive.color }} />
-                        <Typography>Inactive</Typography>
-                      </Stack>
-                    }
-                  />
-                </RadioGroup>
-              </FormControl>
-            </Paper>
+            <Box
+              sx={{
+                borderRadius: 2.5,
+                border: `1.5px solid ${alpha(PRIMARY_COLOR, 0.15)}`,
+                bgcolor: "#f8fafd",
+                overflow: "hidden",
+              }}
+            >
+              <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} color="text.primary" gutterBottom>
+                  Account Status
+                </Typography>
+              </Box>
+              <Grid container sx={{ px: 1.5, pb: 1.5 }} spacing={1.5}>
+                {["active", "inactive"].map((statusVal) => {
+                  const sc = STATUS_CONFIG[statusVal];
+                  const selected = formData.status === statusVal;
+                  return (
+                    <Grid item xs={6} key={statusVal}>
+                      <Box
+                        onClick={() => setFormData(p => ({ ...p, status: statusVal }))}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: `2px solid ${selected ? sc.color : alpha(sc.color, 0.2)}`,
+                          bgcolor: selected ? sc.bg : "transparent",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          "&:hover": {
+                            bgcolor: sc.bg,
+                            borderColor: sc.color,
+                          },
+                        }}
+                      >
+                        <Box sx={{ color: sc.color, display: "flex" }}>{sc.icon}</Box>
+                        <Typography variant="body2" fontWeight={selected ? 700 : 500} color={selected ? sc.color : "text.primary"}>
+                          {sc.label}
+                        </Typography>
+                        {selected && (
+                          <Box sx={{ ml: "auto", color: sc.color, display: "flex" }}>
+                            <Check fontSize="small" />
+                          </Box>
+                        )}
+                      </Box>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
           )}
         </Stack>
       </DialogContent>
 
       <DialogActions
         sx={{
-          p: { xs: 2, sm: 3 },
-          pt: { xs: 1.5, sm: 2 },
-          borderTop: 1,
-          borderColor: "divider",
+          px: { xs: 2.5, sm: 3.5 },
+          py: 2.5,
+          borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.08)}`,
+          bgcolor: "#fff",
           gap: 1.5,
-          flexDirection: { xs: "column", sm: "row" },
+          flexDirection: { xs: "column-reverse", sm: "row" },
         }}
       >
         <Button
@@ -1513,8 +1653,11 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole, currentUs
           disabled={loading}
           sx={{
             borderRadius: 2,
-            borderColor: PRIMARY_COLOR,
+            borderColor: alpha(PRIMARY_COLOR, 0.35),
             color: PRIMARY_COLOR,
+            fontWeight: 600,
+            px: 3,
+            "&:hover": { borderColor: PRIMARY_COLOR, bgcolor: alpha(PRIMARY_COLOR, 0.04) },
           }}
         >
           Cancel
@@ -1524,11 +1667,17 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole, currentUs
           variant="contained"
           fullWidth={isMobile}
           disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : <Check />}
+          startIcon={loading ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : <Check />}
           sx={{
             bgcolor: PRIMARY_COLOR,
             borderRadius: 2,
-            "&:hover": { bgcolor: SECONDARY_COLOR },
+            fontWeight: 700,
+            px: 3,
+            boxShadow: `0 4px 14px ${alpha(PRIMARY_COLOR, 0.4)}`,
+            "&:hover": {
+              bgcolor: SECONDARY_COLOR,
+              boxShadow: `0 6px 20px ${alpha(PRIMARY_COLOR, 0.5)}`,
+            },
           }}
         >
           {loading ? "Saving..." : "Save Changes"}
@@ -1538,23 +1687,26 @@ const EditUserModal = ({ open, onClose, user, onSave, currentUserRole, currentUs
   );
 };
 
-// Password View Dialog
+// ============================
+// REDESIGNED PASSWORD VIEW DIALOG
+// ============================
 const PasswordViewDialog = ({ open, onClose, user, fetchAPI }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [copied, setCopied] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     if (open && user) {
+      setRevealed(false);
       fetchPassword();
     }
   }, [open, user]);
 
   const fetchPassword = async () => {
     if (!user?._id) return;
-
     setLoading(true);
     try {
       const data = await fetchAPI(`/user/getViewPassword/${user._id}`);
@@ -1564,7 +1716,6 @@ const PasswordViewDialog = ({ open, onClose, user, fetchAPI }) => {
         setPassword("Unable to fetch password");
       }
     } catch (error) {
-      console.error("Error fetching password:", error);
       setPassword("Error loading password");
     } finally {
       setLoading(false);
@@ -1572,16 +1723,432 @@ const PasswordViewDialog = ({ open, onClose, user, fetchAPI }) => {
   };
 
   const handleCopyPassword = () => {
-    if (
-      password &&
-      !password.includes("Unable") &&
-      !password.includes("Error")
-    ) {
+    if (password && !password.includes("Unable") && !password.includes("Error")) {
       navigator.clipboard.writeText(password);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const isError = password.includes("Unable") || password.includes("Error");
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 3,
+          margin: isMobile ? 0 : 3,
+          overflow: "hidden",
+          boxShadow: "0 24px 64px rgba(255,152,0,0.15)",
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      {/* Header */}
+      <ModalHeader
+        icon={<Key />}
+        title="View Password"
+        subtitle={user ? `${user.firstName} ${user.lastName}` : ""}
+        color="#e65100"
+        onClose={onClose}
+        isMobile={isMobile}
+      />
+
+      <DialogContent sx={{ py: 3, px: { xs: 2.5, sm: 3 }, bgcolor: "#fffaf5" }}>
+        <Stack spacing={2.5}>
+          {/* Security notice */}
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1.5,
+              p: 2,
+              borderRadius: 2,
+              bgcolor: alpha("#ff9800", 0.08),
+              border: `1px solid ${alpha("#ff9800", 0.2)}`,
+            }}
+          >
+            <Shield sx={{ color: "#e65100", fontSize: 20, flexShrink: 0, mt: 0.1 }} />
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700} color="#e65100">
+                Confidential Access
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Visible to Head Office only. Handle with care and do not share.
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Password display */}
+          {loading ? (
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                py: 4,
+                gap: 1.5,
+              }}
+            >
+              <CircularProgress size={32} sx={{ color: "#e65100" }} />
+              <Typography variant="body2" color="text.secondary">
+                Fetching credentials...
+              </Typography>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                borderRadius: 2.5,
+                border: `1.5px solid ${isError ? alpha("#f44336", 0.3) : alpha("#ff9800", 0.25)}`,
+                bgcolor: isError ? alpha("#f44336", 0.04) : "#fff",
+                overflow: "hidden",
+              }}
+            >
+              {/* Label bar */}
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1,
+                  bgcolor: isError ? alpha("#f44336", 0.07) : alpha("#ff9800", 0.07),
+                  borderBottom: `1px solid ${isError ? alpha("#f44336", 0.15) : alpha("#ff9800", 0.15)}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Typography variant="caption" fontWeight={700} color={isError ? "#f44336" : "#e65100"} letterSpacing={0.5}>
+                  {isError ? "ERROR" : "PASSWORD"}
+                </Typography>
+                {!isError && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setRevealed(v => !v)}
+                    startIcon={<Visibility sx={{ fontSize: 14 }} />}
+                    sx={{ color: "#e65100", fontSize: "0.7rem", py: 0, minWidth: 0 }}
+                  >
+                    {revealed ? "Hide" : "Reveal"}
+                  </Button>
+                )}
+              </Box>
+
+              {/* Password value */}
+              <Box sx={{ px: 2.5, py: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1.5 }}>
+                <Typography
+                  sx={{
+                    fontFamily: "monospace",
+                    fontSize: { xs: "1rem", sm: "1.15rem" },
+                    fontWeight: 600,
+                    letterSpacing: revealed ? "0.05em" : "0.2em",
+                    color: isError ? "#f44336" : "text.primary",
+                    filter: revealed || isError ? "none" : "blur(5px)",
+                    userSelect: revealed ? "auto" : "none",
+                    transition: "filter 0.3s",
+                    wordBreak: "break-all",
+                    flex: 1,
+                  }}
+                >
+                  {password}
+                </Typography>
+                {!isError && (
+                  <Tooltip title={copied ? "Copied!" : "Copy password"}>
+                    <IconButton
+                      size="small"
+                      onClick={handleCopyPassword}
+                      sx={{
+                        color: copied ? "#4caf50" : "#e65100",
+                        bgcolor: copied ? alpha("#4caf50", 0.1) : alpha("#ff9800", 0.1),
+                        transition: "all 0.2s",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {copied ? <Check fontSize="small" /> : <ContentCopy fontSize="small" />}
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            </Box>
+          )}
+
+          {/* User info card */}
+          {user && (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: alpha(PRIMARY_COLOR, 0.04),
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+              }}
+            >
+              <Avatar sx={{ bgcolor: PRIMARY_COLOR, width: 36, height: 36, fontSize: "0.875rem", fontWeight: 700 }}>
+                {user.firstName?.[0]}{user.lastName?.[0]}
+              </Avatar>
+              <Box>
+                <Typography variant="body2" fontWeight={600}>
+                  {user.firstName} {user.lastName}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {user.email}
+                </Typography>
+              </Box>
+              <Box sx={{ ml: "auto" }}>
+                <Chip
+                  label={ROLE_CONFIG[user.role]?.label || user.role}
+                  size="small"
+                  sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.1), color: PRIMARY_COLOR, fontWeight: 600, fontSize: "0.65rem" }}
+                />
+              </Box>
+            </Box>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          px: { xs: 2.5, sm: 3 },
+          py: 2.5,
+          borderTop: `1px solid ${alpha("#ff9800", 0.12)}`,
+          bgcolor: "#fff",
+        }}
+      >
+        <Button
+          onClick={onClose}
+          variant="contained"
+          fullWidth
+          sx={{
+            bgcolor: "#e65100",
+            borderRadius: 2,
+            fontWeight: 700,
+            boxShadow: `0 4px 14px ${alpha("#ff9800", 0.35)}`,
+            "&:hover": { bgcolor: "#bf360c" },
+          }}
+        >
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ============================
+// REDESIGNED DELETE DIALOG
+// ============================
+const DeleteUserDialog = ({ open, onClose, user, onConfirm }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [confirming, setConfirming] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+
+  const expectedText = user?.firstName || "";
+  const isConfirmed = confirmText.toLowerCase() === expectedText.toLowerCase();
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    await onConfirm();
+    setConfirming(false);
+    setConfirmText("");
+  };
+
+  const handleClose = () => {
+    setConfirmText("");
+    onClose();
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="xs"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 3,
+          margin: isMobile ? 0 : 3,
+          overflow: "hidden",
+          boxShadow: "0 24px 64px rgba(244,67,54,0.18)",
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      {/* Header */}
+      <ModalHeader
+        icon={<PersonRemove />}
+        title="Delete User"
+        subtitle="This action is permanent and cannot be undone"
+        color="#c62828"
+        onClose={handleClose}
+        isMobile={isMobile}
+      />
+
+      <DialogContent sx={{ py: 3, px: { xs: 2.5, sm: 3 }, bgcolor: "#fff9f9" }}>
+        {user && (
+          <Stack spacing={2.5}>
+            {/* Warning banner */}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1.5,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: alpha("#f44336", 0.06),
+                border: `1px solid ${alpha("#f44336", 0.2)}`,
+              }}
+            >
+              <ErrorOutline sx={{ color: "#c62828", fontSize: 20, flexShrink: 0, mt: 0.1 }} />
+              <Typography variant="body2" color="#c62828" fontWeight={500}>
+                All data associated with this account will be permanently erased.
+              </Typography>
+            </Box>
+
+            {/* User identity card */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2.5,
+                border: `1.5px solid ${alpha("#f44336", 0.2)}`,
+                bgcolor: "#fff",
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
+              <Avatar
+                sx={{
+                  bgcolor: alpha("#f44336", 0.12),
+                  color: "#c62828",
+                  width: 52,
+                  height: 52,
+                  fontWeight: 700,
+                  fontSize: "1.1rem",
+                }}
+              >
+                {user.firstName?.[0]}{user.lastName?.[0]}
+              </Avatar>
+              <Box flex={1}>
+                <Typography fontWeight={700} variant="subtitle1">
+                  {user.firstName} {user.lastName}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {user.email}
+                </Typography>
+                <Chip
+                  label={ROLE_CONFIG[user.role]?.label || user.role}
+                  size="small"
+                  sx={{ mt: 0.5, bgcolor: alpha(PRIMARY_COLOR, 0.1), color: PRIMARY_COLOR, fontWeight: 600, fontSize: "0.65rem", height: 20 }}
+                />
+              </Box>
+            </Box>
+
+            {/* Confirm input */}
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Type <strong style={{ color: "#c62828" }}>{expectedText}</strong> to confirm deletion:
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder={`Type "${expectedText}" to confirm`}
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                error={confirmText.length > 0 && !isConfirmed}
+                helperText={confirmText.length > 0 && !isConfirmed ? "Name doesn't match" : ""}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: 2,
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: isConfirmed ? "#4caf50" : "#f44336",
+                    },
+                  },
+                }}
+                InputProps={{
+                  endAdornment: isConfirmed ? (
+                    <InputAdornment position="end">
+                      <Check sx={{ color: "#4caf50" }} />
+                    </InputAdornment>
+                  ) : null,
+                }}
+              />
+            </Box>
+          </Stack>
+        )}
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          px: { xs: 2.5, sm: 3 },
+          py: 2.5,
+          borderTop: `1px solid ${alpha("#f44336", 0.1)}`,
+          bgcolor: "#fff",
+          gap: 1.5,
+          flexDirection: { xs: "column-reverse", sm: "row" },
+        }}
+      >
+        <Button
+          onClick={handleClose}
+          variant="outlined"
+          fullWidth={isMobile}
+          disabled={confirming}
+          sx={{
+            borderRadius: 2,
+            borderColor: alpha("#f44336", 0.35),
+            color: "#c62828",
+            fontWeight: 600,
+            px: 3,
+            "&:hover": { borderColor: "#f44336", bgcolor: alpha("#f44336", 0.04) },
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleConfirm}
+          variant="contained"
+          fullWidth={isMobile}
+          disabled={!isConfirmed || confirming}
+          startIcon={confirming ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : <Delete />}
+          sx={{
+            bgcolor: "#c62828",
+            borderRadius: 2,
+            fontWeight: 700,
+            px: 3,
+            boxShadow: isConfirmed ? `0 4px 14px ${alpha("#f44336", 0.4)}` : "none",
+            "&:hover": { bgcolor: "#b71c1c" },
+            "&.Mui-disabled": { bgcolor: alpha("#f44336", 0.3), color: "#fff" },
+          }}
+        >
+          {confirming ? "Deleting..." : "Delete User"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ============================
+// REDESIGNED ASSIGN MANAGER DIALOG
+// ============================
+const AssignManagerDialog = ({
+  open,
+  onClose,
+  userToAssign,
+  managers,
+  selectedManager,
+  setSelectedManager,
+  onAssign,
+  assignLoading,
+  userRole,
+  currentUser,
+}) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
     <Dialog
@@ -1592,145 +2159,205 @@ const PasswordViewDialog = ({ open, onClose, user, fetchAPI }) => {
       fullScreen={isMobile}
       PaperProps={{
         sx: {
-          borderRadius: isMobile ? 0 : 4,
-          margin: isMobile ? 0 : 24,
+          borderRadius: isMobile ? 0 : 3,
+          margin: isMobile ? 0 : 3,
+          overflow: "hidden",
+          boxShadow: "0 24px 64px rgba(0,188,212,0.15)",
         },
       }}
       TransitionComponent={isMobile ? Slide : Fade}
       transitionDuration={300}
     >
-      <DialogTitle
-        sx={{
-          bgcolor: PRIMARY_COLOR,
-          color: "white",
-          pb: 2,
-          px: { xs: 2, sm: 3 },
-        }}
-      >
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <Box display="flex" alignItems="center" gap={2}>
-            <Avatar
+      {/* Header */}
+      <ModalHeader
+        icon={<AssignmentInd />}
+        title="Assign Manager"
+        subtitle={userToAssign ? `Assigning ${userToAssign.firstName} ${userToAssign.lastName}` : ""}
+        color="#00838f"
+        onClose={onClose}
+        isMobile={isMobile}
+      />
+
+      <DialogContent sx={{ py: 3, px: { xs: 2.5, sm: 3.5 }, bgcolor: "#f5fdfe" }}>
+        {userToAssign && (
+          <Stack spacing={3}>
+            {/* User being assigned */}
+            <Box
               sx={{
-                bgcolor: "white",
-                color: PRIMARY_COLOR,
-                width: { xs: 40, sm: 48 },
-                height: { xs: 40, sm: 48 },
+                p: 2,
+                borderRadius: 2.5,
+                border: `1.5px solid ${alpha("#00bcd4", 0.2)}`,
+                bgcolor: "#fff",
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
               }}
             >
-              {user?.firstName?.[0] || "U"}
-            </Avatar>
-            <Box>
-              <Typography
-                variant="h6"
-                fontWeight={700}
-                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
-              >
-                View Password
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  opacity: 0.9,
-                  fontSize: { xs: "0.7rem", sm: "0.75rem" },
-                }}
-              >
-                {user?.firstName} {user?.lastName}
-              </Typography>
+              <Avatar sx={{ bgcolor: alpha("#00bcd4", 0.15), color: "#00838f", width: 48, height: 48, fontWeight: 700 }}>
+                {userToAssign.firstName?.[0]}{userToAssign.lastName?.[0]}
+              </Avatar>
+              <Box flex={1}>
+                <Typography fontWeight={700}>
+                  {userToAssign.firstName} {userToAssign.lastName}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {ROLE_CONFIG[userToAssign.role]?.label} · {userToAssign.email}
+                </Typography>
+              </Box>
+              <Chip
+                label="Unassigned"
+                size="small"
+                sx={{ bgcolor: alpha("#ff9800", 0.1), color: "#e65100", fontWeight: 600, fontSize: "0.65rem" }}
+              />
             </Box>
-          </Box>
-          <IconButton onClick={onClose} size="small" sx={{ color: "white" }}>
-            <Close />
-          </IconButton>
-        </Stack>
-      </DialogTitle>
 
-      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
-        <Stack spacing={3}>
-          <Alert severity="warning" sx={{ borderRadius: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600}>
-              Security Notice
-            </Typography>
-            <Typography variant="body2">
-              This password is only visible to Head Office. Please handle
-              securely.
-            </Typography>
-          </Alert>
-
-          {loading ? (
-            <Stack alignItems="center" spacing={2} py={3}>
-              <CircularProgress />
-              <Typography variant="body2" color="text.secondary">
-                Loading password...
+            {/* Manager selection */}
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700} color="text.primary" sx={{ mb: 1.5 }}>
+                Select a Manager
               </Typography>
-            </Stack>
-          ) : (
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 3,
-                position: "relative",
-                bgcolor: "grey.50",
-                borderRadius: 2,
-              }}
-            >
-              <Typography
-                variant="h6"
+
+              {managers.length === 0 ? (
+                <Box
+                  sx={{
+                    p: 3,
+                    borderRadius: 2,
+                    border: `1.5px dashed ${alpha("#00bcd4", 0.3)}`,
+                    textAlign: "center",
+                  }}
+                >
+                  <People sx={{ color: alpha("#00bcd4", 0.4), fontSize: 36, mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    No active managers found
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled">
+                    Ensure there are active ZSM or ASM users
+                  </Typography>
+                </Box>
+              ) : (
+                <Stack spacing={1}>
+                  {managers.map((manager) => {
+                    const selected = selectedManager === manager._id;
+                    const rc = ROLE_CONFIG[manager.role] || ROLE_CONFIG.TEAM;
+                    return (
+                      <Box
+                        key={manager._id}
+                        onClick={() => setSelectedManager(manager._id)}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: `2px solid ${selected ? "#00bcd4" : alpha("#00bcd4", 0.15)}`,
+                          bgcolor: selected ? alpha("#00bcd4", 0.06) : "#fff",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1.5,
+                          "&:hover": {
+                            bgcolor: alpha("#00bcd4", 0.05),
+                            borderColor: alpha("#00bcd4", 0.5),
+                          },
+                        }}
+                      >
+                        <Avatar sx={{ bgcolor: rc.color, width: 38, height: 38, fontWeight: 700, fontSize: "0.875rem" }}>
+                          {manager.firstName?.[0]}{manager.lastName?.[0]}
+                        </Avatar>
+                        <Box flex={1}>
+                          <Typography variant="body2" fontWeight={selected ? 700 : 500}>
+                            {manager.firstName} {manager.lastName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {rc.label}
+                          </Typography>
+                        </Box>
+                        <Box
+                          sx={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: "50%",
+                            border: `2px solid ${selected ? "#00bcd4" : alpha("#00bcd4", 0.3)}`,
+                            bgcolor: selected ? "#00bcd4" : "transparent",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          {selected && <Check sx={{ fontSize: 14, color: "#fff" }} />}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              )}
+            </Box>
+
+            {userRole === "ASM" && (
+              <Box
                 sx={{
-                  fontFamily: "monospace",
-                  letterSpacing: "0.1em",
-                  textAlign: "center",
-                  wordBreak: "break-all",
-                  color: "text.primary",
-                  fontWeight: 600,
-                  fontSize: { xs: "1rem", sm: "1.25rem" },
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: alpha("#00bcd4", 0.06),
+                  border: `1px solid ${alpha("#00bcd4", 0.2)}`,
+                  display: "flex",
+                  gap: 1,
+                  alignItems: "flex-start",
                 }}
               >
-                {password}
-              </Typography>
-              {!password.includes("Unable") &&
-                !password.includes("Error") && (
-                  <IconButton
-                    onClick={handleCopyPassword}
-                    size="small"
-                    sx={{
-                      position: "absolute",
-                      top: 12,
-                      right: 12,
-                      color: copied ? "success.main" : PRIMARY_COLOR,
-                      bgcolor: "background.paper",
-                    }}
-                  >
-                    <ContentCopy fontSize="small" />
-                  </IconButton>
-                )}
-            </Paper>
-          )}
-        </Stack>
+                <VerifiedUser sx={{ color: "#00838f", fontSize: 18, flexShrink: 0, mt: 0.1 }} />
+                <Typography variant="caption" color="#00838f">
+                  As an ASM, you can only assign team members to yourself.
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        )}
       </DialogContent>
 
       <DialogActions
         sx={{
-          p: { xs: 2, sm: 3 },
-          pt: { xs: 1.5, sm: 2 },
-          borderTop: 1,
-          borderColor: "divider",
+          px: { xs: 2.5, sm: 3.5 },
+          py: 2.5,
+          borderTop: `1px solid ${alpha("#00bcd4", 0.12)}`,
+          bgcolor: "#fff",
+          gap: 1.5,
+          flexDirection: { xs: "column-reverse", sm: "row" },
         }}
       >
         <Button
           onClick={onClose}
-          variant="contained"
+          variant="outlined"
           fullWidth={isMobile}
+          disabled={assignLoading}
           sx={{
             borderRadius: 2,
-            bgcolor: PRIMARY_COLOR,
-            "&:hover": { bgcolor: SECONDARY_COLOR },
+            borderColor: alpha("#00bcd4", 0.4),
+            color: "#00838f",
+            fontWeight: 600,
+            px: 3,
+            "&:hover": { borderColor: "#00bcd4", bgcolor: alpha("#00bcd4", 0.04) },
           }}
         >
-          Close
+          Cancel
+        </Button>
+        <Button
+          onClick={onAssign}
+          variant="contained"
+          fullWidth={isMobile}
+          disabled={!selectedManager || assignLoading || managers.length === 0}
+          startIcon={assignLoading ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : <AssignmentInd />}
+          sx={{
+            bgcolor: "#00838f",
+            borderRadius: 2,
+            fontWeight: 700,
+            px: 3,
+            boxShadow: `0 4px 14px ${alpha("#00bcd4", 0.35)}`,
+            "&:hover": { bgcolor: "#006064" },
+            "&.Mui-disabled": { bgcolor: alpha("#00bcd4", 0.3), color: "#fff" },
+          }}
+        >
+          {assignLoading ? "Assigning..." : "Assign Manager"}
         </Button>
       </DialogActions>
     </Dialog>
@@ -1908,7 +2535,6 @@ const UserManagement = () => {
       let allManagers = [];
 
       if (userRole === "ASM") {
-        // ASM can only assign to themselves
         const params = new URLSearchParams({
           page: "1",
           limit: "100",
@@ -1921,7 +2547,6 @@ const UserManagement = () => {
           allManagers = data.result?.users || [];
         }
       } else {
-        // Fetch ZSM managers
         const zsmParams = new URLSearchParams({
           page: "1",
           limit: "100",
@@ -1935,7 +2560,6 @@ const UserManagement = () => {
           allManagers = [...(zsmData.result?.users || [])];
         }
 
-        // Fetch ASM managers if needed
         if (userRole === "Head_office") {
           const asmParams = new URLSearchParams({
             page: "1",
@@ -1952,7 +2576,6 @@ const UserManagement = () => {
         }
       }
 
-      // Filter active managers and remove duplicates
       const uniqueManagers = allManagers
         .filter(
           (manager) =>
@@ -2005,7 +2628,6 @@ const UserManagement = () => {
       filtered = filtered.filter((user) => user.status === statusFilter);
     }
 
-    // Apply sorting
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         let aVal = a[sortConfig.key];
@@ -2515,7 +3137,7 @@ const UserManagement = () => {
                   )}
                   {roleFilter !== "all" && (
                     <Chip
-                      label={`Role: ${roleOptions.find(opt => opt.value === roleFilter)?.label || roleFilter}`}
+                      label={`Role: ${roleOptions.find((opt) => opt.value === roleFilter)?.label || roleFilter}`}
                       size="small"
                       onDelete={() => setRoleFilter("all")}
                       sx={{
@@ -2978,281 +3600,34 @@ const UserManagement = () => {
         fetchAPI={safeFetchAPI}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
+      {/* Delete Confirmation Dialog — now uses redesigned component */}
+      <DeleteUserDialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{
-          sx: {
-            borderRadius: isMobile ? 0 : 4,
-            margin: isMobile ? 0 : 24,
-          },
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setUserToDelete(null);
         }}
-        TransitionComponent={isMobile ? Slide : Fade}
-        transitionDuration={300}
-      >
-        <DialogTitle sx={{ bgcolor: "#f44336", color: "white", px: { xs: 2, sm: 3 } }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography variant="h6" fontWeight="700">
-              Delete User
-            </Typography>
-            <IconButton onClick={() => setDeleteDialogOpen(false)} size="small" sx={{ color: "white" }}>
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
-          {userToDelete && (
-            <Stack spacing={3}>
-              <Alert severity="error" sx={{ borderRadius: 2 }}>
-                <Typography fontWeight={600}>
-                  Warning: This action cannot be undone
-                </Typography>
-                <Typography variant="body2">
-                  All user data will be permanently deleted.
-                </Typography>
-              </Alert>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <Avatar
-                  sx={{
-                    bgcolor: ROLE_CONFIG[userToDelete.role]?.color || PRIMARY_COLOR,
-                    width: 60,
-                    height: 60,
-                  }}
-                >
-                  {userToDelete.firstName?.[0]}
-                </Avatar>
-                <Box>
-                  <Typography fontWeight={600} variant="h6">
-                    {userToDelete.firstName} {userToDelete.lastName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {userToDelete.email} • {ROLE_CONFIG[userToDelete.role]?.label}
-                  </Typography>
-                </Box>
-              </Stack>
-              <Typography variant="body2">
-                Are you sure you want to permanently delete this user?
-              </Typography>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions
-          sx={{
-            p: { xs: 2, sm: 3 },
-            pt: { xs: 1.5, sm: 2 },
-            borderTop: 1,
-            borderColor: "divider",
-            gap: 1.5,
-            flexDirection: { xs: "column", sm: "row" },
-          }}
-        >
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            variant="outlined"
-            fullWidth={isMobile}
-            sx={{
-              borderRadius: 2,
-              borderColor: PRIMARY_COLOR,
-              color: PRIMARY_COLOR,
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteUser}
-            variant="contained"
-            color="error"
-            fullWidth={isMobile}
-            startIcon={<Delete />}
-            sx={{ borderRadius: 2 }}
-          >
-            Delete User
-          </Button>
-        </DialogActions>
-      </Dialog>
+        user={userToDelete}
+        onConfirm={handleDeleteUser}
+      />
 
-      {/* Assign Manager Dialog */}
-      <Dialog
+      {/* Assign Manager Dialog — now uses redesigned component */}
+      <AssignManagerDialog
         open={assignDialogOpen}
         onClose={() => {
           setAssignDialogOpen(false);
           setUserToAssign(null);
           setSelectedManager("");
         }}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isMobile}
-        PaperProps={{
-          sx: {
-            borderRadius: isMobile ? 0 : 4,
-            margin: isMobile ? 0 : 24,
-          },
-        }}
-        TransitionComponent={isMobile ? Slide : Fade}
-        transitionDuration={300}
-      >
-        <DialogTitle
-          sx={{
-            bgcolor: PRIMARY_COLOR,
-            color: "white",
-            pb: 2,
-            px: { xs: 2, sm: 3 },
-          }}
-        >
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography variant="h6" fontWeight="700">
-              Assign Manager
-            </Typography>
-            <IconButton
-              onClick={() => {
-                setAssignDialogOpen(false);
-                setUserToAssign(null);
-                setSelectedManager("");
-              }}
-              size="small"
-              sx={{ color: "white" }}
-            >
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
-          {userToAssign && (
-            <Stack spacing={3}>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <Avatar
-                  sx={{
-                    bgcolor: ROLE_CONFIG[userToAssign.role]?.color || PRIMARY_COLOR,
-                    width: { xs: 48, sm: 60 },
-                    height: { xs: 48, sm: 60 },
-                  }}
-                >
-                  {userToAssign.firstName?.[0]}
-                </Avatar>
-                <Box>
-                  <Typography fontWeight={600} variant="h6">
-                    {userToAssign.firstName} {userToAssign.lastName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {ROLE_CONFIG[userToAssign.role]?.label}
-                  </Typography>
-                </Box>
-              </Stack>
-
-              <FormControl fullWidth size={isMobile ? "small" : "medium"}>
-                <InputLabel>Select Manager</InputLabel>
-                <Select
-                  value={selectedManager}
-                  onChange={(e) => setSelectedManager(e.target.value)}
-                  label="Select Manager"
-                  disabled={assignLoading}
-                  sx={{ borderRadius: 2 }}
-                >
-                  <MenuItem value="" disabled>
-                    <em>Choose a manager</em>
-                  </MenuItem>
-                  {managers.length > 0 ? (
-                    managers.map((manager) => (
-                      <MenuItem key={manager._id} value={manager._id}>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={1.5}
-                        >
-                          <Avatar
-                            sx={{
-                              width: 32,
-                              height: 32,
-                              bgcolor: ROLE_CONFIG[manager.role]?.color || PRIMARY_COLOR,
-                            }}
-                          >
-                            {manager.firstName?.[0]}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" fontWeight={500}>
-                              {manager.firstName} {manager.lastName}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {ROLE_CONFIG[manager.role]?.label}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </MenuItem>
-                    ))
-                  ) : (
-                    <MenuItem disabled>
-                      <Typography color="text.secondary">
-                        No managers available
-                      </Typography>
-                    </MenuItem>
-                  )}
-                </Select>
-              </FormControl>
-
-              {managers.length === 0 && (
-                <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                  No active managers found. Please ensure there are active ZSM
-                  or ASM users.
-                </Alert>
-              )}
-
-              {userRole === "ASM" && (
-                <Alert severity="info" sx={{ borderRadius: 2 }}>
-                  ASM can only assign team members to themselves.
-                </Alert>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions
-          sx={{
-            p: { xs: 2, sm: 3 },
-            pt: { xs: 1.5, sm: 2 },
-            borderTop: 1,
-            borderColor: "divider",
-            gap: 1.5,
-            flexDirection: { xs: "column", sm: "row" },
-          }}
-        >
-          <Button
-            onClick={() => {
-              setAssignDialogOpen(false);
-              setUserToAssign(null);
-              setSelectedManager("");
-            }}
-            variant="outlined"
-            fullWidth={isMobile}
-            disabled={assignLoading}
-            sx={{
-              borderRadius: 2,
-              borderColor: PRIMARY_COLOR,
-              color: PRIMARY_COLOR,
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleAssignManager}
-            variant="contained"
-            fullWidth={isMobile}
-            disabled={!selectedManager || assignLoading || managers.length === 0}
-            sx={{
-              bgcolor: PRIMARY_COLOR,
-              borderRadius: 2,
-              "&:hover": { bgcolor: SECONDARY_COLOR },
-            }}
-          >
-            {assignLoading ? <CircularProgress size={24} /> : "Assign Manager"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        userToAssign={userToAssign}
+        managers={managers}
+        selectedManager={selectedManager}
+        setSelectedManager={setSelectedManager}
+        onAssign={handleAssignManager}
+        assignLoading={assignLoading}
+        userRole={userRole}
+        currentUser={currentUser}
+      />
 
       {/* Snackbar */}
       <Snackbar
@@ -3268,7 +3643,7 @@ const UserManagement = () => {
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2 }}
+          sx={{ width: "100%", borderRadius: 2, color: "#fff" }}
         >
           {snackbar.message}
         </Alert>

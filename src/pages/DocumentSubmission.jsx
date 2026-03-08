@@ -238,15 +238,24 @@ const ROLE_CONFIG = {
 // ========== HELPER FUNCTIONS ==========
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
+// ✅ FIXED: canSeeAll now excludes TEAM; TEAM only uses canSeeOwn
 const getUserPermissions = (userRole) => ({
   canView: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canEdit: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canDelete: userRole === "Head_office",
   canManage: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
-  canSeeAll: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
+  canSeeAll: ["Head_office", "ZSM", "ASM"].includes(userRole),  // ✅ TEAM removed
   canSeeOwn: userRole === "TEAM",
   canUpdateStatus: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
 });
+
+// ✅ Helper: safely compare an id field that may be a string OR a populated object
+const matchesUserId = (field, userId) => {
+  if (!field || !userId) return false;
+  if (typeof field === "string") return field === userId;
+  if (typeof field === "object" && field._id) return field._id === userId || field._id?.toString() === userId?.toString();
+  return field?.toString() === userId?.toString();
+};
 
 const getDocumentStatusConfig = (status) => {
   const normalizedStatus = status?.toLowerCase();
@@ -3069,7 +3078,7 @@ export default function DocumentSubmissionPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // State Management
-  const [period, setPeriod] = useState("Today");
+  const [period, setPeriod] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState({
@@ -3102,7 +3111,10 @@ export default function DocumentSubmissionPage() {
   const [dateFilterError, setDateFilterError] = useState("");
 
   // Sorting & Pagination
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "documentSubmissionDate",
+    direction: "desc",
+  });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(
     isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE,
@@ -3126,7 +3138,7 @@ export default function DocumentSubmissionPage() {
     setSnackbar({ open: true, message, severity });
   }, []);
 
-  // Fetch Data
+  // ✅ FIXED: fetchDocumentsData with proper populated-object ID comparison
   const fetchDocumentsData = useCallback(async () => {
     try {
       setLoading(true);
@@ -3149,37 +3161,66 @@ export default function DocumentSubmissionPage() {
       }
 
       const response = await fetchAPI(
-        `/lead/DocumentSummary?${params.toString()}`,
+        `/lead/DocumentSummary${params.toString() ? `?${params.toString()}` : ""}`,
       );
+
+      console.log("document data...", response);
 
       if (response?.success) {
         const data = response.result || {};
-        const rawDocuments = data.documents || [];
+        let rawDocuments = data.documents || [];
 
-        let filteredDocs = rawDocuments;
+        // ✅ FIXED: Role-based filtering using matchesUserId helper
+        // This handles both plain string IDs and Mongoose populated objects
         if (userRole === "TEAM" && user?._id) {
-          filteredDocs = rawDocuments.filter(
+          const uid = user._id?.toString();
+          rawDocuments = rawDocuments.filter(
             (doc) =>
-              doc.assignedTo === user._id ||
-              doc.assignedManager === user._id ||
-              doc.assignedUser?._id === user._id ||
-              doc.createdBy === user._id,
+              matchesUserId(doc.createdBy, uid) ||
+              matchesUserId(doc.assignedTo, uid) ||
+              matchesUserId(doc.assignedManager, uid) ||
+              matchesUserId(doc.assignedUser, uid) ||
+              matchesUserId(doc.teamMember, uid),
+          );
+        } else if (userRole === "ASM" && user?._id) {
+          const uid = user._id?.toString();
+          rawDocuments = rawDocuments.filter(
+            (doc) =>
+              matchesUserId(doc.createdBy, uid) ||
+              matchesUserId(doc.assignedManager, uid) ||
+              matchesUserId(doc.assignedTo, uid) ||
+              matchesUserId(doc.assignedUser, uid) ||
+              matchesUserId(doc.areaManager, uid),
+          );
+        } else if (userRole === "ZSM" && user?._id) {
+          const uid = user._id?.toString();
+          rawDocuments = rawDocuments.filter(
+            (doc) =>
+              matchesUserId(doc.createdBy, uid) ||
+              matchesUserId(doc.assignedManager, uid) ||
+              matchesUserId(doc.zoneManager, uid) ||
+              matchesUserId(doc.assignedUser, uid),
           );
         }
+        // Head_office sees all — no filter applied
 
-        const totalDocuments = filteredDocs.length;
-        const submittedDocuments = filteredDocs.filter(
+        console.log(
+          `Fetched ${rawDocuments.length} documents for role: ${userRole}`,
+        );
+
+        const totalDocuments = rawDocuments.length;
+        const submittedDocuments = rawDocuments.filter(
           (doc) => doc.documentStatus?.toLowerCase() === "submitted",
         ).length;
-        const pendingDocuments = filteredDocs.filter(
+        const pendingDocuments = rawDocuments.filter(
           (doc) => doc.documentStatus?.toLowerCase() === "pending",
         ).length;
-        const rejectedDocuments = filteredDocs.filter(
+        const rejectedDocuments = rawDocuments.filter(
           (doc) => doc.documentStatus?.toLowerCase() === "rejected",
         ).length;
 
         setDocumentsData({
-          documents: filteredDocs,
+          documents: rawDocuments,
           summary: {
             totalDocuments,
             submittedDocuments,
@@ -3226,12 +3267,16 @@ export default function DocumentSubmissionPage() {
 
       if (statusFilter !== "All") {
         filtered = filtered.filter(
-          (doc) => doc.documentStatus?.toLowerCase() === statusFilter.toLowerCase(),
+          (doc) =>
+            (doc.documentStatus?.toLowerCase() || "") ===
+            statusFilter.toLowerCase(),
         );
       }
 
       if (leadStatusFilter !== "All") {
-        filtered = filtered.filter((doc) => doc.status === leadStatusFilter);
+        filtered = filtered.filter(
+          (doc) => (doc.status || "") === leadStatusFilter,
+        );
       }
 
       if (
@@ -3267,8 +3312,8 @@ export default function DocumentSubmissionPage() {
             sortConfig.key === "documentSubmissionDate" ||
             sortConfig.key === "createdAt"
           ) {
-            aVal = aVal ? parseISO(aVal) : new Date(0);
-            bVal = bVal ? parseISO(bVal) : new Date(0);
+            aVal = aVal ? new Date(aVal) : new Date(0);
+            bVal = bVal ? new Date(bVal) : new Date(0);
           } else if (sortConfig.key === "firstName") {
             aVal = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
             bVal = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
@@ -3320,6 +3365,10 @@ export default function DocumentSubmissionPage() {
   useEffect(() => {
     setRowsPerPage(isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE);
   }, [isMobile]);
+
+  useEffect(() => {
+    console.log("Current documents count:", documentsData.documents.length);
+  }, [documentsData.documents]);
 
   // Memoized Computed Values
   const filteredDocuments = useMemo(() => applyFilters(), [applyFilters]);
@@ -3523,13 +3572,13 @@ export default function DocumentSubmissionPage() {
     setLeadStatusFilter("All");
     setDateFilter({ startDate: null, endDate: null });
     setDateFilterError("");
-    setSortConfig({ key: null, direction: "asc" });
+    setSortConfig({ key: "documentSubmissionDate", direction: "desc" });
     setPage(0);
     if (showFilterPanel) setShowFilterPanel(false);
   }, [showFilterPanel]);
 
   const handleChangePage = (event, newPage) => {
-    setPage(newPage);
+    setPage(newPage - 1);
     if (containerRef.current) {
       containerRef.current.scrollIntoView({ behavior: "smooth" });
     }
@@ -3667,7 +3716,7 @@ export default function DocumentSubmissionPage() {
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2 , color:"#fff" }}
+          sx={{ width: "100%", borderRadius: 2, color: "#fff" }}
         >
           {snackbar.message}
         </Alert>
@@ -3720,7 +3769,7 @@ export default function DocumentSubmissionPage() {
           bgcolor: "#f8fafc",
         }}
       >
-        {/* Header - Gradient Background */}
+        {/* Header */}
         <Paper
           elevation={0}
           sx={{
@@ -4495,7 +4544,10 @@ export default function DocumentSubmissionPage() {
             >
               <Typography variant="body2">
                 Showing {page * rowsPerPage + 1} to{" "}
-                {Math.min((page + 1) * rowsPerPage, filteredDocuments.length)}{" "}
+                {Math.min(
+                  (page + 1) * rowsPerPage,
+                  filteredDocuments.length,
+                )}{" "}
                 of {filteredDocuments.length}
               </Typography>
               <Pagination
@@ -4611,7 +4663,7 @@ export default function DocumentSubmissionPage() {
             <BottomNavigationAction
               label="Profile"
               icon={<Person />}
-                            onClick={() => navigate("/profile")}
+              onClick={() => navigate("/profile")}
             />
           </BottomNavigation>
         </Paper>

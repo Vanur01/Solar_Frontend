@@ -109,7 +109,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAttendance } from '../hooks/useAttendance';
 import AttendanceDetails from './AttendanceDetails';
 import TeamAttendance from './TeamAttendance';
-import { format, parseISO, isValid, subWeeks, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
 // ========== CONSTANTS & CONFIGURATION ==========
@@ -1100,7 +1100,7 @@ export default function Attandance() {
       setSnackbar({ open: true, message: error, severity: 'error' });
     }
     if (success) {
-      setSnackbar({ open: true, message: success, severity: 'success' });
+      setSnackbar({ open: true, message: success, severity: 'success' , color:"#fff"});
     }
   }, [error, success]);
 
@@ -1870,7 +1870,7 @@ export default function Attandance() {
         <Alert
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2 }}
+          sx={{ width: "100%", borderRadius: 2 , color:"#fff" }}
         >
           {snackbar.message}
         </Alert>

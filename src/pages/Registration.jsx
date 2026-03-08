@@ -192,7 +192,7 @@ const LEAD_STATUS_CONFIG = {
     bg: alpha(PRIMARY, 0.08),
     color: PRIMARY,
     icon: <AccountBalance sx={{ fontSize: 16 }} />,
-    description: "Bank loan application stage",
+    description: "Documents submitted for verification",
   },
   "Missed Leads": {
     bg: alpha(PRIMARY, 0.08),

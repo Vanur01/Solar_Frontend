@@ -9,6 +9,7 @@ import {
 import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DashboardProvider } from "./contexts/DashboardContext";
+import { VisitProvider } from './contexts/VisitContext'
 import ProtectedRoute from "./components/ProtectedRoute";
 import MainLayout from "./components/MainLayout";
 import Login from "./components/auth/Login";
@@ -126,363 +127,350 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <DashboardProvider>
-          <Router>
-            <Routes>
-              {/* PUBLIC ROUTES */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={<Navigate to="/login" replace />} />
+        <VisitProvider>
+          <DashboardProvider>
+            <Router>
+              <Routes>
+                {/* PUBLIC ROUTES */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Navigate to="/login" replace />} />
 
-              {/* PROTECTED ROUTES WITH MAIN LAYOUT */}
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <MainLayout>
-                      <Routes>
-                        {/* UNIFIED DASHBOARD - Single dashboard for all roles */}
-                        <Route
-                          path="dashboard"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <Dashboard />
-                            </ProtectedRoute>
-                          }
-                        />
+                {/* PROTECTED ROUTES WITH MAIN LAYOUT */}
+                <Route
+                  path="/*"
+                  element={
+                    <ProtectedRoute>
+                      <MainLayout>
+                        <Routes>
+                          {/* UNIFIED DASHBOARD - Single dashboard for all roles */}
+                          <Route
+                            path="dashboard"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <Dashboard />
+                              </ProtectedRoute>
+                            }
+                          />
 
-                        {/* FEATURE PAGES */}
-                        <Route
-                          path="total-visits"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <TotalVisitsPage />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="team-performance-report"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <PerformanceReports />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="registration"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <Registration />
-                            </ProtectedRoute>
-                          }
-                        />
-                         <Route
-                          path="visit-route"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <RouteHistory />
-                            </ProtectedRoute>
-                          }
-                        />
-                         <Route
-                          path="visit-summary"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <SalesDailySummary />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="reports"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
-                            >
-                              <Reports />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="user-management"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
-                            >
-                              <UserManagement />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="add-user"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={["Head_office", "ZSM", "ASM"]}
-                            >
-                              <AddUserPage />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="import-leads"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
-                            >
-                              <ImportLead />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="add-lead"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <AddLead />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="expense"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <Expense />
-                            </ProtectedRoute>
-                          }
-                        />
-                         <Route
-                          path="expense"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <Expense />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="lead-funnel"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <LeadFunnelDashboard />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="missed-leads"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <MissedLeads />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="installation-completion"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <Installation />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="bank-loan-apply"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <BankLoanApply />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="document-submission"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <DocumentSubmission />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="visit-details"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <VisitDetails />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="bank-at-pending"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <BankAtPending />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="disbursement"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <Disbursement />
-                            </ProtectedRoute>
-                          }
-                        />
-                        <Route
-                          path="attendance"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <Attandance />
-                            </ProtectedRoute>
-                          }
-                        />
+                          {/* FEATURE PAGES */}
+                          <Route
+                            path="total-visits"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <TotalVisitsPage />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="team-performance-report"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <PerformanceReports />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="registration"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <Registration />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="visit-route"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <RouteHistory />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="visit-summary"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <SalesDailySummary />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="reports"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
+                              >
+                                <Reports />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="user-management"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
+                              >
+                                <UserManagement />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="add-user"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={["Head_office", "ZSM", "ASM"]}
+                              >
+                                <AddUserPage />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="import-leads"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={["Head_office", "ZSM", "ASM", "TEAM"]}
+                              >
+                                <ImportLead />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="add-lead"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <AddLead />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="expense"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <Expense />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="lead-funnel"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <LeadFunnelDashboard />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="missed-leads"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <MissedLeads />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="installation-completion"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <Installation />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="bank-loan-apply"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <BankLoanApply />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="document-submission"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <DocumentSubmission />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="visit-details"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <VisitDetails />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="bank-at-pending"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <BankAtPending />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="disbursement"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <Disbursement />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="attendance"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <Attandance />
+                              </ProtectedRoute>
+                            }
+                          />
 
-                        <Route
-                          path="all-leads"
-                          element={
-                            <ProtectedRoute
-                              allowedRoles={[
-                                "Head_office",
-                                "ZSM",
-                                "ASM",
-                                "TEAM",
-                              ]}
-                            >
-                              <LeadOverview />
-                            </ProtectedRoute>
-                          }
-                        />
+                          <Route
+                            path="all-leads"
+                            element={
+                              <ProtectedRoute
+                                allowedRoles={[
+                                  "Head_office",
+                                  "ZSM",
+                                  "ASM",
+                                  "TEAM",
+                                ]}
+                              >
+                                <LeadOverview />
+                              </ProtectedRoute>
+                            }
+                          />
 
-                        {/* DEFAULT REDIRECT TO UNIFIED DASHBOARD */}
-                        <Route
-                          path="*"
-                          element={<Navigate to="/dashboard" replace />}
-                        />
-                      </Routes>
-                    </MainLayout>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </Router>
-        </DashboardProvider>
+                          {/* DEFAULT REDIRECT TO UNIFIED DASHBOARD */}
+                          <Route
+                            path="*"
+                            element={<Navigate to="/dashboard" replace />}
+                          />
+                        </Routes>
+                      </MainLayout>
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </Router>
+          </DashboardProvider>
+        </VisitProvider>
       </AuthProvider>
     </ThemeProvider>
   );

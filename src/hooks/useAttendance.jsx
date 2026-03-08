@@ -25,8 +25,6 @@ export const useAttendance = () => {
     holidayCount: 0,
   });
 
-  const userRole = getUserRole();
-
   // Fetch all attendances with filters
   const fetchAttendances = useCallback(
     async (filters = {}) => {
@@ -38,11 +36,11 @@ export const useAttendance = () => {
           if (value) queryParams.append(key, value);
         });
 
-        const response = await fetchAPI(
-          `/attendance/?${queryParams.toString()}`,
-        );
+        const url = `/attendance/`;
+        const response = await fetchAPI(url);
 
         if (response?.success && response?.result) {
+          console.log("attendance data:", response.result);
           setAttendances(response.result.attendances || []);
           setPagination(
             response.result.pagination || {
@@ -60,6 +58,8 @@ export const useAttendance = () => {
             (a) => new Date(a.date).toDateString() === today,
           );
           setTodayAttendance(todayAtt);
+          
+          return response.result;
         }
       } catch (err) {
         setError(err.message || "Failed to fetch attendance records");
@@ -110,6 +110,11 @@ export const useAttendance = () => {
   // Get attendance by ID
   const getAttendanceById = useCallback(
     async (id) => {
+      if (!id) {
+        setError("Attendance ID is required");
+        return null;
+      }
+      
       setLoading(true);
       setError(null);
       try {
@@ -156,7 +161,7 @@ export const useAttendance = () => {
           await fetchAttendances();
           return { success: true, data: response.result };
         }
-        return { success: false, error: "Punch in failed" };
+        return { success: false, error: response?.message || "Punch in failed" };
       } catch (err) {
         setError(err.message || "Punch in failed");
         return { success: false, error: err.message };
@@ -195,7 +200,7 @@ export const useAttendance = () => {
           await fetchAttendances();
           return { success: true, data: response.result };
         }
-        return { success: false, error: "Punch out failed" };
+        return { success: false, error: response?.message || "Punch out failed" };
       } catch (err) {
         setError(err.message || "Punch out failed");
         return { success: false, error: err.message };
@@ -209,12 +214,21 @@ export const useAttendance = () => {
   // Update attendance (for managers)
   const updateAttendance = useCallback(
     async (id, data) => {
+      // Validate ID
+      if (!id) {
+        setError("Attendance ID is required for update");
+        return { success: false, error: "Attendance ID is required" };
+      }
+
       setLoading(true);
       setError(null);
       setSuccess(null);
       try {
         const response = await fetchAPI(`/attendance/${id}`, {
           method: "PUT",
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify(data),
         });
 
@@ -223,7 +237,7 @@ export const useAttendance = () => {
           await fetchAttendances();
           return { success: true, data: response.result };
         }
-        return { success: false, error: "Update failed" };
+        return { success: false, error: response?.message || "Update failed" };
       } catch (err) {
         setError(err.message || "Failed to update attendance");
         return { success: false, error: err.message };
@@ -237,6 +251,12 @@ export const useAttendance = () => {
   // Delete attendance (Head Office only)
   const deleteAttendance = useCallback(
     async (id) => {
+      // Validate ID
+      if (!id) {
+        setError("Attendance ID is required for deletion");
+        return { success: false, error: "Attendance ID is required" };
+      }
+
       setLoading(true);
       setError(null);
       setSuccess(null);
@@ -250,7 +270,7 @@ export const useAttendance = () => {
           await fetchAttendances();
           return { success: true };
         }
-        return { success: false, error: "Delete failed" };
+        return { success: false, error: response?.message || "Delete failed" };
       } catch (err) {
         setError(err.message || "Failed to delete attendance");
         return { success: false, error: err.message };

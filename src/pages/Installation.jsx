@@ -1,4 +1,4 @@
-// pages/InstallationPage.jsx (Bug-Free Version)
+// pages/InstallationPage.jsx (Bug-Free Version with Document Upload)
 import React, {
   useState,
   useEffect,
@@ -151,6 +151,13 @@ const SECONDARY_COLOR = "#1a237e";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 const DEFAULT_ITEMS_PER_PAGE = 10;
 const ALLOWED_ROLES = ["Head_office", "ZSM", "ASM", "TEAM"];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/jpg",
+  "application/pdf",
+];
 
 // Period Options
 const PERIOD_OPTIONS = [
@@ -162,25 +169,16 @@ const PERIOD_OPTIONS = [
 
 // Installation Status Configuration
 const INSTALLATION_STATUS_OPTIONS = [
-  "pending",
   "installation_progress",
   "installation_completed",
   "sent_for_jee_verification",
+  "enhancement",
   "jee_verified",
   "meter_charge",
   "final_payment",
 ];
 
 const INSTALLATION_STATUS_CONFIG = {
-  pending: {
-    bg: alpha(PRIMARY_COLOR, 0.08),
-    color: PRIMARY_COLOR,
-    icon: <Schedule sx={{ fontSize: 16 }} />,
-    label: "Scheduled",
-    description: "Installation is scheduled",
-    order: 1,
-    progress: 10,
-  },
   installation_in_progress: {
     bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
@@ -207,6 +205,15 @@ const INSTALLATION_STATUS_CONFIG = {
     description: "Project sent to JEE for verification",
     order: 4,
     progress: 80,
+  },
+  enhancement: {
+    bg: alpha(PRIMARY_COLOR, 0.08),
+    color: PRIMARY_COLOR,
+    icon: <Schedule sx={{ fontSize: 16 }} />,
+    label: "Enhancement",
+    description: "Enhancement document upload required",
+    order: 1,
+    progress: 10,
   },
   jee_verified: {
     bg: alpha(PRIMARY_COLOR, 0.08),
@@ -290,6 +297,9 @@ const getUserPermissions = (userRole) => ({
   canSeeAll: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeOwn: userRole === "TEAM",
   canUpdateStatus: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
+  canUploadEnhancement: ["Head_office", "ZSM", "ASM", "TEAM"].includes(
+    userRole,
+  ),
 });
 
 const getInstallationStatusConfig = (status) => {
@@ -341,6 +351,697 @@ const formatDate = (dateString, formatStr = "dd MMM yyyy, hh:mm a") => {
 
 const getInitials = (firstName, lastName) => {
   return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase();
+};
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
+
+// ========== FILE UPLOAD FIELD COMPONENT ==========
+const FileUploadField = ({
+  label,
+  value,
+  onFileChange,
+  onRemove,
+  error,
+  disabled,
+}) => {
+  const fileInputRef = useRef(null);
+
+  const handleBoxClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+        {label}
+      </Typography>
+      {value?.preview || value?.url ? (
+        <Box sx={{ mb: 2 }}>
+          <Box
+            sx={{
+              border: "1px solid",
+              borderColor: error ? "error.main" : "#e0e0e0",
+              borderRadius: 2,
+              p: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              bgcolor: "#f9f9f9",
+            }}
+          >
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={2}
+              sx={{ flex: 1 }}
+            >
+              {value.preview ? (
+                <img
+                  src={value.preview}
+                  alt="Preview"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    objectFit: "cover",
+                    borderRadius: 4,
+                  }}
+                />
+              ) : value.url ? (
+                <DescriptionOutlined
+                  sx={{ color: PRIMARY_COLOR, fontSize: 40 }}
+                />
+              ) : (
+                <ImageIcon sx={{ color: PRIMARY_COLOR, fontSize: 40 }} />
+              )}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" noWrap>
+                  {value.file?.name || (value.url ? label : "No file selected")}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {value.file
+                    ? formatFileSize(value.file.size)
+                    : value.url
+                      ? "Existing document"
+                      : "Click to upload"}
+                </Typography>
+              </Box>
+            </Stack>
+            <Stack direction="row" spacing={1}>
+              <Tooltip title="Remove">
+                <IconButton
+                  size="small"
+                  onClick={() => onRemove()}
+                  color="error"
+                  disabled={disabled}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </Box>
+          {error && <FormHelperText error>{error}</FormHelperText>}
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            border: "2px dashed",
+            borderColor: error ? "error.main" : "#e0e0e0",
+            borderRadius: 2,
+            p: 3,
+            textAlign: "center",
+            bgcolor: "#f9f9f9",
+            cursor: disabled ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+            opacity: disabled ? 0.6 : 1,
+            "&:hover": disabled
+              ? {}
+              : {
+                  borderColor: PRIMARY_COLOR,
+                  bgcolor: alpha(PRIMARY_COLOR, 0.05),
+                },
+          }}
+          onClick={disabled ? null : handleBoxClick}
+        >
+          <CloudUpload sx={{ fontSize: 48, color: "#bdbdbd", mb: 1 }} />
+          <Typography color="text.secondary">
+            Click to upload {label}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Supports JPG, PNG, PDF (Max 5MB)
+          </Typography>
+        </Box>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        style={{ display: "none" }}
+        onChange={onFileChange}
+        disabled={disabled}
+      />
+    </Box>
+  );
+};
+
+// ========== IMAGE VIEWER MODAL ==========
+const ImageViewerModal = ({ open, onClose, imageUrl, title }) => {
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const handleZoomIn = useCallback(
+    () => setZoom((prev) => Math.min(prev + 0.25, 3)),
+    [],
+  );
+  const handleZoomOut = useCallback(
+    () => setZoom((prev) => Math.max(prev - 0.25, 0.5)),
+    [],
+  );
+  const handleRotateRight = useCallback(
+    () => setRotation((prev) => (prev + 90) % 360),
+    [],
+  );
+  const handleRotateLeft = useCallback(
+    () => setRotation((prev) => (prev - 90 + 360) % 360),
+    [],
+  );
+  const handleReset = useCallback(() => {
+    setZoom(1);
+    setRotation(0);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    handleReset();
+    onClose();
+  }, [handleReset, onClose]);
+
+  const isImage = useMemo(
+    () => imageUrl && /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(imageUrl),
+    [imageUrl],
+  );
+
+  const handleDownload = useCallback(() => {
+    if (!imageUrl) return;
+    const link = document.createElement("a");
+    link.href = imageUrl;
+    link.download = `document_${Date.now()}`;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [imageUrl]);
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth={fullscreen ? false : "lg"}
+      fullWidth
+      fullScreen={fullscreen || isMobile}
+      PaperProps={
+        fullscreen || isMobile ? { style: { margin: 0, height: "100vh" } } : {}
+      }
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: alpha(PRIMARY_COLOR, 0.05),
+          borderBottom: 1,
+          borderColor: "divider",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          pr: 2,
+          py: 1.5,
+        }}
+      >
+        <Typography
+          variant="h6"
+          fontWeight={600}
+          noWrap
+          sx={{ maxWidth: "70%" }}
+        >
+          {title || "Document Viewer"}
+        </Typography>
+        <Box display="flex" gap={1}>
+          {!isMobile && (
+            <Tooltip title={fullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+              <IconButton
+                onClick={() => setFullscreen(!fullscreen)}
+                size="small"
+              >
+                {fullscreen ? <FullscreenExit /> : <Fullscreen />}
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title="Download">
+            <IconButton onClick={handleDownload} size="small">
+              <GetApp />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Close">
+            <IconButton onClick={handleClose} size="small">
+              <Close />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </DialogTitle>
+      <DialogContent
+        sx={{
+          p: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: fullscreen || isMobile ? "#000" : "transparent",
+          minHeight: fullscreen || isMobile ? "calc(100vh - 64px)" : 400,
+        }}
+      >
+        {isImage ? (
+          <Box
+            sx={{
+              position: "relative",
+              overflow: "auto",
+              maxWidth: "100%",
+              maxHeight: fullscreen || isMobile ? "100vh" : "70vh",
+              p: fullscreen || isMobile ? 0 : 2,
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <img
+              src={imageUrl}
+              alt="Document"
+              style={{
+                transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                transition: "transform 0.3s ease",
+                maxWidth: "100%",
+                maxHeight: fullscreen || isMobile ? "100vh" : "70vh",
+                display: "block",
+                margin: "0 auto",
+                objectFit: "contain",
+              }}
+            />
+          </Box>
+        ) : (
+          <Box sx={{ p: 4, textAlign: "center" }}>
+            <DescriptionOutlined
+              sx={{ fontSize: 64, color: "text.disabled", mb: 2 }}
+            />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Document Preview Not Available
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              This file type cannot be previewed. Please download to view.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<GetApp />}
+              onClick={handleDownload}
+              sx={{
+                mt: 2,
+                bgcolor: PRIMARY_COLOR,
+                "&:hover": { bgcolor: SECONDARY_COLOR },
+              }}
+            >
+              Download Document
+            </Button>
+          </Box>
+        )}
+      </DialogContent>
+      {isImage && (
+        <DialogActions
+          sx={{
+            bgcolor: "background.paper",
+            borderTop: 1,
+            borderColor: "divider",
+            justifyContent: "center",
+            gap: 1,
+            py: 1.5,
+            flexWrap: "wrap",
+          }}
+        >
+          <Tooltip title="Zoom In">
+            <IconButton onClick={handleZoomIn} size="small">
+              <ZoomIn />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Zoom Out">
+            <IconButton onClick={handleZoomOut} size="small">
+              <ZoomOut />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Rotate Right">
+            <IconButton onClick={handleRotateRight} size="small">
+              <RotateRight />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Rotate Left">
+            <IconButton onClick={handleRotateLeft} size="small">
+              <RotateLeft />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Reset">
+            <IconButton onClick={handleReset} size="small">
+              <Refresh />
+            </IconButton>
+          </Tooltip>
+          <Typography
+            variant="caption"
+            sx={{ ml: { sm: 2 }, color: "text.secondary" }}
+          >
+            {Math.round(zoom * 100)}% • {rotation}°
+          </Typography>
+        </DialogActions>
+      )}
+    </Dialog>
+  );
+};
+
+// ========== ENHANCEMENT DOCUMENT UPLOAD MODAL ==========
+const EnhancementDocumentUploadModal = ({
+  open,
+  onClose,
+  lead,
+  onUploadComplete,
+  showSnackbar,
+}) => {
+  const { fetchAPI, user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [documentFile, setDocumentFile] = useState({
+    file: null,
+    preview: null,
+  });
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setDocumentFile({ file: null, preview: null });
+      setError("");
+      setUploadProgress(0);
+    }
+  }, [open]);
+
+  const validateFile = (file) => {
+    if (file.size > MAX_FILE_SIZE) {
+      return "File size should be less than 5MB";
+    }
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      return "Only JPG, PNG and PDF files are allowed";
+    }
+    return "";
+  };
+
+  const handleFileChange = useCallback(
+    (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const validationError = validateFile(file);
+      if (validationError) {
+        setError(validationError);
+        showSnackbar(validationError, "error");
+        return;
+      }
+
+      const preview = file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : null;
+
+      setDocumentFile({ file, preview });
+      setError("");
+    },
+    [showSnackbar],
+  );
+
+  const handleRemoveFile = useCallback(() => {
+    if (documentFile.preview && documentFile.preview.startsWith("blob:")) {
+      URL.revokeObjectURL(documentFile.preview);
+    }
+    setDocumentFile({ file: null, preview: null });
+    setError("");
+  }, [documentFile.preview]);
+
+  const handleSubmit = useCallback(async () => {
+    if (!documentFile.file) {
+      setError("Please select a document to upload");
+      return;
+    }
+
+    setLoading(true);
+    setUploadProgress(0);
+
+    try {
+      const formData = new FormData();
+      formData.append("document", documentFile.file);
+
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 500);
+
+      const response = await fetchAPI(
+        `/lead/installation/${lead._id}/document-upload`,
+        {
+          method: "POST",
+          body: formData,
+          headers: {
+            // Don't set Content-Type here, browser will set it with boundary
+          },
+        },
+      );
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (response?.success) {
+        showSnackbar("Enhancement document uploaded successfully", "success");
+        onUploadComplete(response.result);
+        setTimeout(() => {
+          onClose();
+        }, 500);
+      } else {
+        throw new Error(response?.message || "Failed to upload document");
+      }
+    } catch (error) {
+      console.error("Error uploading enhancement document:", error);
+      showSnackbar(error.message || "Failed to upload document", "error");
+      setError(error.message || "Failed to upload document");
+    } finally {
+      setLoading(false);
+      setUploadProgress(0);
+    }
+  }, [
+    documentFile.file,
+    lead,
+    fetchAPI,
+    showSnackbar,
+    onUploadComplete,
+    onClose,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (documentFile.preview && documentFile.preview.startsWith("blob:")) {
+        URL.revokeObjectURL(documentFile.preview);
+      }
+    };
+  }, [documentFile.preview]);
+
+  if (!lead) return null;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          margin: isMobile ? 0 : 24,
+        },
+      }}
+      TransitionComponent={isMobile ? Slide : Fade}
+      transitionDuration={300}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: alpha(PRIMARY_COLOR, 0.05),
+          pb: 2,
+          px: { xs: 2, sm: 3 },
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box
+              sx={{
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                borderRadius: 2,
+                bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: PRIMARY_COLOR,
+              }}
+            >
+              <CloudUpload sx={{ fontSize: { xs: 24, sm: 28 } }} />
+            </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                fontWeight={700}
+                sx={{ fontSize: { xs: "1rem", sm: "1.25rem" } }}
+              >
+                Upload Enhancement Document
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
+                {lead.firstName} {lead.lastName}
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={onClose} size="small" disabled={loading}>
+            <Close />
+          </IconButton>
+        </Stack>
+      </DialogTitle>
+
+      <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <Stack spacing={3}>
+          {loading && uploadProgress > 0 && (
+            <Box sx={{ width: "100%", mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Uploading: {uploadProgress}%
+              </Typography>
+              <LinearProgress
+                variant="determinate"
+                value={uploadProgress}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  "& .MuiLinearProgress-bar": {
+                    bgcolor: PRIMARY_COLOR,
+                  },
+                }}
+              />
+            </Box>
+          )}
+
+          <Alert severity="info" sx={{ borderRadius: 2 }}>
+            <AlertTitle>Enhancement Stage</AlertTitle>
+            Please upload the required enhancement document for this
+            installation. This document will be reviewed by the team.
+          </Alert>
+
+          <FileUploadField
+            label="Enhancement Document"
+            value={documentFile}
+            onFileChange={handleFileChange}
+            onRemove={handleRemoveFile}
+            error={error}
+            disabled={loading}
+          />
+
+          {lead.enhancementDocuments?.length > 0 && (
+            <Box>
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                Previously Uploaded Documents
+              </Typography>
+              <Stack spacing={1}>
+                {lead.enhancementDocuments.map((doc, index) => (
+                  <Paper
+                    key={index}
+                    variant="outlined"
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <DescriptionOutlined sx={{ color: PRIMARY_COLOR }} />
+                      <Typography variant="body2">
+                        Document {index + 1}
+                      </Typography>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                      {formatDate(doc.uploadedAt, "dd MMM yyyy")}
+                    </Typography>
+                  </Paper>
+                ))}
+              </Stack>
+            </Box>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          p: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2 },
+          borderTop: 1,
+          borderColor: "divider",
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
+      >
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={loading}
+          sx={{
+            borderColor: PRIMARY_COLOR,
+            color: PRIMARY_COLOR,
+            "&:hover": {
+              borderColor: PRIMARY_COLOR,
+              bgcolor: alpha(PRIMARY_COLOR, 0.05),
+            },
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          fullWidth={isMobile}
+          size={isMobile ? "medium" : "large"}
+          disabled={loading || !documentFile.file}
+          startIcon={
+            loading ? (
+              <CircularProgress size={20} sx={{ color: "#fff" }} />
+            ) : (
+              <CloudUpload />
+            )
+          }
+          sx={{
+            bgcolor: PRIMARY_COLOR,
+            px: 4,
+            "&:hover": { bgcolor: SECONDARY_COLOR },
+            "&.Mui-disabled": {
+              bgcolor: "#ccc",
+            },
+          }}
+        >
+          {loading ? "Uploading..." : "Upload Document"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 };
 
 // ========== MOBILE FILTER DRAWER ==========
@@ -956,6 +1657,7 @@ const MobileInstallationCard = ({
   lead,
   onView,
   onStatusUpdate,
+  onEnhancementUpload,
   permissions,
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -965,6 +1667,8 @@ const MobileInstallationCard = ({
   );
   const leadStatusConfig = getLeadStatusConfig(lead.status);
   const initials = getInitials(lead.firstName, lead.lastName);
+  const isEnhancement =
+    lead.installationStatus?.toLowerCase() === "enhancement";
 
   return (
     <Paper
@@ -1128,6 +1832,23 @@ const MobileInstallationCard = ({
           </Box>
         </Box>
 
+        {/* Enhancement Badge */}
+        {isEnhancement && (
+          <Box sx={{ mt: 1 }}>
+            <Chip
+              label="Enhancement Required"
+              icon={<Warning />}
+              size="small"
+              color="warning"
+              sx={{
+                fontWeight: 600,
+                height: 24,
+                fontSize: "0.7rem",
+              }}
+            />
+          </Box>
+        )}
+
         {/* Expanded Details */}
         <Collapse in={expanded}>
           <Box
@@ -1208,6 +1929,22 @@ const MobileInstallationCard = ({
                   }}
                 >
                   Status
+                </Button>
+              )}
+              {isEnhancement && permissions.canUploadEnhancement && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  startIcon={<CloudUpload />}
+                  onClick={() => onEnhancementUpload(lead)}
+                  sx={{
+                    borderColor: "warning.main",
+                    color: "warning.main",
+                    "&:hover": { bgcolor: alpha("#ff9800", 0.1) },
+                  }}
+                >
+                  Upload
                 </Button>
               )}
             </Stack>
@@ -1585,9 +2322,11 @@ const InstallationStatusUpdateModal = ({
             <Alert severity="info" sx={{ borderRadius: 2 }}>
               {selectedInstallationStatus === "final_payment"
                 ? "When marked as final payment, installation will be considered completed."
-                : selectedInstallationStatus === "meter_charge"
-                  ? "Meter charge phase indicates installation is in progress."
-                  : "When scheduled, installation is planned but not yet started."}
+                : selectedInstallationStatus === "enhancement"
+                  ? "Enhancement status requires document upload to proceed further."
+                  : selectedInstallationStatus === "meter_charge"
+                    ? "Meter charge phase indicates installation is in progress."
+                    : "When scheduled, installation is planned but not yet started."}
             </Alert>
           )}
         </Stack>
@@ -1657,7 +2396,14 @@ const InstallationStatusUpdateModal = ({
 };
 
 // ========== VIEW LEAD MODAL ==========
-const ViewLeadModal = ({ open, onClose, lead, userRole, showSnackbar }) => {
+const ViewLeadModal = ({
+  open,
+  onClose,
+  lead,
+  userRole,
+  showSnackbar,
+  onViewDocument,
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [activeTab, setActiveTab] = useState(0);
@@ -1676,9 +2422,17 @@ const ViewLeadModal = ({ open, onClose, lead, userRole, showSnackbar }) => {
     setActiveTab(newValue);
   };
 
+  const handleViewDocument = (url) => {
+    if (onViewDocument) {
+      onViewDocument(url);
+    }
+  };
+
   if (!lead) return null;
 
   const displayData = leadDetails || lead;
+  const isEnhancement =
+    displayData.installationStatus?.toLowerCase() === "enhancement";
 
   const tabs = [
     {
@@ -1812,6 +2566,93 @@ const ViewLeadModal = ({ open, onClose, lead, userRole, showSnackbar }) => {
               >
                 {displayData.installationNotes}
               </Typography>
+            </Paper>
+          )}
+
+          {displayData.installationDocument?.url && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                borderRadius: 3,
+                bgcolor: alpha(PRIMARY_COLOR, 0.02),
+                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  mb: 2,
+                  color: PRIMARY_COLOR,
+                  fontWeight: 600,
+                }}
+              >
+                <Description sx={{ fontSize: 20 }} /> Installation Document
+              </Typography>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  bgcolor: "#fff",
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  {/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(
+                    displayData.installationDocument.url,
+                  ) ? (
+                    <Box
+                      component="img"
+                      src={displayData.installationDocument.url}
+                      alt="Installation Document"
+                      sx={{
+                        width: 52,
+                        height: 52,
+                        objectFit: "cover",
+                        borderRadius: 1.5,
+                        border: `1px solid ${alpha(PRIMARY_COLOR, 0.2)}`,
+                        cursor: "pointer",
+                      }}
+                      onClick={() =>
+                        handleViewDocument(displayData.installationDocument.url)
+                      }
+                    />
+                  ) : (
+                    <DescriptionOutlined
+                      sx={{ color: PRIMARY_COLOR, fontSize: 40 }}
+                    />
+                  )}
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      Installation Document
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Uploaded document
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Button
+                  size="small"
+                  variant="contained"
+                  startIcon={<Visibility />}
+                  onClick={() =>
+                    handleViewDocument(displayData.installationDocument.url)
+                  }
+                  sx={{
+                    bgcolor: PRIMARY_COLOR,
+                    fontSize: "0.75rem",
+                    "&:hover": { bgcolor: SECONDARY_COLOR },
+                  }}
+                >
+                  View
+                </Button>
+              </Paper>
             </Paper>
           )}
         </Stack>
@@ -2224,7 +3065,7 @@ export default function InstallationPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // State Management
-  const [period, setPeriod] = useState("Today");
+  const [period, setPeriod] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState({
@@ -2260,7 +3101,10 @@ export default function InstallationPage() {
   const [dateFilterError, setDateFilterError] = useState("");
 
   // Sorting & Pagination
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "installationDate",
+    direction: "desc",
+  });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(
     isMobile ? 10 : DEFAULT_ITEMS_PER_PAGE,
@@ -2272,6 +3116,10 @@ export default function InstallationPage() {
   // Modal States
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [statusUpdateModalOpen, setStatusUpdateModalOpen] = useState(false);
+  const [enhancementUploadModalOpen, setEnhancementUploadModalOpen] =
+    useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [currentImageUrl, setCurrentImageUrl] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
   const [actionMenuAnchor, setActionMenuAnchor] = useState(null);
   const [selectedActionLead, setSelectedActionLead] = useState(null);
@@ -2307,49 +3155,64 @@ export default function InstallationPage() {
       }
 
       const response = await fetchAPI(
-        `/lead/installationSummary?${params.toString()}`,
+        `/lead/installationSummary${params.toString() ? `?${params.toString()}` : ""}`,
       );
 
       if (response?.success) {
         const data = response.result || {};
-        const rawInstallations = data.installations || [];
+        let rawInstallations = data.installations || [];
 
-        let filteredInstallations = rawInstallations;
+        // Role-based filtering
         if (userRole === "TEAM" && user?._id) {
-          filteredInstallations = rawInstallations.filter(
+          rawInstallations = rawInstallations.filter(
             (lead) =>
+              lead.createdBy === user._id ||
               lead.assignedTo === user._id ||
               lead.assignedManager === user._id ||
-              lead.assignedUser === user._id ||
-              lead.assignedUser?._id === user._id ||
-              lead.createdBy === user._id,
+              lead.assignedUser?._id === user._id,
+          );
+        } else if (userRole === "ASM" && user?._id) {
+          rawInstallations = rawInstallations.filter(
+            (lead) =>
+              lead.createdBy === user._id ||
+              lead.assignedManager === user._id ||
+              lead.areaManager === user._id,
+          );
+        } else if (userRole === "ZSM" && user?._id) {
+          rawInstallations = rawInstallations.filter(
+            (lead) =>
+              lead.createdBy === user._id || lead.zoneManager === user._id,
           );
         }
 
-        const totalInstallations = filteredInstallations.length;
-        const pendingInstallations = filteredInstallations.filter(
+        console.log(
+          `Fetched ${rawInstallations.length} installations for role: ${userRole}`,
+        );
+
+        const totalInstallations = rawInstallations.length;
+        const pendingInstallations = rawInstallations.filter(
           (lead) => lead.installationStatus?.toLowerCase() === "pending",
         ).length;
-        const inProgressInstallations = filteredInstallations.filter(
+        const inProgressInstallations = rawInstallations.filter(
           (lead) =>
             lead.installationStatus?.toLowerCase() ===
             "installation_in_progress",
         ).length;
-        const jeeVerificationInstallations = filteredInstallations.filter(
+        const jeeVerificationInstallations = rawInstallations.filter(
           (lead) =>
             lead.installationStatus?.toLowerCase() ===
               "sent_for_jee_verification" ||
             lead.installationStatus?.toLowerCase() === "jee_verified",
         ).length;
-        const meterChargeInstallations = filteredInstallations.filter(
+        const meterChargeInstallations = rawInstallations.filter(
           (lead) => lead.installationStatus?.toLowerCase() === "meter_charge",
         ).length;
-        const finalPaymentInstallations = filteredInstallations.filter(
+        const finalPaymentInstallations = rawInstallations.filter(
           (lead) => lead.installationStatus?.toLowerCase() === "final_payment",
         ).length;
 
         setInstallationData({
-          installations: filteredInstallations,
+          installations: rawInstallations,
           summary: {
             totalInstallations,
             pendingInstallations,
@@ -2443,8 +3306,8 @@ export default function InstallationPage() {
             sortConfig.key === "installationDate" ||
             sortConfig.key === "createdAt"
           ) {
-            aVal = aVal ? parseISO(aVal) : new Date(0);
-            bVal = bVal ? parseISO(bVal) : new Date(0);
+            aVal = aVal ? new Date(aVal) : new Date(0);
+            bVal = bVal ? new Date(bVal) : new Date(0);
           } else if (sortConfig.key === "firstName") {
             aVal = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
             bVal = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
@@ -2501,6 +3364,14 @@ export default function InstallationPage() {
     setViewMode(isMobile ? "card" : "table");
   }, [isMobile]);
 
+  // Debug log to check installations count
+  useEffect(() => {
+    console.log(
+      "Current installations count:",
+      installationData.installations.length,
+    );
+  }, [installationData.installations]);
+
   // Memoized Computed Values
   const filteredInstallations = useMemo(() => applyFilters(), [applyFilters]);
 
@@ -2534,13 +3405,6 @@ export default function InstallationPage() {
         subText: "All installations",
       },
       {
-        label: "Scheduled",
-        value: installationData.summary.pendingInstallations,
-        color: PRIMARY_COLOR,
-        icon: <Schedule />,
-        subText: "Pending installation",
-      },
-      {
         label: "In Progress",
         value: installationData.summary.inProgressInstallations,
         color: PRIMARY_COLOR,
@@ -2567,6 +3431,13 @@ export default function InstallationPage() {
         color: PRIMARY_COLOR,
         icon: <Payments />,
         subText: "Completed",
+      },
+      {
+        label: "Pending",
+        value: installationData.summary.pendingInstallations,
+        color: PRIMARY_COLOR,
+        icon: <Schedule />,
+        subText: "Scheduled",
       },
     ],
     [installationData.summary],
@@ -2611,6 +3482,25 @@ export default function InstallationPage() {
     [userPermissions, showSnackbar],
   );
 
+  const handleEnhancementUploadClick = useCallback(
+    (lead) => {
+      if (!lead?._id) {
+        showSnackbar("Invalid lead data", "error");
+        return;
+      }
+      if (!userPermissions.canUploadEnhancement) {
+        showSnackbar(
+          "You don't have permission to upload enhancement documents",
+          "error",
+        );
+        return;
+      }
+      setSelectedLead(lead);
+      setEnhancementUploadModalOpen(true);
+    },
+    [userPermissions, showSnackbar],
+  );
+
   const handleStatusUpdate = useCallback(
     async (updatedLead) => {
       try {
@@ -2618,6 +3508,19 @@ export default function InstallationPage() {
         showSnackbar("Installation status updated successfully", "success");
       } catch (err) {
         console.error("Error after status update:", err);
+        showSnackbar("Failed to refresh data", "error");
+      }
+    },
+    [fetchInstallationData, showSnackbar],
+  );
+
+  const handleEnhancementUploadComplete = useCallback(
+    async (updatedLead) => {
+      try {
+        await fetchInstallationData();
+        showSnackbar("Enhancement document uploaded successfully", "success");
+      } catch (err) {
+        console.error("Error after document upload:", err);
         showSnackbar("Failed to refresh data", "error");
       }
     },
@@ -2645,6 +3548,9 @@ export default function InstallationPage() {
         case "update_status":
           handleStatusUpdateClick(selectedActionLead);
           break;
+        case "upload_enhancement":
+          handleEnhancementUploadClick(selectedActionLead);
+          break;
         default:
           break;
       }
@@ -2655,8 +3561,21 @@ export default function InstallationPage() {
       selectedActionLead,
       handleViewClick,
       handleStatusUpdateClick,
+      handleEnhancementUploadClick,
       handleActionMenuClose,
     ],
+  );
+
+  const handleViewDocument = useCallback(
+    (documentUrl) => {
+      if (!documentUrl) {
+        showSnackbar("No document available to view", "error");
+        return;
+      }
+      setCurrentImageUrl(documentUrl);
+      setImageViewerOpen(true);
+    },
+    [showSnackbar],
   );
 
   const handleCloseSnackbar = useCallback(() => {
@@ -2669,7 +3588,7 @@ export default function InstallationPage() {
     setLeadStatusFilter("All");
     setDateFilter({ startDate: null, endDate: null });
     setDateFilterError("");
-    setSortConfig({ key: null, direction: "asc" });
+    setSortConfig({ key: "installationDate", direction: "desc" });
     setPage(0);
     if (showFilterPanel) setShowFilterPanel(false);
   }, [showFilterPanel]);
@@ -2745,12 +3664,20 @@ export default function InstallationPage() {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       {/* Modals */}
+      <ImageViewerModal
+        open={imageViewerOpen}
+        onClose={() => setImageViewerOpen(false)}
+        imageUrl={currentImageUrl}
+        title="Document Preview"
+      />
+
       <ViewLeadModal
         open={viewModalOpen}
         onClose={() => setViewModalOpen(false)}
         lead={selectedLead}
         userRole={userRole}
         showSnackbar={showSnackbar}
+        onViewDocument={handleViewDocument}
       />
 
       <InstallationStatusUpdateModal
@@ -2760,6 +3687,14 @@ export default function InstallationPage() {
         onStatusUpdate={handleStatusUpdate}
         showSnackbar={showSnackbar}
         userRole={userRole}
+      />
+
+      <EnhancementDocumentUploadModal
+        open={enhancementUploadModalOpen}
+        onClose={() => setEnhancementUploadModalOpen(false)}
+        lead={selectedLead}
+        onUploadComplete={handleEnhancementUploadComplete}
+        showSnackbar={showSnackbar}
       />
 
       {/* Mobile Filter Drawer */}
@@ -2832,6 +3767,16 @@ export default function InstallationPage() {
             <ListItemText>Update Status</ListItemText>
           </MenuItem>
         )}
+        {userPermissions.canUploadEnhancement &&
+          selectedActionLead?.installationStatus?.toLowerCase() ===
+            "enhancement" && (
+            <MenuItem onClick={() => handleActionSelect("upload_enhancement")}>
+              <ListItemIcon>
+                <CloudUpload fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Upload Enhancement</ListItemText>
+            </MenuItem>
+          )}
       </Menu>
 
       {/* Main Content */}
@@ -3439,6 +4384,9 @@ export default function InstallationPage() {
                       const installationStatusConfig =
                         getInstallationStatusConfig(lead.installationStatus);
                       const leadStatusConfig = getLeadStatusConfig(lead.status);
+                      const isEnhancement =
+                        lead.installationStatus?.toLowerCase() ===
+                        "enhancement";
 
                       return (
                         <TableRow
@@ -3604,6 +4552,27 @@ export default function InstallationPage() {
                                   </IconButton>
                                 </Tooltip>
                               )}
+
+                              {isEnhancement &&
+                                userPermissions.canUploadEnhancement && (
+                                  <Tooltip title="Upload Enhancement" arrow>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() =>
+                                        handleEnhancementUploadClick(lead)
+                                      }
+                                      sx={{
+                                        bgcolor: alpha("#ff9800", 0.1),
+                                        color: "#ff9800",
+                                        "&:hover": {
+                                          bgcolor: alpha("#ff9800", 0.2),
+                                        },
+                                      }}
+                                    >
+                                      <CloudUpload fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
                             </Stack>
                           </TableCell>
                         </TableRow>
@@ -3642,6 +4611,7 @@ export default function InstallationPage() {
                     lead={lead}
                     onView={handleViewClick}
                     onStatusUpdate={handleStatusUpdateClick}
+                    onEnhancementUpload={handleEnhancementUploadClick}
                     permissions={userPermissions}
                   />
                 ))

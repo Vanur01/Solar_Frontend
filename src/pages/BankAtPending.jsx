@@ -150,13 +150,6 @@ const SECONDARY_COLOR = "#1a237e";
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 const DEFAULT_ITEMS_PER_PAGE = 10;
 const ALLOWED_ROLES = ["Head_office", "ZSM", "ASM", "TEAM"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_FILE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/jpg",
-  "application/pdf",
-];
 
 // Period Options
 const PERIOD_OPTIONS = [
@@ -273,7 +266,7 @@ const getUserPermissions = (userRole) => ({
   canManage: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeAll: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeOwn: userRole === "TEAM",
-  canUpdateStatus: ["Head_office", "ZSM", "ASM"].includes(userRole),
+  canUpdateStatus: ["Head_office", "ZSM", "ASM","TEAM"].includes(userRole),
 });
 
 const getBankStatusConfig = (status) => {
