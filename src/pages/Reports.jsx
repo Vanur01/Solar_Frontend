@@ -1,4 +1,4 @@
-// pages/ReportsPage.jsx (Fixed - all issues resolved)
+// pages/ReportsPage.jsx (Fixed with correct attendance report structure)
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Box,
@@ -104,6 +104,9 @@ import {
   ViewModule,
   Dashboard,
   FiberManualRecord,
+  AccessTime,
+  Login,
+  Logout,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
 import { format, parseISO, isValid, subDays, subMonths } from "date-fns";
@@ -111,6 +114,9 @@ import { useNavigate } from "react-router-dom";
 
 const PRIMARY_COLOR = "#4569ea";
 const SECONDARY_COLOR = "#1a237e";
+const SUCCESS = "#22c55e";
+const WARNING = "#f59e0b";
+const DANGER = "#ef4444";
 
 // Period Options
 const PERIOD_OPTIONS = [
@@ -119,6 +125,35 @@ const PERIOD_OPTIONS = [
   { value: "month", label: "This Month", icon: <DateRange /> },
   { value: "all", label: "All Time", icon: <DateRange /> },
 ];
+
+// Status configuration for attendance
+const ATTENDANCE_STATUS = {
+  present: {
+    label: "Present",
+    color: SUCCESS,
+    bgColor: alpha(SUCCESS, 0.1),
+  },
+  absent: {
+    label: "Absent",
+    color: DANGER,
+    bgColor: alpha(DANGER, 0.1),
+  },
+  late: {
+    label: "Late",
+    color: WARNING,
+    bgColor: alpha(WARNING, 0.1),
+  },
+  leave: {
+    label: "Leave",
+    color: "#a855f7",
+    bgColor: alpha("#a855f7", 0.1),
+  },
+  holiday: {
+    label: "Holiday",
+    color: "#3b82f6",
+    bgColor: alpha("#3b82f6", 0.1),
+  },
+};
 
 // Role-based access control with proper visibility rules
 const ROLE_ACCESS = {
@@ -236,14 +271,19 @@ const REPORT_CONFIGS = [
     color: "#9c27b0",
     bgColor: alpha("#9c27b0", 0.1),
     columns: [
-      { field: "title", label: "Title", type: "string" },
-      { field: "amount", label: "Amount", type: "amount" },
-      { field: "category", label: "Category", type: "string" },
+      { field: "employee", label: "Employee", type: "user" },
+      { field: "date", label: "Date", type: "date" },
+      { field: "punchInTime", label: "Punch In", type: "time" },
+      { field: "punchOutTime", label: "Punch Out", type: "time" },
+      { field: "workHours", label: "Work Hours", type: "hours" },
       { field: "status", label: "Status", type: "status" },
-      { field: "createdBy", label: "Created By", type: "user" },
-      { field: "expenseDate", label: "Expense Date", type: "date" },
-      { field: "approvedBy", label: "Approved By", type: "user" },
-      { field: "description", label: "Description", type: "string" },
+      { field: "punchInLocation", label: "Punch In Location", type: "location" },
+      { field: "punchInAddress", label: "Punch In Address", type: "string" },
+      { field: "punchOutLocation", label: "Punch Out Location", type: "location" },
+      { field: "punchOutAddress", label: "Punch Out Address", type: "string" },
+      { field: "overtime", label: "Overtime", type: "hours" },
+      { field: "createdAt", label: "Created", type: "date" },
+      { field: "updatedAt", label: "Updated", type: "date" },
     ],
   },
 ];
@@ -349,7 +389,6 @@ const MobileFilterDrawer = ({
                     Time Period
                   </Typography>
                 </Stack>
-                {/* FIX #1: Correct expand/collapse icon logic */}
                 {expandedSection === "date" ? <ExpandLess /> : <ExpandMore />}
               </Box>
               <Collapse in={expandedSection === "date"}>
@@ -508,7 +547,6 @@ const MobileReportCard = ({
               </Typography>
             </Box>
           </Box>
-          {/* FIX #2: Correct expand icon toggle — was backwards */}
           <IconButton
             size="small"
             onClick={() => setExpanded(!expanded)}
@@ -540,7 +578,6 @@ const MobileReportCard = ({
                 {data?.length || 0}
               </Typography>
             </Grid>
-            {/* FIX #3: Filter out 'role' key from stats display */}
             {stats && Object.entries(stats).filter(([key]) => key !== "role").slice(0, 3).map(([key, value]) => (
               <Grid item xs={6} key={key}>
                 <Typography variant="caption" color="text.secondary">
@@ -569,7 +606,6 @@ const MobileReportCard = ({
               {data?.length || 0} records
             </Typography>
           </Box>
-          {/* FIX #4: Safely access role from stats, fallback to empty string */}
           <Chip
             label={stats?.role || ""}
             size="small"
@@ -773,7 +809,6 @@ const DesktopReportCard = ({
               {data?.length || 0} records
             </Typography>
           </Box>
-          {/* FIX #5: Safe role chip — show role label or nothing */}
           <Chip
             label={stats?.role || ""}
             size="small"
@@ -831,7 +866,6 @@ const DesktopReportCard = ({
 };
 
 // Report Details Modal
-// FIX #6: Moved all hooks to top level — no conditional hooks violation
 const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -843,7 +877,6 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
     direction: "asc",
   });
 
-  // FIX #6: useMemo always called (hooks before any conditional return)
   const filteredData = useMemo(() => {
     if (!data || !report) return [];
     if (!searchTerm) return data;
@@ -855,7 +888,7 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
           if (val.firstName) {
             return `${val.firstName} ${val.lastName || ""}`.toLowerCase().includes(term);
           }
-          return false;
+          return JSON.stringify(val).toLowerCase().includes(term);
         }
         return val?.toString().toLowerCase().includes(term);
       }),
@@ -880,7 +913,8 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
 
       if (
         sortConfig.field.includes("Date") ||
-        sortConfig.field.includes("At")
+        sortConfig.field.includes("At") ||
+        sortConfig.field.includes("time")
       ) {
         aVal = aVal ? new Date(aVal) : new Date(0);
         bVal = bVal ? new Date(bVal) : new Date(0);
@@ -895,7 +929,6 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
     });
   }, [filteredData, sortConfig]);
 
-  // FIX #6: Early return AFTER all hooks
   if (!data || !report) return null;
 
   const paginatedData = sortedData.slice(
@@ -917,31 +950,66 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
     switch (column.type) {
       case "date":
         return formatDate(value);
+      case "time":
+        return value ? format(new Date(value), "hh:mm a") : "—";
+      case "hours":
+        if (value === 0) return "0 hrs";
+        return value ? `${value} hrs` : "—";
       case "amount":
         return `₹${Number(value).toLocaleString()}`;
       case "user":
         if (typeof value === "object" && value !== null) {
-          return (
-            `${value.firstName || ""} ${value.lastName || ""}`.trim() || "—"
-          );
+          if (value.firstName) {
+            return `${value.firstName} ${value.lastName || ""}`.trim() || "—";
+          }
+          return value.name || "—";
+        }
+        return value || "—";
+      case "location":
+        if (typeof value === "object" && value !== null) {
+          return `${value.lat?.toFixed(4) || ""}, ${value.lng?.toFixed(4) || ""}`;
         }
         return value || "—";
       case "status":
+        const statusConfig = ATTENDANCE_STATUS[value] || {
+          label: value,
+          color: PRIMARY_COLOR,
+          bgColor: alpha(PRIMARY_COLOR, 0.1),
+        };
         return (
           <Chip
-            label={value}
+            label={statusConfig.label}
             size="small"
             sx={{
-              bgcolor: alpha(PRIMARY_COLOR, 0.1),
-              color: PRIMARY_COLOR,
+              bgcolor: statusConfig.bgColor,
+              color: statusConfig.color,
               fontSize: "0.7rem",
               height: 24,
+              fontWeight: 600,
             }}
           />
         );
       default:
         return value || "—";
     }
+  };
+
+  // Transform attendance data for display
+  const transformAttendanceData = (item) => {
+    if (report.key !== "attendance") return item;
+    
+    return {
+      ...item,
+      employee: item.user || "—",
+      punchInTime: item.punchIn?.time,
+      punchOutTime: item.punchOut?.time,
+      punchInLocation: item.punchIn?.location,
+      punchInAddress: item.punchIn?.address,
+      punchOutLocation: item.punchOut?.location,
+      punchOutAddress: item.punchOut?.address,
+      workHours: item.workHours,
+      overtime: item.overtime,
+    };
   };
 
   return (
@@ -958,7 +1026,6 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
           height: isMobile ? "100%" : "auto",
         },
       }}
-      // FIX #7: Slide requires a 'direction' prop — added "up" for mobile
       TransitionComponent={isMobile ? Slide : Fade}
       TransitionProps={isMobile ? { direction: "up" } : undefined}
       transitionDuration={300}
@@ -1077,30 +1144,33 @@ const ReportDetailsModal = ({ open, onClose, report, data, userRole }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedData.map((row, index) => (
-                  <TableRow
-                    key={index}
-                    hover
-                    sx={{
-                      "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.02) },
-                    }}
-                  >
-                    {report.columns.map((col) => (
-                      <TableCell
-                        key={col.field}
-                        sx={{
-                          whiteSpace: "nowrap",
-                          maxWidth: 200,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                        }}
-                      >
-                        {formatCellValue(row[col.field], col)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
+                {paginatedData.map((row, index) => {
+                  const displayRow = transformAttendanceData(row);
+                  return (
+                    <TableRow
+                      key={index}
+                      hover
+                      sx={{
+                        "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.02) },
+                      }}
+                    >
+                      {report.columns.map((col) => (
+                        <TableCell
+                          key={col.field}
+                          sx={{
+                            whiteSpace: "nowrap",
+                            maxWidth: 200,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                          }}
+                        >
+                          {formatCellValue(displayRow[col.field], col)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
@@ -1297,7 +1367,6 @@ export default function ReportsPage() {
   const [dateRange, setDateRange] = useState("all");
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  // FIX #8: BottomNavigation requires a 'value' prop to avoid warning
   const [bottomNavValue, setBottomNavValue] = useState(1);
 
   // Refs
@@ -1321,18 +1390,43 @@ export default function ReportsPage() {
     setSnackbar({ open: true, message, severity });
   }, []);
 
-  // FIX #9: downloadCSV fixed — separate raw value from display value to avoid corrupt CSV
+  // Download CSV function
   const downloadCSV = useCallback(async (report, data) => {
     const headers = report.columns.map((col) => col.label);
-    const rows = data.map((item) =>
-      report.columns
+    const rows = data.map((item) => {
+      // Transform attendance data for CSV
+      let displayItem = item;
+      if (report.key === "attendance") {
+        displayItem = {
+          ...item,
+          employee: item.user ? `${item.user.firstName || ""} ${item.user.lastName || ""}`.trim() : "—",
+          punchInTime: item.punchIn?.time ? format(new Date(item.punchIn.time), "hh:mm a") : "—",
+          punchOutTime: item.punchOut?.time ? format(new Date(item.punchOut.time), "hh:mm a") : "—",
+          workHours: item.workHours ? `${item.workHours} hrs` : "0 hrs",
+          overtime: item.overtime ? `${item.overtime} hrs` : "0 hrs",
+          punchInLocation: item.punchIn?.location ? 
+            `${item.punchIn.location.lat?.toFixed(4) || ""}, ${item.punchIn.location.lng?.toFixed(4) || ""}` : "—",
+          punchInAddress: item.punchIn?.address || "—",
+          punchOutLocation: item.punchOut?.location ? 
+            `${item.punchOut.location.lat?.toFixed(4) || ""}, ${item.punchOut.location.lng?.toFixed(4) || ""}` : "—",
+          punchOutAddress: item.punchOut?.address || "—",
+        };
+      }
+
+      return report.columns
         .map((col) => {
-          let rawValue = item[col.field];
+          let rawValue = displayItem[col.field];
           let displayValue;
 
-          if (typeof rawValue === "object" && rawValue !== null) {
+          if (rawValue === null || rawValue === undefined) {
+            displayValue = "";
+          } else if (typeof rawValue === "object") {
             if (col.type === "user") {
-              displayValue = `${rawValue.firstName || ""} ${rawValue.lastName || ""}`.trim();
+              if (rawValue.firstName) {
+                displayValue = `${rawValue.firstName || ""} ${rawValue.lastName || ""}`.trim();
+              } else {
+                displayValue = JSON.stringify(rawValue);
+              }
             } else {
               displayValue = JSON.stringify(rawValue);
             }
@@ -1340,19 +1434,22 @@ export default function ReportsPage() {
             displayValue = formatDate(rawValue);
           } else if (col.type === "amount" && rawValue != null) {
             displayValue = `₹${rawValue}`;
+          } else if (col.type === "hours" && rawValue != null) {
+            displayValue = `${rawValue} hrs`;
+          } else if (col.type === "time" && rawValue) {
+            displayValue = format(new Date(rawValue), "hh:mm a");
           } else {
-            displayValue = rawValue ?? "";
+            displayValue = String(rawValue);
           }
 
           const strValue = String(displayValue);
-          // FIX #9: Properly escape CSV — always quote if contains comma, quote, or newline
           if (strValue.includes(",") || strValue.includes('"') || strValue.includes("\n")) {
             return `"${strValue.replace(/"/g, '""')}"`;
           }
           return strValue;
         })
-        .join(","),
-    );
+        .join(",");
+    });
 
     const csvContent = [headers.join(","), ...rows].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -1369,7 +1466,7 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   }, []);
 
-  // FIX #10: fetchAllReports uses stable accessibleReports from useMemo
+  // Fetch all reports
   const fetchAllReports = useCallback(async () => {
     setLoading(true);
     try {
@@ -1404,7 +1501,6 @@ export default function ReportsPage() {
           }
 
           const response = await fetchAPI(endpoint);
-          console.log("leads...", response)
 
           if (response?.success) {
             const result = response.result || {};
@@ -1424,7 +1520,6 @@ export default function ReportsPage() {
                 role: userRole,
               };
             } else if (report.key === "installation") {
-              // API: { totalInstallations, completed, pending, installations: [...] }
               data = result.installations || [];
               stats[report.key] = {
                 "Total": result.totalInstallations ?? data.length,
@@ -1432,8 +1527,7 @@ export default function ReportsPage() {
                 "Pending": result.pending ?? 0,
                 role: userRole,
               };
-            } else if (report.key === "expenses" || report.key === "attendance") {
-              // API: { totalExpenses, totalAmount, expenses: [...] }
+            } else if (report.key === "expenses") {
               data = result.expenses || [];
               stats[report.key] = {
                 "Total": result.totalExpenses ?? data.length,
@@ -1442,6 +1536,19 @@ export default function ReportsPage() {
                   : "₹0",
                 "Approved": data.filter((item) => item.status === "Approved").length,
                 "Pending": data.filter((item) => item.status === "Pending").length,
+                role: userRole,
+              };
+            } else if (report.key === "attendance") {
+              data = result.attendance || [];
+              const totalWorkHours = data.reduce((sum, item) => sum + (item.workHours || 0), 0);
+              const avgWorkHours = data.length > 0 ? (totalWorkHours / data.length).toFixed(1) : 0;
+              
+              stats[report.key] = {
+                "Total Records": result.totalRecords ?? data.length,
+                "Present": result.presentCount ?? data.filter((item) => item.status === "present").length,
+                "Total Hours": `${totalWorkHours.toFixed(1)} hrs`,
+                "Avg Hours": `${avgWorkHours} hrs`,
+                "Overtime": `${(result.totalOvertime || 0).toFixed(1)} hrs`,
                 role: userRole,
               };
             }
@@ -1488,7 +1595,7 @@ export default function ReportsPage() {
     [accessibleReports, reportsData],
   );
 
-  // FIX #11: handleDownload wrapped in useCallback with stable downloadCSV dep
+  // Handle download
   const handleDownload = useCallback(
     async (reportKey) => {
       const report = accessibleReports.find((r) => r.key === reportKey);
@@ -1539,15 +1646,9 @@ export default function ReportsPage() {
     setAnchorEl(null);
   };
 
-  // Handle date range change
-  const handleDateRangeChange = (range) => {
-    setDateRange(range);
-    handleMenuClose();
-  };
-
   // Handle clear filters
   const handleClearFilters = () => {
-    setDateRange("month");
+    setDateRange("all");
   };
 
   // Loading skeletons
@@ -1857,52 +1958,6 @@ export default function ReportsPage() {
             </Badge>
           </Fab>
         </Zoom>
-      )}
-
-      {/* Mobile Bottom Navigation */}
-      {/* FIX #8: Added value and onChange props to BottomNavigation */}
-      {isMobile && (
-        <Paper
-          sx={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 1000,
-            borderRadius: 0,
-            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-          }}
-          elevation={3}
-        >
-          <BottomNavigation
-            showLabels
-            value={bottomNavValue}
-            onChange={(e, newValue) => setBottomNavValue(newValue)}
-            sx={{
-              height: 64,
-              "& .MuiBottomNavigationAction-root": {
-                color: "text.secondary",
-                "&.Mui-selected": { color: PRIMARY_COLOR },
-              },
-            }}
-          >
-            <BottomNavigationAction
-              label="Dashboard"
-              icon={<Dashboard />}
-              onClick={() => navigate("/dashboard")}
-            />
-            <BottomNavigationAction
-              label="Reports"
-              icon={<Assessment />}
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            />
-            <BottomNavigationAction
-              label="Profile"
-              icon={<Person />}
-              onClick={() => navigate("/profile")}
-            />
-          </BottomNavigation>
-        </Paper>
       )}
     </Box>
   );

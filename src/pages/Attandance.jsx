@@ -1,4 +1,4 @@
-// pages/Attandance.jsx (Updated with address integration)
+// pages/Attendance.jsx
 import React, {
   useState,
   useEffect,
@@ -12,7 +12,6 @@ import {
   Paper,
   Typography,
   Chip,
-  Avatar,
   IconButton,
   Stack,
   Card,
@@ -52,6 +51,11 @@ import {
   DialogActions,
   Tooltip,
   alpha,
+  Checkbox,
+  Menu,
+  ListItemIcon,
+  ListItemText,
+  Divider,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import {
@@ -82,11 +86,21 @@ import {
   PlayArrow,
   Home,
   Business,
+  MyLocation,
+  FileDownload,
+  Print,
+  ContentCopy,
+  Deselect,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
 import { useAttendance } from "../hooks/useAttendance";
 import { useGeo } from "../hooks/useGeo";
-import AttendanceDetails from "./AttendanceDetails";
+import AttendanceDetails, {
+  generateCSV,
+  generateJSON,
+  downloadFile,
+  printRecord,
+} from "./AttendanceDetails";
 import TeamAttendance from "./TeamAttendance";
 import { format, differenceInSeconds } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -98,7 +112,6 @@ const SUCCESS = "#22c55e";
 const DANGER = "#ef4444";
 const WARNING = "#f59e0b";
 
-// Roles that should NOT see personal punch-in / punch-out UI
 const MANAGER_ROLES = ["Head_office", "ZSM", "ASM"];
 
 const PERIOD_OPTIONS = [
@@ -141,25 +154,22 @@ const STATUS_CONFIG = {
   },
 };
 
-// ─── useWorkTimer Hook ────────────────────────────────────────────────────────
-function useWorkTimer(initialStartTime = null) {
+// ─── useWorkTimer ─────────────────────────────────────────────────────────────
+function useWorkTimer() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [startTime, setStartTime] = useState(initialStartTime);
+  const [startTime, setStartTime] = useState(null);
   const [isActive, setIsActive] = useState(false);
   const timerRef = useRef(null);
-
-  const formatTime = useCallback((seconds) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }, []);
-
+  const pad = (n) => String(n).padStart(2, "0");
+  const formatTime = useCallback(
+    (s) =>
+      `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`,
+    [],
+  );
   const start = useCallback((ts = new Date()) => {
     setStartTime(ts);
     setIsActive(true);
   }, []);
-
   const stop = useCallback(() => {
     setIsActive(false);
     if (timerRef.current) {
@@ -167,7 +177,6 @@ function useWorkTimer(initialStartTime = null) {
       timerRef.current = null;
     }
   }, []);
-
   const reset = useCallback(() => {
     setElapsedSeconds(0);
     setStartTime(null);
@@ -177,18 +186,20 @@ function useWorkTimer(initialStartTime = null) {
       timerRef.current = null;
     }
   }, []);
-
   useEffect(() => {
     if (isActive && startTime) {
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds(differenceInSeconds(new Date(), new Date(startTime)));
-      }, 1000);
+      timerRef.current = setInterval(
+        () =>
+          setElapsedSeconds(
+            differenceInSeconds(new Date(), new Date(startTime)),
+          ),
+        1000,
+      );
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isActive, startTime]);
-
   return {
     elapsedSeconds,
     formattedTime: formatTime(elapsedSeconds),
@@ -199,7 +210,7 @@ function useWorkTimer(initialStartTime = null) {
   };
 }
 
-// ─── Styled Components ───────────────────────────────────────────────────────
+// ─── Styled ───────────────────────────────────────────────────────────────────
 const GlassCard = styled(Card)(() => ({
   background: "rgba(255,255,255,0.97)",
   backdropFilter: "blur(12px)",
@@ -229,7 +240,7 @@ const TimerDisplay = styled(Box)(({ theme, isrunning }) => ({
   boxShadow: `0 4px 12px ${alpha(isrunning === "true" ? SUCCESS : PRIMARY, 0.1)}`,
 }));
 
-// ─── StatusBadge ─────────────────────────────────────────────────────────────
+// ─── StatusBadge ──────────────────────────────────────────────────────────────
 const StatusBadge = ({ status, size = "small" }) => {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.present;
   return (
@@ -386,26 +397,20 @@ const CalCell = ({
 
 // ─── LiveTimer ────────────────────────────────────────────────────────────────
 const LiveTimer = ({ startTime, isRunning }) => {
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const timerRef = useRef(null);
-
+  const [now, setNow] = useState(new Date());
+  const ref = useRef(null);
   useEffect(() => {
     if (isRunning) {
-      timerRef.current = setInterval(() => setCurrentTime(new Date()), 1000);
+      ref.current = setInterval(() => setNow(new Date()), 1000);
     }
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (ref.current) clearInterval(ref.current);
     };
   }, [isRunning]);
-
   if (!startTime || !isRunning) return null;
-
-  const diffMs = currentTime - new Date(startTime);
-  const diffHrs = Math.floor(diffMs / 3600000);
-  const diffMins = Math.floor((diffMs % 3600000) / 60000);
-  const diffSecs = Math.floor((diffMs % 60000) / 1000);
-  const formatted = `${diffHrs.toString().padStart(2, "0")}:${diffMins.toString().padStart(2, "0")}:${diffSecs.toString().padStart(2, "0")}`;
-
+  const ms = now - new Date(startTime);
+  const p = (n) => String(n).padStart(2, "0");
+  const f = `${p(Math.floor(ms / 3600000))}:${p(Math.floor((ms % 3600000) / 60000))}:${p(Math.floor((ms % 60000) / 1000))}`;
   return (
     <TimerDisplay isrunning="true">
       <Stack direction="row" spacing={2} alignItems="center">
@@ -430,7 +435,7 @@ const LiveTimer = ({ startTime, isRunning }) => {
             Current Session Duration
           </Typography>
           <Typography variant="h4" fontWeight={800} color={SUCCESS}>
-            {formatted}
+            {f}
           </Typography>
         </Box>
         <Box sx={{ flex: 1, textAlign: "right" }}>
@@ -455,6 +460,135 @@ const LiveTimer = ({ startTime, isRunning }) => {
   );
 };
 
+// ─── LocationPermissionDialog ─────────────────────────────────────────────────
+const LocationPermissionDialog = ({
+  open,
+  mode,
+  onAllow,
+  onDeny,
+  requesting,
+}) => {
+  const isPunchIn = mode === "in";
+  const accentColor = isPunchIn ? SUCCESS : DANGER;
+  const isMobile = useMediaQuery("(max-width:600px)");
+  return (
+    <Dialog
+      open={open}
+      maxWidth="xs"
+      fullWidth
+      fullScreen={isMobile}
+      TransitionComponent={isMobile ? Slide : Zoom}
+      TransitionProps={isMobile ? { direction: "up" } : {}}
+      PaperProps={{
+        sx: { borderRadius: isMobile ? 0 : 4, overflow: "hidden" },
+      }}
+    >
+      <Box
+        sx={{
+          height: 5,
+          background: `linear-gradient(90deg, ${PRIMARY}, ${accentColor})`,
+        }}
+      />
+      <DialogContent sx={{ pt: 4, pb: 2, px: 3, textAlign: "center" }}>
+        <Box
+          sx={{
+            width: 80,
+            height: 80,
+            borderRadius: "50%",
+            bgcolor: alpha(accentColor, 0.1),
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            mx: "auto",
+            mb: 2.5,
+            border: `2px solid ${alpha(accentColor, 0.25)}`,
+          }}
+        >
+          {requesting ? (
+            <CircularProgress size={36} sx={{ color: accentColor }} />
+          ) : (
+            <MyLocation sx={{ fontSize: 36, color: accentColor }} />
+          )}
+        </Box>
+        <Typography variant="h6" fontWeight={800} gutterBottom>
+          {requesting ? "Getting your location…" : "Allow Location Access"}
+        </Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ lineHeight: 1.6 }}
+        >
+          {requesting
+            ? "Please wait while we detect your current location."
+            : `To ${isPunchIn ? "punch in" : "punch out"}, we need your current location to verify attendance.`}
+        </Typography>
+        {!requesting && (
+          <Box
+            sx={{
+              mt: 2.5,
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: alpha(PRIMARY, 0.04),
+              border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+            }}
+          >
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              justifyContent="center"
+            >
+              <LocationOn sx={{ fontSize: 16, color: PRIMARY }} />
+              <Typography variant="caption" color="primary" fontWeight={600}>
+                GPS location required for attendance verification
+              </Typography>
+            </Stack>
+          </Box>
+        )}
+      </DialogContent>
+      {!requesting && (
+        <DialogActions
+          sx={{
+            px: 3,
+            pb: 3,
+            gap: 1.5,
+            flexDirection: { xs: "column", sm: "row" },
+          }}
+        >
+          <Button
+            fullWidth={isMobile}
+            variant="outlined"
+            onClick={onDeny}
+            sx={{
+              borderRadius: 2.5,
+              borderColor: alpha(PRIMARY, 0.35),
+              color: "text.secondary",
+              order: isMobile ? 2 : 1,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            fullWidth={isMobile}
+            variant="contained"
+            onClick={onAllow}
+            startIcon={<GpsFixed />}
+            sx={{
+              borderRadius: 2.5,
+              fontWeight: 700,
+              bgcolor: accentColor,
+              order: isMobile ? 1 : 2,
+              "&:hover": { bgcolor: isPunchIn ? "#16a34a" : "#dc2626" },
+            }}
+          >
+            Allow Location
+          </Button>
+        </DialogActions>
+      )}
+    </Dialog>
+  );
+};
+
 // ─── PunchModal ───────────────────────────────────────────────────────────────
 const PunchModal = ({
   open,
@@ -470,59 +604,13 @@ const PunchModal = ({
   const isPunchIn = mode === "in";
   const accentColor = isPunchIn ? SUCCESS : DANGER;
   const [tick, setTick] = useState(new Date());
-  const [fetchingAddress, setFetchingAddress] = useState(false);
   const [showFullAddress, setShowFullAddress] = useState(false);
-
   useEffect(() => {
     if (!open) return;
     const t = setInterval(() => setTick(new Date()), 1000);
     return () => clearInterval(t);
   }, [open]);
-
-  // Fetch address when location is available
-  useEffect(() => {
-    const getAddress = async () => {
-      if (geo.latitude && geo.longitude && !geo.address && !fetchingAddress && open) {
-        setFetchingAddress(true);
-        try {
-          // Use the refreshAddress method if available, otherwise fetch directly
-          if (geo.refreshAddress) {
-            await geo.refreshAddress();
-          } else {
-            // Fallback: fetch address directly
-            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${geo.latitude}&lon=${geo.longitude}&zoom=18&addressdetails=1`;
-            const response = await fetch(url, {
-              headers: {
-                'Accept-Language': 'en',
-                'User-Agent': 'AttendanceApp/1.0'
-              }
-            });
-            const data = await response.json();
-            if (data) {
-              geo.address = {
-                full: data.display_name,
-                short: data.address?.road 
-                  ? `${data.address.road}${data.address.house_number ? ' ' + data.address.house_number : ''}`
-                  : data.display_name?.split(',')[0] || 'Unknown location',
-                ...data.address
-              };
-            }
-          }
-        } catch (error) {
-          console.error('Address fetch failed:', error);
-        } finally {
-          setFetchingAddress(false);
-        }
-      }
-    };
-    
-    if (open && geo.latitude && !geo.address) {
-      getAddress();
-    }
-  }, [open, geo.latitude, geo.longitude, geo.address, geo, fetchingAddress]);
-
   const showTimer = !isPunchIn && timer?.isActive && timer?.formattedTime;
-
   return (
     <Dialog
       open={open}
@@ -542,7 +630,6 @@ const PunchModal = ({
           background: `linear-gradient(90deg, ${PRIMARY}, ${accentColor})`,
         }}
       />
-
       <DialogTitle
         sx={{
           pb: 1,
@@ -584,18 +671,13 @@ const PunchModal = ({
           onClick={onClose}
           disabled={punchLoading}
           size="small"
-          sx={{
-            bgcolor: alpha("#000", 0.05),
-            "&:hover": { bgcolor: alpha("#000", 0.1) },
-          }}
+          sx={{ bgcolor: alpha("#000", 0.05) }}
         >
           <Close fontSize="small" />
         </IconButton>
       </DialogTitle>
-
       <DialogContent sx={{ px: { xs: 2, sm: 3 }, pt: 1.5, pb: 2 }}>
         <Stack spacing={2.5}>
-          {/* Live clock */}
           <Paper
             elevation={0}
             sx={{
@@ -631,8 +713,6 @@ const PunchModal = ({
               {format(tick, "a")} · Current Time
             </Typography>
           </Paper>
-
-          {/* Session timer (punch-out only) */}
           {showTimer && (
             <Paper
               elevation={0}
@@ -678,23 +758,12 @@ const PunchModal = ({
               </Stack>
             </Paper>
           )}
-
-          {/* Enhanced Location status with address */}
           <Paper
             elevation={0}
             sx={{
               p: 2,
               borderRadius: 2.5,
-              border: `1px solid ${alpha(
-                geo.loading
-                  ? PRIMARY
-                  : geo.error
-                    ? DANGER
-                    : geo.latitude
-                      ? SUCCESS
-                      : "#000",
-                0.25,
-              )}`,
+              border: `1px solid ${alpha(geo.loading ? PRIMARY : geo.error ? DANGER : geo.latitude ? SUCCESS : "#000", 0.25)}`,
               bgcolor: alpha(
                 geo.loading
                   ? PRIMARY
@@ -749,76 +818,77 @@ const PunchModal = ({
                         ? geo.address?.short || "Location acquired"
                         : "Location not fetched"}
                 </Typography>
-                
-                {/* Full address display with expand/collapse */}
                 {geo.address?.full && (
                   <Box sx={{ mt: 0.5 }}>
-                    <Stack 
-                      direction="row" 
-                      spacing={0.5} 
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
                       alignItems="center"
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => setShowFullAddress(!showFullAddress)}
+                      sx={{ cursor: "pointer" }}
+                      onClick={() => setShowFullAddress((v) => !v)}
                     >
-                      <Home sx={{ fontSize: 14, color: 'text.secondary' }} />
-                      <Typography 
-                        variant="caption" 
-                        color="text.secondary" 
-                        sx={{ 
+                      <Home sx={{ fontSize: 14, color: "text.secondary" }} />
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
                           lineHeight: 1.3,
                           ...(!showFullAddress && {
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '200px'
-                          })
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            maxWidth: "200px",
+                          }),
                         }}
                       >
-                        {showFullAddress ? geo.address.full : geo.address.full.split(',')[0]}
+                        {showFullAddress
+                          ? geo.address.full
+                          : geo.address.full.split(",")[0]}
                       </Typography>
-                      <ExpandMore 
-                        sx={{ 
-                          fontSize: 14, 
-                          color: 'text.secondary',
-                          transform: showFullAddress ? 'rotate(180deg)' : 'none',
-                          transition: 'transform 0.2s'
-                        }} 
+                      <ExpandMore
+                        sx={{
+                          fontSize: 14,
+                          color: "text.secondary",
+                          transform: showFullAddress
+                            ? "rotate(180deg)"
+                            : "none",
+                          transition: "transform 0.2s",
+                        }}
                       />
                     </Stack>
-                    
-                    {/* Additional address details */}
                     {showFullAddress && geo.address.city && (
-                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, ml: 2.5 }}>
-                        <Business sx={{ fontSize: 12, color: 'text.disabled' }} />
+                      <Stack
+                        direction="row"
+                        spacing={0.5}
+                        alignItems="center"
+                        sx={{ mt: 0.5, ml: 2.5 }}
+                      >
+                        <Business
+                          sx={{ fontSize: 12, color: "text.disabled" }}
+                        />
                         <Typography variant="caption" color="text.disabled">
-                          {[geo.address.city, geo.address.state, geo.address.country]
+                          {[
+                            geo.address.city,
+                            geo.address.state,
+                            geo.address.country,
+                          ]
                             .filter(Boolean)
-                            .join(', ')}
+                            .join(", ")}
                         </Typography>
                       </Stack>
                     )}
                   </Box>
                 )}
-                
-                {/* Coordinates fallback */}
                 {geo.latitude && !geo.error && !geo.address && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: "block", mt: 0.5 }}
+                  >
                     📍 {geo.latitude.toFixed(5)}, {geo.longitude.toFixed(5)}
                     {geo.accuracy && ` (±${Math.round(geo.accuracy)}m)`}
                   </Typography>
                 )}
-                
-                {/* Fetching address indicator */}
-                {fetchingAddress && (
-                  <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
-                    <CircularProgress size={12} sx={{ color: PRIMARY }} />
-                    <Typography variant="caption" color="primary">
-                      Getting precise address...
-                    </Typography>
-                  </Stack>
-                )}
-                
-                {/* Error message */}
                 {geo.error && (
                   <Typography
                     variant="caption"
@@ -840,7 +910,6 @@ const PunchModal = ({
               )}
             </Stack>
           </Paper>
-
           {geo.error && (
             <Alert severity="error" sx={{ borderRadius: 2, py: 0.75 }}>
               Location is required to punch in/out. Please allow access and tap
@@ -849,7 +918,6 @@ const PunchModal = ({
           )}
         </Stack>
       </DialogContent>
-
       <DialogActions
         sx={{
           px: { xs: 2, sm: 3 },
@@ -869,7 +937,6 @@ const PunchModal = ({
             px: 3,
             borderColor: alpha(PRIMARY, 0.35),
             color: PRIMARY,
-            order: isMobile ? 2 : 1,
           }}
         >
           Cancel
@@ -878,12 +945,7 @@ const PunchModal = ({
           fullWidth={isMobile}
           variant="contained"
           onClick={onConfirm}
-          disabled={
-            punchLoading || 
-            geo.loading || 
-            (!geo.latitude && !geo.loading) ||
-            fetchingAddress // Disable while fetching address
-          }
+          disabled={punchLoading || geo.loading || !geo.latitude}
           startIcon={
             punchLoading ? (
               <CircularProgress size={16} color="inherit" />
@@ -897,21 +959,193 @@ const PunchModal = ({
             borderRadius: 2.5,
             px: 3,
             fontWeight: 700,
-            order: isMobile ? 1 : 2,
             bgcolor: accentColor,
             "&:hover": { bgcolor: isPunchIn ? "#16a34a" : "#dc2626" },
           }}
         >
           {punchLoading
             ? "Processing…"
-            : fetchingAddress
-              ? "Getting address…"
-              : isPunchIn
-                ? "Confirm Punch In"
-                : "Confirm Punch Out"}
+            : isPunchIn
+              ? "Confirm Punch In"
+              : "Confirm Punch Out"}
         </Button>
       </DialogActions>
     </Dialog>
+  );
+};
+
+// ─── BulkExportMenu ───────────────────────────────────────────────────────────
+const BulkExportMenu = ({
+  selectedRecords,
+  allRecords,
+  onSnack,
+  size = "small",
+}) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+  const ts = format(new Date(), "yyyyMMdd_HHmmss");
+  const hasSelection = selectedRecords.length > 0;
+  const exportTarget = hasSelection ? selectedRecords : allRecords;
+  const count = exportTarget.length;
+
+  const act = (fn) => () => {
+    try {
+      fn();
+      onSnack(`Exported ${count} record${count !== 1 ? "s" : ""} successfully`);
+    } catch {
+      onSnack("Export failed", "error");
+    }
+    setAnchorEl(null);
+  };
+
+  return (
+    <>
+      <Button
+        variant="contained"
+        size={size}
+        startIcon={<FileDownload />}
+        endIcon={<ExpandMore sx={{ fontSize: 15 }} />}
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        sx={{
+          bgcolor: "rgba(255,255,255,.15)",
+          color: "#fff",
+          borderRadius: 2.5,
+          fontWeight: 600,
+          "&:hover": { bgcolor: "rgba(255,255,255,.25)" },
+        }}
+      >
+        Export{hasSelection ? ` (${selectedRecords.length})` : ""}
+      </Button>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={() => setAnchorEl(null)}
+        PaperProps={{
+          sx: {
+            mt: 1.5,
+            borderRadius: 2.5,
+            minWidth: 230,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.13)",
+          },
+        }}
+        transformOrigin={{ horizontal: "right", vertical: "top" }}
+        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+      >
+        <Box sx={{ px: 2, pt: 1.5, pb: 0.5 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            fontWeight={700}
+            sx={{
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              fontSize: "0.65rem",
+            }}
+          >
+            {hasSelection
+              ? `${count} selected record${count !== 1 ? "s" : ""}`
+              : `All ${count} record${count !== 1 ? "s" : ""} on this page`}
+          </Typography>
+        </Box>
+        <MenuItem
+          onClick={act(() =>
+            downloadFile(
+              generateCSV(exportTarget),
+              `attendance_${ts}.csv`,
+              "text/csv",
+            ),
+          )}
+          sx={{ py: 1.25 }}
+        >
+          <ListItemIcon>
+            <FileDownload fontSize="small" sx={{ color: SUCCESS }} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Export as CSV"
+            secondary={`${count} record${count !== 1 ? "s" : ""}`}
+            primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+            secondaryTypographyProps={{ variant: "caption" }}
+          />
+        </MenuItem>
+        <MenuItem
+          onClick={act(() =>
+            downloadFile(
+              generateJSON(exportTarget),
+              `attendance_${ts}.json`,
+              "application/json",
+            ),
+          )}
+          sx={{ py: 1.25 }}
+        >
+          <ListItemIcon>
+            <FileDownload fontSize="small" sx={{ color: PRIMARY }} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Export as JSON"
+            secondary={`${count} record${count !== 1 ? "s" : ""}`}
+            primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+            secondaryTypographyProps={{ variant: "caption" }}
+          />
+        </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          onClick={() => {
+            try {
+              navigator.clipboard.writeText(generateJSON(exportTarget));
+              onSnack("Copied to clipboard");
+            } catch {
+              onSnack("Copy failed", "error");
+            }
+            setAnchorEl(null);
+          }}
+          sx={{ py: 1.25 }}
+        >
+          <ListItemIcon>
+            <ContentCopy fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary="Copy to Clipboard"
+            primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+          />
+        </MenuItem>
+        {count === 1 && (
+          <MenuItem
+            onClick={() => {
+              try {
+                printRecord(exportTarget[0]);
+                onSnack("Print preview opened");
+              } catch {
+                onSnack("Print failed", "error");
+              }
+              setAnchorEl(null);
+            }}
+            sx={{ py: 1.25 }}
+          >
+            <ListItemIcon>
+              <Print fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Print"
+              primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
+            />
+          </MenuItem>
+        )}
+        {hasSelection && (
+          <>
+            <Divider sx={{ my: 0.5 }} />
+            <Box sx={{ px: 2, pt: 0.5, pb: 1 }}>
+              <Typography
+                variant="caption"
+                color="text.disabled"
+                sx={{ fontSize: "0.68rem" }}
+              >
+                Deselect all to export the whole page
+              </Typography>
+            </Box>
+          </>
+        )}
+      </Menu>
+    </>
   );
 };
 
@@ -928,11 +1162,12 @@ const MobileLogCard = ({ entry, onView, onDelete, canDelete, index }) => {
           hour12: true,
         })
       : "—";
-
-  // Get address from punch in
-  const punchInAddress = entry.punchIn?.address;
-  const punchOutAddress = entry.punchOut?.address;
-
+  const resolveAddr = (addr) =>
+    !addr
+      ? null
+      : typeof addr === "string"
+        ? addr
+        : addr.short || addr.full?.split(",")[0] || null;
   return (
     <Fade in timeout={350 + index * 50}>
       <Paper
@@ -1003,7 +1238,6 @@ const MobileLogCard = ({ entry, onView, onDelete, canDelete, index }) => {
               <ExpandMore fontSize="small" />
             </IconButton>
           </Stack>
-
           <Grid container spacing={1} sx={{ mb: 1.5 }}>
             {[
               ["Punch In", ft(entry.punchIn?.time), SUCCESS],
@@ -1028,45 +1262,44 @@ const MobileLogCard = ({ entry, onView, onDelete, canDelete, index }) => {
               </Grid>
             ))}
           </Grid>
-
-          {/* Punch In Address */}
-          {punchInAddress && (
+          {resolveAddr(entry.punchIn?.address) && (
             <Stack
               direction="row"
               spacing={0.5}
               alignItems="flex-start"
               sx={{ mb: 0.5 }}
             >
-              <LocationOn sx={{ fontSize: 13, color: "text.disabled", mt: 0.2 }} />
+              <LocationOn
+                sx={{ fontSize: 13, color: "text.disabled", mt: 0.2 }}
+              />
               <Typography
                 variant="caption"
                 color="text.secondary"
                 sx={{ lineHeight: 1.3 }}
               >
-                <strong>In:</strong> {punchInAddress.short || punchInAddress.full?.split(',')[0] || 'Unknown'}
+                <strong>In:</strong> {resolveAddr(entry.punchIn.address)}
               </Typography>
             </Stack>
           )}
-
-          {/* Punch Out Address */}
-          {punchOutAddress && (
+          {resolveAddr(entry.punchOut?.address) && (
             <Stack
               direction="row"
               spacing={0.5}
               alignItems="flex-start"
               sx={{ mb: 0.5 }}
             >
-              <LocationOn sx={{ fontSize: 13, color: "text.disabled", mt: 0.2 }} />
+              <LocationOn
+                sx={{ fontSize: 13, color: "text.disabled", mt: 0.2 }}
+              />
               <Typography
                 variant="caption"
                 color="text.secondary"
                 sx={{ lineHeight: 1.3 }}
               >
-                <strong>Out:</strong> {punchOutAddress.short || punchOutAddress.full?.split(',')[0] || 'Unknown'}
+                <strong>Out:</strong> {resolveAddr(entry.punchOut.address)}
               </Typography>
             </Stack>
           )}
-
           <Collapse in={exp}>
             <Stack
               direction="row"
@@ -1136,11 +1369,10 @@ const LoadingSkeleton = () => (
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function Attandance() {
+export default function Attendance() {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
   const { user, getUserRole } = useAuth();
   const {
     attendances,
@@ -1155,45 +1387,30 @@ export default function Attandance() {
     deleteAttendance,
     clearMessages,
   } = useAttendance();
-
   const geo = useGeo();
   const timer = useWorkTimer();
 
-  // ─── Role flags ─────────────────────────────────────────────────────────────
   const userRole = getUserRole();
   const isTeam = userRole === "TEAM";
   const canManage = MANAGER_ROLES.includes(userRole);
   const canDelete = userRole === "Head_office";
-
-  /**
-   * Manager roles (Head_office, ZSM, ASM) do NOT see punch-in / punch-out UI.
-   * They manage teams but do not clock attendance personally via this app.
-   */
   const isManagerRole = MANAGER_ROLES.includes(userRole);
 
-  // ─── Today's attendance ──────────────────────────────────────────────────────
   const [todayAtt, setTodayAtt] = useState(null);
-
   useEffect(() => {
     const ts = new Date().toDateString();
     const found =
       attendances?.find((a) => new Date(a.date).toDateString() === ts) || null;
     setTodayAtt(found);
-
-    if (found?.punchIn && !found?.punchOut) {
-      timer.start(found.punchIn.time);
-    } else if (found?.punchOut) {
-      timer.stop();
-    } else {
-      timer.reset();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (found?.punchIn && !found?.punchOut) timer.start(found.punchIn.time);
+    else if (found?.punchOut) timer.stop();
+    else timer.reset();
+    // eslint-disable-next-line
   }, [attendances]);
 
   const hasPunchedIn = !!todayAtt?.punchIn;
   const hasPunchedOut = !!todayAtt?.punchOut;
 
-  // ─── State ───────────────────────────────────────────────────────────────────
   const [period, setPeriod] = useState("Today");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -1215,9 +1432,41 @@ export default function Attandance() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [navValue, setNavValue] = useState(0);
-  const [punchModal, setPunchModal] = useState({ open: false, mode: "in" });
   const [punchLoading, setPunchLoading] = useState(false);
+  const [punchState, setPunchState] = useState({ stage: null, mode: "in" });
+  const [locationRequesting, setLocationRequesting] = useState(false);
+
+  // ── Row selection ─────────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const selectedRecords = useMemo(
+    () => (attendances || []).filter((a) => selectedIds.has(a._id || a.id)),
+    [attendances, selectedIds],
+  );
+  const allPageIds = useMemo(
+    () => (attendances || []).map((a) => a._id || a.id),
+    [attendances],
+  );
+  const allSelected =
+    allPageIds.length > 0 && allPageIds.every((id) => selectedIds.has(id));
+  const someSelected = selectedIds.size > 0;
+  const toggleRow = (id) =>
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  const toggleAll = () =>
+    setSelectedIds(allSelected ? new Set() : new Set(allPageIds));
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [filters.page, period]);
+
   const containerRef = useRef(null);
+  const showSnack = useCallback(
+    (msg, sev = "success") =>
+      setSnackbar({ open: true, message: msg, severity: sev }),
+    [],
+  );
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
@@ -1227,7 +1476,6 @@ export default function Attandance() {
     return n;
   }, [filters, period]);
 
-  // ─── Load data ───────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     const q = {
       page: filters.page,
@@ -1245,198 +1493,111 @@ export default function Attandance() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
   useEffect(() => {
-    if (error) setSnackbar({ open: true, message: error, severity: "error" });
-    if (success)
-      setSnackbar({ open: true, message: success, severity: "success" });
-  }, [error, success]);
+    if (error) showSnack(error, "error");
+    if (success) showSnack(success, "success");
+  }, [error, success, showSnack]);
 
-  // ─── Punch handlers ──────────────────────────────────────────────────────────
   const openPunchModal = useCallback(
-    async (mode) => {
+    (mode) => {
       if (mode === "in" && hasPunchedIn) {
-        setSnackbar({
-          open: true,
-          message: hasPunchedOut
-            ? "You have already completed attendance for today. See you tomorrow!"
-            : "You are already punched in. Use Punch Out when you are done.",
-          severity: "warning",
-        });
+        showSnack(
+          hasPunchedOut
+            ? "Attendance complete for today. See you tomorrow!"
+            : "Already punched in. Use Punch Out when done.",
+          "warning",
+        );
         return;
       }
       if (mode === "out" && hasPunchedOut) {
-        setSnackbar({
-          open: true,
-          message: "You have already punched out for today.",
-          severity: "info",
-        });
+        showSnack("Already punched out for today.", "info");
         return;
       }
-      setPunchModal({ open: true, mode });
-      // Pre-fetch fresh location — errors shown inside the modal
-      try {
-        await geo.fetchLocation(true); // Pass true to include address
-      } catch {
-        /* shown in modal */
-      }
+      setPunchState({ stage: "permission", mode });
     },
-    [geo, hasPunchedIn, hasPunchedOut],
+    [hasPunchedIn, hasPunchedOut, showSnack],
   );
 
-  /**
-   * Handle punch confirmation with full address
-   */
-  const handlePunchConfirm = useCallback(async () => {
-    if (punchModal.mode === "in" && hasPunchedIn) {
-      setSnackbar({
-        open: true,
-        message: "Already punched in for today.",
-        severity: "warning",
-      });
-      setPunchModal((s) => ({ ...s, open: false }));
-      return;
+  const handleAllowLocation = useCallback(async () => {
+    setLocationRequesting(true);
+    try {
+      await geo.fetchLocation(true);
+    } catch {
+      /* error shown in confirm modal */
+    } finally {
+      setLocationRequesting(false);
+      setPunchState((s) => ({ ...s, stage: "confirm" }));
     }
-    if (punchModal.mode === "out" && hasPunchedOut) {
-      setSnackbar({
-        open: true,
-        message: "Already punched out for today.",
-        severity: "info",
-      });
-      setPunchModal((s) => ({ ...s, open: false }));
-      return;
-    }
+  }, [geo]);
 
+  const handleDenyLocation = useCallback(() => {
+    setPunchState({ stage: null, mode: "in" });
+    geo.reset();
+  }, [geo]);
+
+  const handlePunchConfirm = useCallback(async () => {
+    const mode = punchState.mode;
+    if (mode === "in" && hasPunchedIn) {
+      showSnack("Already punched in.", "warning");
+      setPunchState({ stage: null, mode: "in" });
+      return;
+    }
+    if (mode === "out" && hasPunchedOut) {
+      showSnack("Already punched out.", "info");
+      setPunchState({ stage: null, mode: "in" });
+      return;
+    }
+    if (!geo.latitude || !geo.longitude) {
+      showSnack("Could not get valid location. Please retry.", "error");
+      return;
+    }
     setPunchLoading(true);
     try {
-      let latitude = geo.latitude;
-      let longitude = geo.longitude;
-      let address = geo.address;
-
-      // If location not yet fetched, try one more time
-      if (latitude === null || longitude === null) {
-        try {
-          const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(
-              resolve,
-              reject,
-              {
-                enableHighAccuracy: true,
-                timeout: 30000,
-                maximumAge: 0,
-              }
-            );
-          });
-          
-          latitude = position.coords.latitude;
-          longitude = position.coords.longitude;
-          
-          // Fetch address for the new coordinates
-          if (!address) {
-            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
-            const response = await fetch(url, {
-              headers: { 
-                'Accept-Language': 'en',
-                'User-Agent': 'AttendanceApp/1.0'
-              }
-            });
-            const data = await response.json();
-            address = {
-              full: data.display_name,
-              short: data.address?.road 
-                ? `${data.address.road}${data.address.house_number ? ' ' + data.address.house_number : ''}`
-                : data.display_name?.split(',')[0] || 'Unknown location',
-              road: data.address?.road,
-              houseNumber: data.address?.house_number,
-              city: data.address?.city || data.address?.town || data.address?.village,
-              state: data.address?.state,
-              country: data.address?.country,
-              postcode: data.address?.postcode
-            };
-          }
-        } catch (locationError) {
-          console.error("Location fetch error:", locationError);
-          setSnackbar({
-            open: true,
-            message: "Unable to get your precise location. Please ensure GPS is enabled and try again.",
-            severity: "error",
-          });
-          setPunchLoading(false);
-          return;
-        }
-      }
-
-      // Validate coordinates
-      if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-        setSnackbar({
-          open: true,
-          message: "Could not get valid location. Please try again.",
-          severity: "error",
-        });
-        setPunchLoading(false);
-        return;
-      }
-
-      const fn = punchModal.mode === "in" ? punchIn : punchOut;
-      const label = punchModal.mode === "in" ? "Punch in" : "Punch out";
-
-      // Include complete location data
+      const fn = mode === "in" ? punchIn : punchOut;
       const result = await fn({
-        latitude: parseFloat(latitude.toFixed(6)),
-        longitude: parseFloat(longitude.toFixed(6)),
+        latitude: parseFloat(geo.latitude.toFixed(6)),
+        longitude: parseFloat(geo.longitude.toFixed(6)),
         accuracy: geo.accuracy,
-        address: address
+        address: geo.address,
       });
-
       if (result?.success) {
-        setSnackbar({
-          open: true,
-          message: `${label} successful!`,
-          severity: "success",
-        });
-        setPunchModal({ open: false, mode: "in" });
+        showSnack(`Punch ${mode} successful!`);
+        setPunchState({ stage: null, mode: "in" });
         await loadData();
-        
-        // Start timer if punch in was successful
-        if (punchModal.mode === "in") {
-          timer.start(new Date());
-        }
+        if (mode === "in") timer.start(new Date());
       } else {
-        setSnackbar({
-          open: true,
-          message: result?.error || `${label} failed`,
-          severity: "error",
-        });
+        showSnack(result?.error || `Punch ${mode} failed`, "error");
       }
     } catch (e) {
-      console.error("Punch error:", e);
-      setSnackbar({
-        open: true,
-        message: e.message || "Punch failed",
-        severity: "error",
-      });
+      showSnack(e.message || "Punch failed", "error");
     } finally {
       setPunchLoading(false);
     }
   }, [
     geo,
-    punchModal.mode,
+    punchState.mode,
     hasPunchedIn,
     hasPunchedOut,
     punchIn,
     punchOut,
     loadData,
     timer,
+    showSnack,
   ]);
 
-  // ─── Calendar ────────────────────────────────────────────────────────────────
-  const calendarDays = useMemo(() => {
-    const y = currentMonth.getFullYear();
-    const m = currentMonth.getMonth();
-    const firstDay = new Date(y, m, 1).getDay();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const days = [];
+  const handleCloseConfirm = useCallback(() => {
+    if (!punchLoading) {
+      setPunchState({ stage: null, mode: "in" });
+      geo.reset();
+    }
+  }, [punchLoading, geo]);
 
+  const calendarDays = useMemo(() => {
+    const y = currentMonth.getFullYear(),
+      m = currentMonth.getMonth();
+    const firstDay = new Date(y, m, 1).getDay(),
+      daysInMonth = new Date(y, m + 1, 0).getDate();
+    const days = [];
     for (let i = firstDay - 1; i >= 0; i--) {
       const d = new Date(y, m, -i);
       days.push({ day: d.getDate(), date: d, isPrev: true });
@@ -1452,8 +1613,6 @@ export default function Attandance() {
   }, [currentMonth, attendances]);
 
   const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-
-  // ─── Misc handlers ────────────────────────────────────────────────────────────
   const handleDateSelect = useCallback(
     (d) => {
       setSelectedDate(d);
@@ -1467,12 +1626,10 @@ export default function Attandance() {
     },
     [attendances],
   );
-
   const handleDeleteOpen = useCallback((att) => {
     setDeleteTarget(att);
     setDeleteOpen(true);
   }, []);
-  
   const handleDeleteConfirm = useCallback(async () => {
     const id = deleteTarget?._id || deleteTarget?.id;
     if (!id) {
@@ -1484,15 +1641,12 @@ export default function Attandance() {
     setDeleteOpen(false);
     setDeleteTarget(null);
   }, [deleteTarget, deleteAttendance, loadData]);
-
   const clearFilters = useCallback(() => {
     setFilters({ page: 1, limit: 10, status: "", search: "" });
     setPeriod("Today");
   }, []);
-
   const setFilter = (key) => (val) =>
     setFilters((prev) => ({ ...prev, [key]: val, page: 1 }));
-
   const fmtDate = (ts) =>
     !ts
       ? "—"
@@ -1501,7 +1655,6 @@ export default function Attandance() {
           month: "short",
           year: "numeric",
         });
-
   const fmtTime = (ts) =>
     !ts
       ? "—"
@@ -1513,7 +1666,6 @@ export default function Attandance() {
 
   if (loading && !attendances?.length) return <LoadingSkeleton />;
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <Box
       ref={containerRef}
@@ -1524,20 +1676,24 @@ export default function Attandance() {
         bgcolor: "#f4f6fb",
       }}
     >
-      {/* Punch Modal — only rendered when needed */}
+      <LocationPermissionDialog
+        open={punchState.stage === "permission"}
+        mode={punchState.mode}
+        onAllow={handleAllowLocation}
+        onDeny={handleDenyLocation}
+        requesting={locationRequesting}
+      />
       <PunchModal
-        open={punchModal.open}
-        mode={punchModal.mode}
-        onClose={() =>
-          !punchLoading && setPunchModal((s) => ({ ...s, open: false }))
-        }
+        open={punchState.stage === "confirm"}
+        mode={punchState.mode}
+        onClose={handleCloseConfirm}
         onConfirm={handlePunchConfirm}
         punchLoading={punchLoading}
         geo={geo}
         timer={timer}
       />
 
-      {/* ─── Header ──────────────────────────────────────────────────────── */}
+      {/* Header */}
       <Paper
         elevation={0}
         sx={{
@@ -1550,7 +1706,6 @@ export default function Attandance() {
           overflow: "hidden",
         }}
       >
-        {/* Decorative blobs */}
         {[
           { w: 200, h: 200, t: -70, r: -50 },
           { w: 120, h: 120, t: 20, r: 100 },
@@ -1570,7 +1725,6 @@ export default function Attandance() {
             }}
           />
         ))}
-
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
@@ -1605,16 +1759,14 @@ export default function Attandance() {
               </Typography>
             </Stack>
           </Box>
-
-          <Stack direction="row" spacing={1} flexWrap="wrap">
-            {/*
-              Punch In / Punch Out buttons are HIDDEN for manager roles.
-              Head_office, ZSM, ASM manage teams and do not personally punch attendance.
-              Only TEAM role and other non-manager users see these buttons.
-            */}
+          <Stack
+            direction="row"
+            spacing={1}
+            flexWrap="wrap"
+            alignItems="center"
+          >
             {!showTeam && !isManagerRole && (
               <>
-                {/* Not punched in yet */}
                 {!hasPunchedIn && (
                   <Button
                     variant="contained"
@@ -1632,8 +1784,6 @@ export default function Attandance() {
                     Punch In
                   </Button>
                 )}
-
-                {/* Punched in but not out */}
                 {hasPunchedIn && !hasPunchedOut && (
                   <Button
                     variant="contained"
@@ -1651,8 +1801,6 @@ export default function Attandance() {
                     Punch Out
                   </Button>
                 )}
-
-                {/* Day complete */}
                 {hasPunchedIn && hasPunchedOut && (
                   <Tooltip title="Attendance complete for today" arrow>
                     <span>
@@ -1666,7 +1814,6 @@ export default function Attandance() {
                           borderRadius: 2.5,
                           bgcolor: "rgba(255,255,255,.15) !important",
                           color: "rgba(255,255,255,.6) !important",
-                          cursor: "not-allowed",
                         }}
                       >
                         Day Complete
@@ -1676,7 +1823,14 @@ export default function Attandance() {
                 )}
               </>
             )}
-
+            {/* Export in header (desktop) */}
+            {!showTeam && !isMobile && attendances?.length > 0 && (
+              <BulkExportMenu
+                selectedRecords={selectedRecords}
+                allRecords={attendances || []}
+                onSnack={showSnack}
+              />
+            )}
             <Button
               variant="contained"
               startIcon={<Refresh />}
@@ -1692,7 +1846,6 @@ export default function Attandance() {
             >
               Refresh
             </Button>
-
             {isMobile && (
               <Button
                 variant="contained"
@@ -1717,7 +1870,6 @@ export default function Attandance() {
                 )}
               </Button>
             )}
-
             {canManage && (
               <Button
                 variant="contained"
@@ -1738,19 +1890,11 @@ export default function Attandance() {
             )}
           </Stack>
         </Stack>
-
-        {/*
-          Live timer hidden for manager roles — they don't punch in personally.
-        */}
         {!isManagerRole && hasPunchedIn && !hasPunchedOut && !showTeam && (
           <Box sx={{ mt: 2 }}>
             <LiveTimer startTime={todayAtt?.punchIn?.time} isRunning={true} />
           </Box>
         )}
-
-        {/*
-          Today's summary bar hidden for manager roles.
-        */}
         {!isManagerRole && !showTeam && (hasPunchedIn || hasPunchedOut) && (
           <Box
             sx={{ mt: 2, pt: 2, borderTop: "1px solid rgba(255,255,255,.15)" }}
@@ -1798,7 +1942,7 @@ export default function Attandance() {
         <TeamAttendance />
       ) : (
         <>
-          {/* ─── Stat Cards ─────────────────────────────────────────────── */}
+          {/* Stats */}
           <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
             {[
               {
@@ -1840,7 +1984,7 @@ export default function Attandance() {
             ))}
           </Grid>
 
-          {/* ─── Mobile Search ───────────────────────────────────────────── */}
+          {/* Mobile Search */}
           {isMobile && (
             <Box sx={{ mb: 2 }}>
               <TextField
@@ -1871,7 +2015,7 @@ export default function Attandance() {
             </Box>
           )}
 
-          {/* ─── Desktop Filters ─────────────────────────────────────────── */}
+          {/* Desktop Filters */}
           {!isMobile && (
             <Paper
               elevation={0}
@@ -1957,7 +2101,6 @@ export default function Attandance() {
                   </Button>
                 )}
               </Stack>
-
               {activeFilterCount > 0 && (
                 <Stack
                   direction="row"
@@ -1994,7 +2137,6 @@ export default function Attandance() {
             </Paper>
           )}
 
-          {/* ─── Main Grid ──────────────────────────────────────────────── */}
           <Grid container spacing={isMobile ? 2 : 3}>
             {/* Calendar */}
             <Grid item xs={12} md={5} lg={4}>
@@ -2040,7 +2182,6 @@ export default function Attandance() {
                       ))}
                     </Stack>
                   </Stack>
-
                   <Grid container columns={7} spacing={0.25} sx={{ mb: 0.5 }}>
                     {DOW.map((d) => (
                       <Grid item xs={1} key={d}>
@@ -2056,7 +2197,6 @@ export default function Attandance() {
                       </Grid>
                     ))}
                   </Grid>
-
                   <Grid container columns={7} spacing={0.25}>
                     {calendarDays.map((c, i) => (
                       <Grid item xs={1} key={i}>
@@ -2079,7 +2219,6 @@ export default function Attandance() {
                       </Grid>
                     ))}
                   </Grid>
-
                   <Box
                     sx={{
                       mt: 2.5,
@@ -2124,7 +2263,7 @@ export default function Attandance() {
               </GlassCard>
             </Grid>
 
-            {/* Attendance Log */}
+            {/* Log */}
             <Grid item xs={12} md={7} lg={8}>
               <GlassCard sx={{ height: "100%" }}>
                 <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
@@ -2138,13 +2277,39 @@ export default function Attandance() {
                       <Typography variant="h6" fontWeight={700}>
                         Attendance Log
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {pagination?.totalItems || 0} total records
-                      </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="caption" color="text.secondary">
+                          {pagination?.totalItems || 0} total records
+                        </Typography>
+                        {someSelected && !isMobile && (
+                          <Chip
+                            size="small"
+                            label={`${selectedIds.size} selected`}
+                            onDelete={() => setSelectedIds(new Set())}
+                            sx={{
+                              bgcolor: alpha(PRIMARY, 0.1),
+                              color: PRIMARY,
+                              fontWeight: 700,
+                              height: 20,
+                              fontSize: "0.68rem",
+                            }}
+                          />
+                        )}
+                      </Stack>
                     </Box>
-                    {loading && (
-                      <CircularProgress size={20} sx={{ color: PRIMARY }} />
-                    )}
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      {/* Mobile export inside log */}
+                      {isMobile && attendances?.length > 0 && (
+                        <BulkExportMenu
+                          selectedRecords={selectedRecords}
+                          allRecords={attendances || []}
+                          onSnack={showSnack}
+                        />
+                      )}
+                      {loading && (
+                        <CircularProgress size={20} sx={{ color: PRIMARY }} />
+                      )}
+                    </Stack>
                   </Stack>
 
                   {attendances?.length > 0 ? (
@@ -2170,6 +2335,37 @@ export default function Attandance() {
                           <Table stickyHeader size="small">
                             <TableHead>
                               <TableRow>
+                                <TableCell
+                                  padding="checkbox"
+                                  sx={{
+                                    bgcolor: alpha(PRIMARY, 0.04),
+                                    borderBottom: `2px solid ${alpha(PRIMARY, 0.1)}`,
+                                  }}
+                                >
+                                  <Tooltip
+                                    title={
+                                      allSelected
+                                        ? "Deselect all"
+                                        : "Select all on this page"
+                                    }
+                                  >
+                                    <Checkbox
+                                      size="small"
+                                      indeterminate={
+                                        someSelected && !allSelected
+                                      }
+                                      checked={allSelected}
+                                      onChange={toggleAll}
+                                      sx={{
+                                        color: alpha(PRIMARY, 0.4),
+                                        "&.Mui-checked": { color: PRIMARY },
+                                        "&.MuiCheckbox-indeterminate": {
+                                          color: PRIMARY,
+                                        },
+                                      }}
+                                    />
+                                  </Tooltip>
+                                </TableCell>
                                 {[
                                   "Date",
                                   "Punch In",
@@ -2193,133 +2389,267 @@ export default function Attandance() {
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {attendances.map((a) => (
-                                <TableRow
-                                  key={a._id || a.id}
-                                  hover
-                                  sx={{
-                                    "&:hover": {
-                                      bgcolor: alpha(PRIMARY, 0.02),
-                                    },
-                                  }}
-                                >
-                                  <TableCell>
-                                    <Typography
-                                      variant="body2"
-                                      fontWeight={600}
-                                    >
-                                      {fmtDate(a.date)}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell>
-                                    {a.punchIn ? (
-                                      <Chip
-                                        label={fmtTime(a.punchIn.time)}
+                              {attendances.map((a) => {
+                                const id = a._id || a.id;
+                                const isChecked = selectedIds.has(id);
+                                return (
+                                  <TableRow
+                                    key={id}
+                                    hover
+                                    selected={isChecked}
+                                    sx={{
+                                      "&:hover": {
+                                        bgcolor: alpha(PRIMARY, 0.02),
+                                      },
+                                      "&.Mui-selected": {
+                                        bgcolor: alpha(PRIMARY, 0.04),
+                                      },
+                                      "&.Mui-selected:hover": {
+                                        bgcolor: alpha(PRIMARY, 0.06),
+                                      },
+                                    }}
+                                  >
+                                    <TableCell padding="checkbox">
+                                      <Checkbox
                                         size="small"
+                                        checked={isChecked}
+                                        onChange={() => toggleRow(id)}
                                         sx={{
-                                          bgcolor: alpha(SUCCESS, 0.1),
-                                          color: SUCCESS,
-                                          fontWeight: 700,
-                                          fontSize: "0.72rem",
+                                          color: alpha(PRIMARY, 0.3),
+                                          "&.Mui-checked": { color: PRIMARY },
                                         }}
                                       />
-                                    ) : (
+                                    </TableCell>
+                                    <TableCell>
                                       <Typography
                                         variant="body2"
-                                        color="text.disabled"
+                                        fontWeight={600}
                                       >
-                                        —
+                                        {fmtDate(a.date)}
                                       </Typography>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    {a.punchOut ? (
-                                      <Chip
-                                        label={fmtTime(a.punchOut.time)}
-                                        size="small"
-                                        sx={{
-                                          bgcolor: alpha(WARNING, 0.1),
-                                          color: WARNING,
-                                          fontWeight: 700,
-                                          fontSize: "0.72rem",
-                                        }}
-                                      />
-                                    ) : a.punchIn ? (
-                                      <Chip
-                                        label="Ongoing"
-                                        size="small"
-                                        variant="outlined"
-                                        sx={{
-                                          color: PRIMARY,
-                                          borderColor: PRIMARY,
-                                          fontWeight: 700,
-                                        }}
-                                      />
-                                    ) : (
-                                      <Typography
-                                        variant="body2"
-                                        color="text.disabled"
-                                      >
-                                        —
-                                      </Typography>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Typography
-                                      variant="body2"
-                                      fontWeight={700}
-                                      color={PRIMARY}
-                                    >
-                                      {a.workHoursFormatted || "—"}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell>
-                                    <StatusBadge
-                                      status={a.status || "present"}
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Stack direction="row" spacing={0.5}>
-                                      <Tooltip title="View Details">
-                                        <IconButton
+                                    </TableCell>
+                                    <TableCell>
+                                      {a.punchIn ? (
+                                        <Chip
+                                          label={fmtTime(a.punchIn.time)}
                                           size="small"
-                                          onClick={() => {
-                                            setSelLog(a);
-                                            setLogOpen(true);
+                                          sx={{
+                                            bgcolor: alpha(SUCCESS, 0.1),
+                                            color: SUCCESS,
+                                            fontWeight: 700,
+                                            fontSize: "0.72rem",
                                           }}
+                                        />
+                                      ) : (
+                                        <Typography
+                                          variant="body2"
+                                          color="text.disabled"
+                                        >
+                                          —
+                                        </Typography>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      {a.punchOut ? (
+                                        <Chip
+                                          label={fmtTime(a.punchOut.time)}
+                                          size="small"
+                                          sx={{
+                                            bgcolor: alpha(WARNING, 0.1),
+                                            color: WARNING,
+                                            fontWeight: 700,
+                                            fontSize: "0.72rem",
+                                          }}
+                                        />
+                                      ) : a.punchIn ? (
+                                        <Chip
+                                          label="Ongoing"
+                                          size="small"
+                                          variant="outlined"
                                           sx={{
                                             color: PRIMARY,
-                                            "&:hover": {
-                                              bgcolor: alpha(PRIMARY, 0.08),
-                                            },
+                                            borderColor: PRIMARY,
+                                            fontWeight: 700,
                                           }}
+                                        />
+                                      ) : (
+                                        <Typography
+                                          variant="body2"
+                                          color="text.disabled"
                                         >
-                                          <Visibility fontSize="small" />
-                                        </IconButton>
-                                      </Tooltip>
-                                      {canDelete && (
-                                        <Tooltip title="Delete">
+                                          —
+                                        </Typography>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Typography
+                                        variant="body2"
+                                        fontWeight={700}
+                                        color={PRIMARY}
+                                      >
+                                        {a.workHoursFormatted || "—"}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                      <StatusBadge
+                                        status={a.status || "present"}
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Stack direction="row" spacing={0.5}>
+                                        <Tooltip title="View Details">
                                           <IconButton
                                             size="small"
-                                            onClick={() => handleDeleteOpen(a)}
+                                            onClick={() => {
+                                              setSelLog(a);
+                                              setLogOpen(true);
+                                            }}
                                             sx={{
-                                              color: DANGER,
+                                              color: PRIMARY,
                                               "&:hover": {
-                                                bgcolor: alpha(DANGER, 0.08),
+                                                bgcolor: alpha(PRIMARY, 0.08),
                                               },
                                             }}
                                           >
-                                            <Delete fontSize="small" />
+                                            <Visibility fontSize="small" />
                                           </IconButton>
                                         </Tooltip>
-                                      )}
-                                    </Stack>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                                        {canDelete && (
+                                          <Tooltip title="Delete">
+                                            <IconButton
+                                              size="small"
+                                              onClick={() =>
+                                                handleDeleteOpen(a)
+                                              }
+                                              sx={{
+                                                color: DANGER,
+                                                "&:hover": {
+                                                  bgcolor: alpha(DANGER, 0.08),
+                                                },
+                                              }}
+                                            >
+                                              <Delete fontSize="small" />
+                                            </IconButton>
+                                          </Tooltip>
+                                        )}
+                                      </Stack>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
                             </TableBody>
                           </Table>
                         </TableContainer>
+                      )}
+
+                      {/* Inline selection action bar */}
+                      {someSelected && !isMobile && (
+                        <Fade in>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              mt: 1.5,
+                              p: 1.5,
+                              borderRadius: 2,
+                              bgcolor: alpha(PRIMARY, 0.04),
+                              border: `1px solid ${alpha(PRIMARY, 0.12)}`,
+                            }}
+                          >
+                            <Stack
+                              direction="row"
+                              spacing={1.5}
+                              alignItems="center"
+                              justifyContent="space-between"
+                            >
+                              <Stack
+                                direction="row"
+                                spacing={1}
+                                alignItems="center"
+                              >
+                                <Chip
+                                  size="small"
+                                  label={`${selectedIds.size} row${selectedIds.size !== 1 ? "s" : ""} selected`}
+                                  sx={{
+                                    bgcolor: PRIMARY,
+                                    color: "#fff",
+                                    fontWeight: 700,
+                                  }}
+                                />
+                                <Button
+                                  size="small"
+                                  startIcon={<Deselect sx={{ fontSize: 14 }} />}
+                                  onClick={() => setSelectedIds(new Set())}
+                                  sx={{
+                                    color: "text.secondary",
+                                    fontSize: "0.75rem",
+                                  }}
+                                >
+                                  Clear
+                                </Button>
+                              </Stack>
+                              <Stack direction="row" spacing={1}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={
+                                    <FileDownload sx={{ fontSize: 14 }} />
+                                  }
+                                  onClick={() => {
+                                    try {
+                                      downloadFile(
+                                        generateCSV(selectedRecords),
+                                        `attendance_selected_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`,
+                                        "text/csv",
+                                      );
+                                      showSnack(
+                                        `Exported ${selectedIds.size} records as CSV`,
+                                      );
+                                    } catch {
+                                      showSnack("Export failed", "error");
+                                    }
+                                  }}
+                                  sx={{
+                                    borderRadius: 2,
+                                    borderColor: alpha(SUCCESS, 0.5),
+                                    color: SUCCESS,
+                                    fontSize: "0.75rem",
+                                  }}
+                                >
+                                  CSV
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={
+                                    <FileDownload sx={{ fontSize: 14 }} />
+                                  }
+                                  onClick={() => {
+                                    try {
+                                      downloadFile(
+                                        generateJSON(selectedRecords),
+                                        `attendance_selected_${format(new Date(), "yyyyMMdd_HHmmss")}.json`,
+                                        "application/json",
+                                      );
+                                      showSnack(
+                                        `Exported ${selectedIds.size} records as JSON`,
+                                      );
+                                    } catch {
+                                      showSnack("Export failed", "error");
+                                    }
+                                  }}
+                                  sx={{
+                                    borderRadius: 2,
+                                    borderColor: alpha(PRIMARY, 0.5),
+                                    color: PRIMARY,
+                                    fontSize: "0.75rem",
+                                  }}
+                                >
+                                  JSON
+                                </Button>
+                              </Stack>
+                            </Stack>
+                          </Paper>
+                        </Fade>
                       )}
 
                       {pagination?.totalPages > 1 && (
@@ -2398,7 +2728,7 @@ export default function Attandance() {
         </>
       )}
 
-      {/* ─── Mobile Filter Drawer ─────────────────────────────────────────── */}
+      {/* Filter Drawer */}
       <SwipeableDrawer
         anchor="bottom"
         open={drawerOpen}
@@ -2489,7 +2819,7 @@ export default function Attandance() {
         </Box>
       </SwipeableDrawer>
 
-      {/* ─── Mobile FAB ──────────────────────────────────────────────────── */}
+      {/* Mobile FAB */}
       {isMobile && !showTeam && (
         <Zoom in>
           <Fab
@@ -2513,7 +2843,7 @@ export default function Attandance() {
         </Zoom>
       )}
 
-      {/* ─── Bottom Navigation ────────────────────────────────────────────── */}
+      {/* Bottom Navigation */}
       {isMobile && (
         <Paper
           sx={{
@@ -2546,7 +2876,7 @@ export default function Attandance() {
         </Paper>
       )}
 
-      {/* ─── Attendance Details Modal ─────────────────────────────────────── */}
+      {/* Details */}
       <AttendanceDetails
         open={logOpen}
         onClose={() => setLogOpen(false)}
@@ -2556,7 +2886,7 @@ export default function Attandance() {
         onDelete={handleDeleteOpen}
       />
 
-      {/* ─── Delete Confirmation ──────────────────────────────────────────── */}
+      {/* Delete Dialog */}
       <Dialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
@@ -2589,11 +2919,6 @@ export default function Attandance() {
                 <br />
                 <strong>Status:</strong> {deleteTarget.status}
               </Typography>
-              {deleteTarget.punchIn?.address && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  <strong>Location:</strong> {deleteTarget.punchIn.address.short}
-                </Typography>
-              )}
             </Paper>
           )}
         </DialogContent>
@@ -2627,7 +2952,7 @@ export default function Attandance() {
         </DialogActions>
       </Dialog>
 
-      {/* ─── Snackbar ─────────────────────────────────────────────────────── */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3500}

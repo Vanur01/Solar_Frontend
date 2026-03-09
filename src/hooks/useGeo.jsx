@@ -1,5 +1,7 @@
 // hooks/useGeo.js
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from "react";
+
+const GOOGLE_API_KEY = "AIzaSyCqM7uF9c0ZMQjdssHqSMJJ3mBcmz5RNS0";
 
 export const useGeo = () => {
   const [state, setState] = useState({
@@ -11,120 +13,138 @@ export const useGeo = () => {
     loading: false,
   });
 
+  // Keep a ref to avoid stale closures in async callbacks
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  /* ==============================
+     GOOGLE REVERSE GEOCODING
+  ============================== */
   const fetchAddress = useCallback(async (latitude, longitude) => {
     try {
-      // Add cache busting to avoid stale results
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&t=${Date.now()}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'Accept-Language': 'en', // Get addresses in English
-          'User-Agent': 'AttendanceApp/1.0' // Required by Nominatim - change to your app name
-        }
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch address');
-      
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_API_KEY}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Geocode request failed");
+
       const data = await response.json();
-      console.log("full address....", data)
-      
-      // Format the address in a structured way
+      if (!data.results?.length) return null;
+
+      const result = data.results[0];
+      const components = result.address_components || [];
+
+      const getComp = (type) =>
+        components.find((c) => c.types.includes(type))?.long_name || "";
+
       return {
-        full: data.display_name,
-        short: data.address?.road 
-          ? `${data.address.road}${data.address.house_number ? ' ' + data.address.house_number : ''}`
-          : data.display_name?.split(',')[0] || 'Unknown location',
-        road: data.address?.road || '',
-        houseNumber: data.address?.house_number || '',
-        city: data.address?.city || data.address?.town || data.address?.village || '',
-        state: data.address?.state || '',
-        country: data.address?.country || '',
-        postcode: data.address?.postcode || '',
-        suburb: data.address?.suburb || '',
-        neighbourhood: data.address?.neighbourhood || ''
+        full: result.formatted_address,
+        short: result.formatted_address.split(",")[0].trim(),
+        road: getComp("route"),
+        houseNumber: getComp("street_number"),
+        city:
+          getComp("locality") || getComp("administrative_area_level_2"),
+        state: getComp("administrative_area_level_1"),
+        country: getComp("country"),
+        postcode: getComp("postal_code"),
       };
-    } catch (error) {
-      console.error('Address fetch error:', error);
+    } catch (err) {
+      console.error("Google reverse geocode error:", err);
       return null;
     }
   }, []);
 
-  const fetchLocation = useCallback(async (includeAddress = true) => {
-    if (!navigator.geolocation) {
-      setState(s => ({
-        ...s,
-        error: "Geolocation not supported by this browser",
-        loading: false
-      }));
-      return Promise.reject(new Error("Not supported"));
+  /* ==============================
+     REFRESH ADDRESS for current coords
+  ============================== */
+  const refreshAddress = useCallback(async () => {
+    const { latitude, longitude } = stateRef.current;
+    if (!latitude || !longitude) return null;
+    const address = await fetchAddress(latitude, longitude);
+    if (address) {
+      setState((s) => ({ ...s, address }));
     }
-
-    setState(s => ({ ...s, loading: true, error: null }));
-
-    return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-            console.log("current position..........", pos)
-          const coords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-
-          let address = null;
-          if (includeAddress) {
-            address = await fetchAddress(coords.latitude, coords.longitude);
-          }
-
-          const newState = {
-            ...coords,
-            address,
-            loading: false,
-            error: null
-          };
-          
-          setState(newState);
-          resolve(newState);
-        },
-        (err) => {
-          const msg = err.code === 1
-            ? "Location permission denied. Please allow access in browser settings."
-            : err.code === 2
-              ? "Location unavailable. Please try again."
-              : "Location request timed out. Please try again.";
-          
-          setState(s => ({ ...s, loading: false, error: msg }));
-          reject(new Error(msg));
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 20000,
-          maximumAge: 0, // Always get fresh location
-        }
-      );
-    });
+    return address;
   }, [fetchAddress]);
 
-  // Method to manually retry fetching address for current coordinates
-  const refreshAddress = useCallback(async () => {
-    if (!state.latitude || !state.longitude) {
-      return null;
-    }
-    
-    setState(s => ({ ...s, loading: true }));
-    
-    try {
-      const address = await fetchAddress(state.latitude, state.longitude);
-      setState(s => ({ ...s, address, loading: false }));
-      return address;
-    } catch (error) {
-      setState(s => ({ ...s, loading: false, error: error.message }));
-      return null;
-    }
-  }, [state.latitude, state.longitude, fetchAddress]);
+  /* ==============================
+     GET CURRENT LOCATION
+  ============================== */
+  const fetchLocation = useCallback(
+    async (includeAddress = true) => {
+      if (!navigator.geolocation) {
+        setState((s) => ({
+          ...s,
+          error: "Geolocation is not supported by your browser",
+          loading: false,
+        }));
+        return null;
+      }
 
-  return { 
-    ...state, 
+      setState((s) => ({ ...s, loading: true, error: null }));
+
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const coords = {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+            };
+
+            let address = null;
+            if (includeAddress) {
+              address = await fetchAddress(coords.latitude, coords.longitude);
+            }
+
+            const newState = {
+              ...coords,
+              address,
+              loading: false,
+              error: null,
+            };
+
+            setState(newState);
+            resolve(newState);
+          },
+          (err) => {
+            const msg =
+              err.code === 1
+                ? "Location permission denied. Please allow location access."
+                : err.code === 2
+                ? "Location unavailable. Please check your GPS settings."
+                : "Location request timed out. Please try again.";
+
+            setState((s) => ({ ...s, loading: false, error: msg }));
+            reject(new Error(msg));
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 0,
+          }
+        );
+      });
+    },
+    [fetchAddress]
+  );
+
+  /* ==============================
+     RESET
+  ============================== */
+  const reset = useCallback(() => {
+    setState({
+      latitude: null,
+      longitude: null,
+      accuracy: null,
+      address: null,
+      error: null,
+      loading: false,
+    });
+  }, []);
+
+  return {
+    ...state,
     fetchLocation,
-    refreshAddress 
+    refreshAddress,
+    reset,
   };
 };

@@ -31,7 +31,16 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Fab,
-  Badge
+  Badge,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormControlLabel,
+  Switch,
+  Radio,
+  RadioGroup,
+  FormLabel,
 } from '@mui/material';
 import {
   AddAPhoto,
@@ -63,7 +72,9 @@ import {
   Delete,
   Refresh,
   Fullscreen,
-  Close
+  Close,
+  Group,
+  PersonAdd,
 } from '@mui/icons-material';
 import { styled, alpha } from '@mui/material/styles';
 import { format } from 'date-fns';
@@ -232,9 +243,6 @@ const SuccessDialog = ({ open, visitData, onClose }) => {
               <Typography variant="subtitle1" fontWeight={700} gutterBottom>
                 {visitData?.locationName}
               </Typography>
-              <Typography variant="body2" color="text.secondary" paragraph>
-                {visitData?.address || 'Address not available'}
-              </Typography>
               
               <Grid container spacing={2}>
                 <Grid item xs={6}>
@@ -332,12 +340,12 @@ export default function VisitDetails({ onClose, onSave }) {
   const [preview, setPreview] = useState(null);
   const [formData, setFormData] = useState({
     locationName: '',
-    address: '',
     remarks: '',
     contactPerson: '',
     phone: '',
     email: ''
   });
+  const [isLeadCreated, setIsLeadCreated] = useState('no'); // 'yes' or 'no'
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [createdVisit, setCreatedVisit] = useState(null);
@@ -503,6 +511,19 @@ export default function VisitDetails({ onClose, onSave }) {
     }
   };
 
+  const handleLeadCreatedChange = (event) => {
+    setIsLeadCreated(event.target.value);
+    // Clear contact fields when switching to 'no'
+    if (event.target.value === 'no') {
+      setFormData(prev => ({
+        ...prev,
+        contactPerson: '',
+        phone: '',
+        email: ''
+      }));
+    }
+  };
+
   const validateForm = () => {
     const errors = {};
 
@@ -518,12 +539,19 @@ export default function VisitDetails({ onClose, onSave }) {
       errors.location = 'Location coordinates are required';
     }
 
-    if (formData.phone && !/^[0-9+\-\s()]{10,15}$/.test(formData.phone)) {
-      errors.phone = 'Please enter a valid phone number';
-    }
+    // Only validate contact fields if lead is created (isLeadCreated === 'yes')
+    if (isLeadCreated === 'yes') {
+      if (!formData.contactPerson.trim()) {
+        errors.contactPerson = 'Contact person is required when lead is created';
+      }
 
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
+      if (formData.phone && !/^[0-9+\-\s()]{10,15}$/.test(formData.phone)) {
+        errors.phone = 'Please enter a valid phone number';
+      }
+
+      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = 'Please enter a valid email address';
+      }
     }
 
     setValidationErrors(errors);
@@ -553,25 +581,25 @@ export default function VisitDetails({ onClose, onSave }) {
       formDataObj.append('latitude', currentLocation.lat.toString());
       formDataObj.append('longitude', currentLocation.lng.toString());
       formDataObj.append('locationName', formData.locationName.trim());
-      
-      if (formData.address.trim()) {
-        formDataObj.append('address', formData.address.trim());
-      }
+      formDataObj.append('isLeadCreated', isLeadCreated);
       
       if (formData.remarks.trim()) {
         formDataObj.append('remarks', formData.remarks.trim());
       }
       
-      if (formData.contactPerson.trim()) {
-        formDataObj.append('contactPerson', formData.contactPerson.trim());
-      }
-      
-      if (formData.phone.trim()) {
-        formDataObj.append('phone', formData.phone.trim());
-      }
-      
-      if (formData.email.trim()) {
-        formDataObj.append('email', formData.email.trim());
+      // Only append contact fields if lead is created
+      if (isLeadCreated === 'yes') {
+        if (formData.contactPerson.trim()) {
+          formDataObj.append('contactPerson', formData.contactPerson.trim());
+        }
+        
+        if (formData.phone.trim()) {
+          formDataObj.append('phone', formData.phone.trim());
+        }
+        
+        if (formData.email.trim()) {
+          formDataObj.append('email', formData.email.trim());
+        }
       }
       
       formDataObj.append('photos', imageFile);
@@ -591,12 +619,12 @@ export default function VisitDetails({ onClose, onSave }) {
         setPreview(null);
         setFormData({
           locationName: '',
-          address: '',
           remarks: '',
           contactPerson: '',
           phone: '',
           email: ''
         });
+        setIsLeadCreated('no');
       } else {
         setError(response.error || 'Failed to create visit');
       }
@@ -876,18 +904,6 @@ export default function VisitDetails({ onClose, onSave }) {
                       ),
                     }}
                   />
-
-                  <TextField
-                    fullWidth
-                    label="Address"
-                    placeholder="Full address"
-                    value={formData.address}
-                    onChange={handleChange('address')}
-                    multiline
-                    rows={isMobile ? 2 : 2}
-                    disabled={loading || authLoading}
-                    size={isMobile ? "small" : "medium"}
-                  />
                 </Stack>
               </FormSection>
             </Stack>
@@ -896,7 +912,7 @@ export default function VisitDetails({ onClose, onSave }) {
           {/* Right Column - Contact & Location */}
           <Grid item xs={12} md={6}>
             <Stack spacing={2}>
-              {/* Contact Information */}
+              {/* Lead Created Toggle */}
               <FormSection>
                 <Typography variant="subtitle1" fontWeight={700} sx={{ 
                   display: 'flex', 
@@ -906,67 +922,124 @@ export default function VisitDetails({ onClose, onSave }) {
                   mb: 2,
                   fontSize: isMobile ? '1rem' : '1.1rem'
                 }}>
-                  <Person /> Contact Information
+                  <PersonAdd /> Lead Created?
                 </Typography>
 
-                <Stack spacing={2}>
-                  <TextField
-                    fullWidth
-                    label="Contact Person"
-                    placeholder="Enter contact name"
-                    value={formData.contactPerson}
-                    onChange={handleChange('contactPerson')}
-                    disabled={loading || authLoading}
-                    size={isMobile ? "small" : "medium"}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Person sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
-                        </InputAdornment>
-                      ),
+                <FormControl component="fieldset" fullWidth>
+                  <RadioGroup
+                    row
+                    value={isLeadCreated}
+                    onChange={handleLeadCreatedChange}
+                    sx={{
+                      justifyContent: 'space-around',
+                      bgcolor: alpha(theme.palette.primary.main, 0.05),
+                      borderRadius: 2,
+                      p: 1,
                     }}
-                  />
-
-                  <TextField
-                    fullWidth
-                    label="Phone Number"
-                    placeholder="Enter phone number"
-                    value={formData.phone}
-                    onChange={handleChange('phone')}
-                    error={!!validationErrors.phone}
-                    helperText={validationErrors.phone}
-                    disabled={loading || authLoading}
-                    size={isMobile ? "small" : "medium"}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Phone sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-
-                  <TextField
-                    fullWidth
-                    label="Email Address"
-                    placeholder="Enter email address"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange('email')}
-                    error={!!validationErrors.email}
-                    helperText={validationErrors.email}
-                    disabled={loading || authLoading}
-                    size={isMobile ? "small" : "medium"}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Email sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Stack>
+                  >
+                    <FormControlLabel 
+                      value="yes" 
+                      control={<Radio sx={{ color: theme.palette.primary.main }} />} 
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography>Yes</Typography>
+                        </Box>
+                      } 
+                    />
+                    <FormControlLabel 
+                      value="no" 
+                      control={<Radio sx={{ color: theme.palette.primary.main }} />} 
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography>No</Typography>
+                        </Box>
+                      } 
+                    />
+                  </RadioGroup>
+                </FormControl>
               </FormSection>
+
+              {/* Contact Information - Only shown if lead is created */}
+              {isLeadCreated === 'yes' && (
+                <FormSection>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1,
+                    color: theme.palette.primary.main,
+                    mb: 2,
+                    fontSize: isMobile ? '1rem' : '1.1rem'
+                  }}>
+                    <Person /> Contact Information
+                    <Chip 
+                      label="Lead Created" 
+                      size="small" 
+                      color="success"
+                      sx={{ ml: 'auto', height: 24 }}
+                    />
+                  </Typography>
+
+                  <Stack spacing={2}>
+                    <TextField
+                      fullWidth
+                      label="Contact Person *"
+                      placeholder="Enter contact name"
+                      value={formData.contactPerson}
+                      onChange={handleChange('contactPerson')}
+                      error={!!validationErrors.contactPerson}
+                      helperText={validationErrors.contactPerson}
+                      disabled={loading || authLoading}
+                      size={isMobile ? "small" : "medium"}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Person sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+
+                    <TextField
+                      fullWidth
+                      label="Phone Number"
+                      placeholder="Enter phone number"
+                      value={formData.phone}
+                      onChange={handleChange('phone')}
+                      error={!!validationErrors.phone}
+                      helperText={validationErrors.phone}
+                      disabled={loading || authLoading}
+                      size={isMobile ? "small" : "medium"}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Phone sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+
+                    <TextField
+                      fullWidth
+                      label="Email Address"
+                      placeholder="Enter email address"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleChange('email')}
+                      error={!!validationErrors.email}
+                      helperText={validationErrors.email}
+                      disabled={loading || authLoading}
+                      size={isMobile ? "small" : "medium"}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Email sx={{ color: alpha(theme.palette.primary.main, 0.5) }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Stack>
+                </FormSection>
+              )}
 
               {/* Location Status */}
               <FormSection>

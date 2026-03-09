@@ -1,4 +1,4 @@
-// pages/InputLeadsPage.jsx (Updated with Mobile View)
+// pages/InputLeadsPage.jsx (Fixed - All bugs resolved)
 import React, {
   useState,
   useRef,
@@ -38,6 +38,11 @@ import {
   Divider,
   Skeleton,
   Chip,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Menu,
 } from "@mui/material";
 import {
   Add,
@@ -65,12 +70,18 @@ import {
   TableChart,
   BarChart,
   Assessment,
+  FileCopy,
+  DownloadForOffline,
+  PictureAsPdf,
+  TableRows,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 const PRIMARY = "#4569ea";
 const SECONDARY = "#1a237e";
+const SUCCESS = "#22c55e";
+const WARNING = "#f59e0b";
 const API_BASE = (
   process.env.REACT_APP_API_URL || "https://backend.sunergytechsolar.com/api/v1"
 ).replace(/\/+$/, "");
@@ -252,6 +263,69 @@ const MobileOptionCard = ({
   </Paper>
 );
 
+// Template Download Component
+const TemplateDownload = ({ onDownload }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open = Boolean(anchorEl);
+
+  const handleClick = (event) => setAnchorEl(event.currentTarget);
+  const handleClose = () => setAnchorEl(null);
+
+  return (
+    <>
+      <Button
+        onClick={handleClick}
+        variant="outlined"
+        startIcon={<FileDownload />}
+        sx={{
+          borderRadius: 2,
+          borderColor: alpha(PRIMARY, 0.5),
+          color: PRIMARY,
+          "&:hover": {
+            borderColor: PRIMARY,
+            bgcolor: alpha(PRIMARY, 0.05),
+          },
+        }}
+      >
+        Download Template
+      </Button>
+
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        PaperProps={{
+          sx: {
+            mt: 1.5,
+            borderRadius: 2,
+            minWidth: 200,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+          }
+        }}
+      >
+        <MenuItem onClick={() => onDownload('csv')}>
+          <ListItemIcon>
+            <TableRows fontSize="small" sx={{ color: SUCCESS }} />
+          </ListItemIcon>
+          <ListItemText primary="CSV Template" secondary="Simple format" />
+        </MenuItem>
+        <MenuItem onClick={() => onDownload('excel')}>
+          <ListItemIcon>
+            <TableChart fontSize="small" sx={{ color: PRIMARY }} />
+          </ListItemIcon>
+          <ListItemText primary="Excel Template" secondary="With formatting" />
+        </MenuItem>
+        <MenuItem onClick={() => onDownload('sample')}>
+          <ListItemIcon>
+            <FileCopy fontSize="small" sx={{ color: WARNING }} />
+          </ListItemIcon>
+          <ListItemText primary="Sample Data" secondary="With example entries" />
+        </MenuItem>
+      </Menu>
+    </>
+  );
+};
+
 export default function InputLeadsPage() {
   const [filter, setFilter] = useState("Today");
   const [selectedFile, setSelectedFile] = useState(null);
@@ -284,6 +358,16 @@ export default function InputLeadsPage() {
 
   // Check access
   const canImportLeads = hasAccess(userRole);
+
+  // Show snackbar helper - Define this FIRST before any function that uses it
+  const showSnackbar = useCallback((message, severity = "success") => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
+
+  // Handle close snackbar
+  const handleCloseSnackbar = useCallback(() => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  }, []);
 
   // Stats cards data - memoized
   const statsCards = useMemo(
@@ -364,7 +448,7 @@ export default function InputLeadsPage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchAPI]);
+  }, [fetchAPI, showSnackbar]);
 
   // Initial load
   useEffect(() => {
@@ -410,7 +494,7 @@ export default function InputLeadsPage() {
         e.target.value = null;
       }
     },
-    [validateFile, canImportLeads],
+    [validateFile, canImportLeads, showSnackbar],
   );
 
   // Import leads function
@@ -469,14 +553,125 @@ export default function InputLeadsPage() {
     } finally {
       setUploading(false);
     }
-  }, [selectedFile, fetchLeadsStats, canImportLeads, userRole]);
+  }, [selectedFile, fetchLeadsStats, canImportLeads, userRole, showSnackbar]);
+
+  // Generate dummy CSV content
+  const generateDummyCSV = useCallback((type = 'csv') => {
+    // Headers for the CSV
+    const headers = [
+      'name',
+      'phone',
+      'email',
+      'source',
+      'status',
+      'address',
+      'city',
+      'state',
+      'pincode',
+      'notes'
+    ].join(',');
+
+    // Sample data rows
+    const sampleData = [
+      ['John Doe', '9876543210', 'john.doe@email.com', 'Website', 'new', '123 Main St', 'Mumbai', 'Maharashtra', '400001', 'Interested in premium package'],
+      ['Jane Smith', '8765432109', 'jane.smith@email.com', 'Referral', 'contacted', '456 Park Ave', 'Delhi', 'Delhi', '110001', 'Follow up next week'],
+      ['Robert Johnson', '7654321098', 'robert.j@email.com', 'Social Media', 'qualified', '789 Oak Rd', 'Bangalore', 'Karnataka', '560001', 'Budget approved'],
+      ['Maria Garcia', '6543210987', 'maria.g@email.com', 'Website', 'proposal', '321 Pine St', 'Chennai', 'Tamil Nadu', '600001', 'Sent quotation'],
+      ['David Kim', '5432109876', 'david.k@email.com', 'Advertisement', 'negotiation', '654 Elm St', 'Pune', 'Maharashtra', '411001', 'Discussing terms'],
+      ['Sarah Wilson', '4321098765', 'sarah.w@email.com', 'Event', 'new', '987 Cedar Ln', 'Kolkata', 'West Bengal', '700001', 'Met at trade show'],
+      ['Michael Brown', '3210987654', 'michael.b@email.com', 'Website', 'contacted', '147 Birch St', 'Ahmedabad', 'Gujarat', '380001', 'Requested brochure'],
+      ['Emily Davis', '2109876543', 'emily.d@email.com', 'Referral', 'qualified', '258 Maple Dr', 'Hyderabad', 'Telangana', '500001', 'Ready to purchase'],
+      ['James Wilson', '1098765432', 'james.w@email.com', 'Social Media', 'new', '369 Walnut St', 'Jaipur', 'Rajasthan', '302001', 'Just started looking'],
+      ['Lisa Anderson', '1987654321', 'lisa.a@email.com', 'Website', 'proposal', '741 Spruce St', 'Lucknow', 'Uttar Pradesh', '226001', 'Price sensitive']
+    ];
+
+    // For CSV format
+    if (type === 'csv') {
+      const csvRows = [headers];
+      csvRows.push(...sampleData.map(row => row.map(cell => 
+        cell.includes(',') ? `"${cell}"` : cell
+      ).join(',')));
+      return csvRows.join('\n');
+    }
+    
+    // For Excel format (semicolon delimited with quotes)
+    else if (type === 'excel') {
+      const excelRows = [headers.replace(/,/g, ';')];
+      excelRows.push(...sampleData.map(row => 
+        row.map(cell => `"${cell}"`).join(';')
+      ));
+      return excelRows.join('\n');
+    }
+    
+    // For sample data with extra rows
+    else if (type === 'sample') {
+      const sampleRows = [headers];
+      // Add 20 sample rows
+      for (let i = 1; i <= 20; i++) {
+        const names = ['Alex', 'Jordan', 'Taylor', 'Casey', 'Riley', 'Morgan', 'Cameron', 'Quinn', 'Avery', 'Blake'];
+        const sources = ['Website', 'Referral', 'Social Media', 'Advertisement', 'Event'];
+        const statuses = ['new', 'contacted', 'qualified', 'proposal', 'negotiation'];
+        const cities = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata', 'Pune', 'Ahmedabad', 'Hyderabad'];
+        
+        sampleRows.push([
+          `${names[i % names.length]} ${String.fromCharCode(65 + i)}`,
+          `98765${String(i).padStart(5, '0')}`,
+          `lead${i}@example.com`,
+          sources[i % sources.length],
+          statuses[i % statuses.length],
+          `${i} Sample Street`,
+          cities[i % cities.length],
+          'State',
+          `${400000 + i}`,
+          `Sample note for lead ${i}`
+        ].map(cell => cell.includes(',') ? `"${cell}"` : cell).join(','));
+      }
+      return sampleRows.join('\n');
+    }
+  }, []);
+
+  // Download template function - Now showSnackbar is already defined
+  const handleDownloadTemplate = useCallback((type) => {
+    try {
+      let content = generateDummyCSV(type);
+      let filename = '';
+      let mimeType = '';
+
+      if (type === 'csv') {
+        filename = 'leads_template.csv';
+        mimeType = 'text/csv';
+      } else if (type === 'excel') {
+        filename = 'leads_template.xls';
+        mimeType = 'application/vnd.ms-excel';
+      } else if (type === 'sample') {
+        filename = 'sample_leads_data.csv';
+        mimeType = 'text/csv';
+      }
+
+      const blob = new Blob([content], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      showSnackbar(`${filename} downloaded successfully`, 'success');
+    } catch (error) {
+      console.error('Download error:', error);
+      showSnackbar('Failed to download template', 'error');
+    }
+  }, [generateDummyCSV, showSnackbar]);
 
   // Event handlers
   const handleRemoveFile = useCallback(() => {
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = null;
     showSnackbar("File removed", "info");
-  }, []);
+  }, [showSnackbar]);
 
   const addLead = useCallback(() => navigate("/add-lead"), [navigate]);
 
@@ -484,26 +679,6 @@ export default function InputLeadsPage() {
     setFilter(e.target.value);
     // You can add filter logic here if needed
   }, []);
-
-  const showSnackbar = useCallback((message, severity = "success") => {
-    setSnackbar({ open: true, message, severity });
-  }, []);
-
-  const handleCloseSnackbar = useCallback(() => {
-    setSnackbar((prev) => ({ ...prev, open: false }));
-  }, []);
-
-  // Download template
-  const downloadTemplate = useCallback(() => {
-    const templateUrl = `${API_BASE}/templates/leads_template.csv`;
-    const link = document.createElement("a");
-    link.href = templateUrl;
-    link.download = "leads_template.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showSnackbar("Template download started", "info");
-  }, [showSnackbar]);
 
   // Loading skeleton
   if (loading) {
@@ -699,16 +874,27 @@ export default function InputLeadsPage() {
           bgcolor: "#fff",
         }}
       >
-        <Typography
-          variant={isMobile ? "h6" : "h5"}
-          fontWeight="bold"
-          gutterBottom
+        <Stack 
+          direction={{ xs: "column", sm: "row" }} 
+          justifyContent="space-between" 
+          alignItems={{ xs: "flex-start", sm: "center" }}
+          sx={{ mb: 3 }}
         >
-          Import New Leads
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Bulk import leads from Excel/CSV files or add manually
-        </Typography>
+          <Box>
+            <Typography
+              variant={isMobile ? "h6" : "h5"}
+              fontWeight="bold"
+              gutterBottom
+            >
+              Import New Leads
+            </Typography>
+            <Typography color="text.secondary">
+              Bulk import leads from Excel/CSV files or add manually
+            </Typography>
+          </Box>
+          
+          <TemplateDownload onDownload={handleDownloadTemplate} />
+        </Stack>
 
         {/* Two Options: Manual Add & Bulk Import */}
         <Grid container spacing={3}>
@@ -891,19 +1077,6 @@ export default function InputLeadsPage() {
               <Info fontSize="small" sx={{ color: PRIMARY }} />
               4. Required permissions: <strong>ASM, ZSM, or Head Office</strong>
             </Typography>
-            <Button
-              onClick={downloadTemplate}
-              variant="text"
-              startIcon={<FileDownload />}
-              sx={{
-                mt: 1,
-                alignSelf: "flex-start",
-                color: PRIMARY,
-                "&:hover": { bgcolor: alpha(PRIMARY, 0.1) },
-              }}
-            >
-              Download Template
-            </Button>
           </Stack>
         </Box>
 
@@ -927,49 +1100,6 @@ export default function InputLeadsPage() {
           </Stack>
         </Box>
       </Paper>
-
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <Paper
-          sx={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 1000,
-            borderRadius: 0,
-            borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
-          }}
-          elevation={3}
-        >
-          <BottomNavigation
-            showLabels
-            sx={{
-              height: 64,
-              "& .MuiBottomNavigationAction-root": {
-                color: "text.secondary",
-                "&.Mui-selected": { color: PRIMARY },
-              },
-            }}
-          >
-            <BottomNavigationAction
-              label="Dashboard"
-              icon={<Dashboard />}
-              onClick={() => navigate("/dashboard")}
-            />
-            <BottomNavigationAction
-              label="Leads"
-              icon={<People />}
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            />
-            <BottomNavigationAction
-              label="Profile"
-              icon={<Person />}
-              onClick={() => navigate("/profile")}
-            />
-          </BottomNavigation>
-        </Paper>
-      )}
     </Box>
   );
 }

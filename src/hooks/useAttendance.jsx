@@ -3,7 +3,12 @@ import { useState, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 export const useAttendance = () => {
-  const { user, fetchAPI, punchIn: authPunchIn, punchOut: authPunchOut } = useAuth();
+  const {
+    user,
+    fetchAPI,
+    punchIn: authPunchIn,
+    punchOut: authPunchOut,
+  } = useAuth();
 
   const [attendances, setAttendances] = useState([]);
   const [todayAttendance, setTodayAttendance] = useState(null);
@@ -32,6 +37,13 @@ export const useAttendance = () => {
     setSuccess(null);
   }, []);
 
+  const handleError = useCallback((err, fallback = "An error occurred") => {
+    const msg = err?.message || fallback;
+    setError(msg);
+    console.error(fallback, err);
+    return msg;
+  }, []);
+
   // ── fetchAttendances ───────────────────────────────────────────────────────
   const fetchAttendances = useCallback(
     async (filters = {}) => {
@@ -43,7 +55,6 @@ export const useAttendance = () => {
           if (v !== undefined && v !== null && v !== "") params.append(k, v);
         });
         const url = `/attendance/`;
-        
         const res = await fetchAPI(url);
 
         if (res?.success && res?.result) {
@@ -52,7 +63,7 @@ export const useAttendance = () => {
             pagination: pg,
             summary: sm,
           } = res.result;
-          
+
           setAttendances(list);
           setPagination(
             pg || {
@@ -60,26 +71,27 @@ export const useAttendance = () => {
               totalPages: 1,
               totalItems: list.length,
               itemsPerPage: 10,
-            },
+            }
           );
           setSummary(sm || {});
 
           const todayStr = new Date().toDateString();
-          const today = list.find((a) => new Date(a.date).toDateString() === todayStr) || null;
+          const today =
+            list.find((a) => new Date(a.date).toDateString() === todayStr) ||
+            null;
           setTodayAttendance(today);
 
           return res.result;
         }
         return null;
       } catch (err) {
-        setError(err.message || "Failed to fetch attendance records");
-        console.error("fetchAttendances:", err);
+        handleError(err, "Failed to fetch attendance records");
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [fetchAPI],
+    [fetchAPI, handleError]
   );
 
   // ── getMyAttendanceHistory ─────────────────────────────────────────────────
@@ -88,7 +100,7 @@ export const useAttendance = () => {
       if (!user?._id) return null;
       return fetchAttendances({ ...filters, userId: user._id });
     },
-    [user, fetchAttendances],
+    [user, fetchAttendances]
   );
 
   // ── getTeamMembers ─────────────────────────────────────────────────────────
@@ -103,13 +115,12 @@ export const useAttendance = () => {
       }
       return [];
     } catch (err) {
-      setError(err.message || "Failed to fetch team members");
-      console.error("getTeamMembers:", err);
+      handleError(err, "Failed to fetch team members");
       return [];
     } finally {
       setLoading(false);
     }
-  }, [fetchAPI]);
+  }, [fetchAPI, handleError]);
 
   // ── getAttendanceById ──────────────────────────────────────────────────────
   const getAttendanceById = useCallback(
@@ -124,42 +135,36 @@ export const useAttendance = () => {
         const res = await fetchAPI(`/attendance/${id}`);
         return res?.success ? res.result : null;
       } catch (err) {
-        setError(err.message || "Failed to fetch attendance details");
+        handleError(err, "Failed to fetch attendance details");
         return null;
       } finally {
         setLoading(false);
       }
     },
-    [fetchAPI],
+    [fetchAPI, handleError]
   );
 
   // ── punchIn ────────────────────────────────────────────────────────────────
   const punchIn = useCallback(
     async (locationData) => {
+      if (!authPunchIn) {
+        const msg = "Punch in function not available";
+        setError(msg);
+        return { success: false, error: msg };
+      }
+
       setLoading(true);
       setError(null);
       setSuccess(null);
-      
-      // Validate authPunchIn is available
-      if (!authPunchIn) {
-        const error = "Punch in function not available";
-        console.error(error);
-        setError(error);
-        setLoading(false);
-        return { success: false, error };
-      }
-      
+
       try {
-        // Prepare the punch data
-        const punchData = {
+        const result = await authPunchIn({
           latitude: locationData.latitude,
           longitude: locationData.longitude,
-        };
+          accuracy: locationData.accuracy,
+          address: locationData.address,
+        });
 
-        console.log("Calling authPunchIn with:", punchData); // Debug log
-        const result = await authPunchIn(punchData);
-        console.log("authPunchIn result:", result); // Debug log
-        
         if (result?.success) {
           setSuccess(result.message || "Punch in successful");
           await fetchAttendances();
@@ -168,43 +173,36 @@ export const useAttendance = () => {
         }
         return result;
       } catch (err) {
-        console.error("Punch in error:", err);
-        setError(err.message || "Punch in failed");
-        return { success: false, error: err.message };
+        const msg = handleError(err, "Punch in failed");
+        return { success: false, error: msg };
       } finally {
         setLoading(false);
       }
     },
-    [authPunchIn, fetchAttendances],
+    [authPunchIn, fetchAttendances, handleError]
   );
 
   // ── punchOut ───────────────────────────────────────────────────────────────
   const punchOut = useCallback(
     async (locationData) => {
+      if (!authPunchOut) {
+        const msg = "Punch out function not available";
+        setError(msg);
+        return { success: false, error: msg };
+      }
+
       setLoading(true);
       setError(null);
       setSuccess(null);
-      
-      // Validate authPunchOut is available
-      if (!authPunchOut) {
-        const error = "Punch out function not available";
-        console.error(error);
-        setError(error);
-        setLoading(false);
-        return { success: false, error };
-      }
-      
+
       try {
-        // Prepare the punch data
-        const punchData = {
+        const result = await authPunchOut({
           latitude: locationData.latitude,
           longitude: locationData.longitude,
-        };
+          accuracy: locationData.accuracy,
+          address: locationData.address,
+        });
 
-        console.log("Calling authPunchOut with:", punchData); // Debug log
-        const result = await authPunchOut(punchData);
-        console.log("authPunchOut result:", result); // Debug log
-        
         if (result?.success) {
           setSuccess(result.message || "Punch out successful");
           await fetchAttendances();
@@ -213,26 +211,28 @@ export const useAttendance = () => {
         }
         return result;
       } catch (err) {
-        console.error("Punch out error:", err);
-        setError(err.message || "Punch out failed");
-        return { success: false, error: err.message };
+        const msg = handleError(err, "Punch out failed");
+        return { success: false, error: msg };
       } finally {
         setLoading(false);
       }
     },
-    [authPunchOut, fetchAttendances],
+    [authPunchOut, fetchAttendances, handleError]
   );
 
   // ── updateAttendance ───────────────────────────────────────────────────────
   const updateAttendance = useCallback(
     async (id, data) => {
       if (!id) {
-        setError("Attendance ID is required");
-        return { success: false, error: "Attendance ID is required" };
+        const msg = "Attendance ID is required";
+        setError(msg);
+        return { success: false, error: msg };
       }
+
       setLoading(true);
       setError(null);
       setSuccess(null);
+
       try {
         const res = await fetchAPI(`/attendance/${id}`, {
           method: "PUT",
@@ -247,25 +247,28 @@ export const useAttendance = () => {
         }
         return { success: false, error: res?.message || "Update failed" };
       } catch (err) {
-        setError(err.message || "Failed to update attendance");
-        return { success: false, error: err.message };
+        const msg = handleError(err, "Failed to update attendance");
+        return { success: false, error: msg };
       } finally {
         setLoading(false);
       }
     },
-    [fetchAPI, fetchAttendances],
+    [fetchAPI, fetchAttendances, handleError]
   );
 
   // ── deleteAttendance ───────────────────────────────────────────────────────
   const deleteAttendance = useCallback(
     async (id) => {
       if (!id) {
-        setError("Attendance ID is required");
-        return { success: false, error: "Attendance ID is required" };
+        const msg = "Attendance ID is required";
+        setError(msg);
+        return { success: false, error: msg };
       }
+
       setLoading(true);
       setError(null);
       setSuccess(null);
+
       try {
         const res = await fetchAPI(`/attendance/${id}`, { method: "DELETE" });
         if (res?.success) {
@@ -275,13 +278,13 @@ export const useAttendance = () => {
         }
         return { success: false, error: res?.message || "Delete failed" };
       } catch (err) {
-        setError(err.message || "Failed to delete attendance");
-        return { success: false, error: err.message };
+        const msg = handleError(err, "Failed to delete attendance");
+        return { success: false, error: msg };
       } finally {
         setLoading(false);
       }
     },
-    [fetchAPI, fetchAttendances],
+    [fetchAPI, fetchAttendances, handleError]
   );
 
   return {

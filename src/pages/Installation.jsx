@@ -167,12 +167,12 @@ const PERIOD_OPTIONS = [
   { value: "All", label: "All Time", icon: <DateRange /> },
 ];
 
-// Installation Status Configuration
+// Installation Status Configuration - FIXED: Changed "load_Enhancement" to "load_Enhancement" consistently
 const INSTALLATION_STATUS_OPTIONS = [
   "installation_progress",
   "installation_completed",
   "sent_for_jee_verification",
-  "enhancement",
+  "load_Enhancement",  
   "jee_verified",
   "meter_charge",
   "final_payment",
@@ -206,11 +206,11 @@ const INSTALLATION_STATUS_CONFIG = {
     order: 4,
     progress: 80,
   },
-  enhancement: {
+  load_Enhancement: {  // FIXED: Match exactly with API response
     bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <Schedule sx={{ fontSize: 16 }} />,
-    label: "Enhancement",
+    label: "Load Enhancement",
     description: "Enhancement document upload required",
     order: 1,
     progress: 10,
@@ -303,7 +303,22 @@ const getUserPermissions = (userRole) => ({
 });
 
 const getInstallationStatusConfig = (status) => {
-  const normalizedStatus = status?.toLowerCase().replace(/\s+/g, "_");
+  // FIXED: Handle case where status might be undefined or null
+  if (!status) {
+    return {
+      bg: alpha(PRIMARY_COLOR, 0.08),
+      color: PRIMARY_COLOR,
+      icon: <Schedule sx={{ fontSize: 16 }} />,
+      label: "Unknown",
+      description: "Status unknown",
+      order: 0,
+      progress: 0,
+    };
+  }
+  
+  // FIXED: Normalize status for comparison
+  const normalizedStatus = status?.toString().trim();
+  
   return (
     INSTALLATION_STATUS_CONFIG[normalizedStatus] || {
       bg: alpha(PRIMARY_COLOR, 0.08),
@@ -1667,8 +1682,8 @@ const MobileInstallationCard = ({
   );
   const leadStatusConfig = getLeadStatusConfig(lead.status);
   const initials = getInitials(lead.firstName, lead.lastName);
-  const isEnhancement =
-    lead.installationStatus?.toLowerCase() === "enhancement";
+  // FIXED: Check for load_Enhancement correctly
+  const isEnhancement = lead.installationStatus === "load_Enhancement";
 
   return (
     <Paper
@@ -1793,7 +1808,7 @@ const MobileInstallationCard = ({
           </Tooltip>
           <Tooltip title={leadStatusConfig.description} arrow>
             <Chip
-              label={leadStatusConfig.label}
+              label={lead.status || "Unknown"}
               icon={leadStatusConfig.icon}
               size="small"
               sx={{
@@ -2322,7 +2337,7 @@ const InstallationStatusUpdateModal = ({
             <Alert severity="info" sx={{ borderRadius: 2 }}>
               {selectedInstallationStatus === "final_payment"
                 ? "When marked as final payment, installation will be considered completed."
-                : selectedInstallationStatus === "enhancement"
+                : selectedInstallationStatus === "load_Enhancement"
                   ? "Enhancement status requires document upload to proceed further."
                   : selectedInstallationStatus === "meter_charge"
                     ? "Meter charge phase indicates installation is in progress."
@@ -2431,8 +2446,8 @@ const ViewLeadModal = ({
   if (!lead) return null;
 
   const displayData = leadDetails || lead;
-  const isEnhancement =
-    displayData.installationStatus?.toLowerCase() === "enhancement";
+  // FIXED: Check for load_Enhancement correctly
+  const isEnhancement = displayData.installationStatus === "load_Enhancement";
 
   const tabs = [
     {
@@ -3082,7 +3097,7 @@ export default function InstallationPage() {
       installationProgress: 0,
       installationCompleted: 0,
       sentForJeeVerification: 0,
-      enhancement: 0,
+      loadEnhancement: 0,  // FIXED: Changed to loadEnhancement to match summary property
       jeeVerified: 0,
       meterCharge: 0,
       finalPayment: 0,
@@ -3199,8 +3214,8 @@ export default function InstallationPage() {
           sentForJeeVerification: rawInstallations.filter(
             (lead) => lead.installationStatus === "sent_for_jee_verification"
           ).length,
-          enhancement: rawInstallations.filter(
-            (lead) => lead.installationStatus === "enhancement"
+          loadEnhancement: rawInstallations.filter(  // FIXED: Changed key name to loadEnhancement
+            (lead) => lead.installationStatus === "load_Enhancement"
           ).length,
           jeeVerified: rawInstallations.filter(
             (lead) => lead.installationStatus === "jee_verified"
@@ -3233,7 +3248,7 @@ export default function InstallationPage() {
           installationProgress: 0,
           installationCompleted: 0,
           sentForJeeVerification: 0,
-          enhancement: 0,
+          loadEnhancement: 0,  // FIXED: Changed key name
           jeeVerified: 0,
           meterCharge: 0,
           finalPayment: 0,
@@ -3423,7 +3438,7 @@ export default function InstallationPage() {
       },
       {
         label: "Enhancement",
-        value: installationData.summary.enhancement,
+        value: installationData.summary.loadEnhancement,  // FIXED: Use loadEnhancement
         color: PRIMARY_COLOR,
         icon: <Schedule />,
         subText: "Requires documents",
@@ -3771,8 +3786,7 @@ export default function InstallationPage() {
           </MenuItem>
         )}
         {userPermissions.canUploadEnhancement &&
-          selectedActionLead?.installationStatus?.toLowerCase() ===
-            "enhancement" && (
+          selectedActionLead?.installationStatus === "load_Enhancement" && (  // FIXED: Direct comparison
             <MenuItem onClick={() => handleActionSelect("upload_enhancement")}>
               <ListItemIcon>
                 <CloudUpload fontSize="small" />
@@ -4388,8 +4402,7 @@ export default function InstallationPage() {
                         getInstallationStatusConfig(lead.installationStatus);
                       const leadStatusConfig = getLeadStatusConfig(lead.status);
                       const isEnhancement =
-                        lead.installationStatus?.toLowerCase() ===
-                        "enhancement";
+                        lead.installationStatus === "load_Enhancement";
 
                       return (
                         <TableRow
@@ -4722,49 +4735,6 @@ export default function InstallationPage() {
             </Badge>
           </Fab>
         </Zoom>
-      )}
-
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <Paper
-          sx={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 1000,
-            borderRadius: 0,
-            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-          }}
-          elevation={3}
-        >
-          <BottomNavigation
-            showLabels
-            sx={{
-              height: 64,
-              "& .MuiBottomNavigationAction-root": {
-                color: "text.secondary",
-                "&.Mui-selected": { color: PRIMARY_COLOR },
-              },
-            }}
-          >
-            <BottomNavigationAction
-              label="Dashboard"
-              icon={<Dashboard />}
-              onClick={() => navigate("/dashboard")}
-            />
-            <BottomNavigationAction
-              label="Installations"
-              icon={<Build />}
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            />
-            <BottomNavigationAction
-              label="Profile"
-              icon={<Person />}
-              onClick={() => navigate("/profile")}
-            />
-          </BottomNavigation>
-        </Paper>
       )}
     </LocalizationProvider>
   );

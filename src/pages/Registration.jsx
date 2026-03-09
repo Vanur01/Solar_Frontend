@@ -4331,49 +4331,6 @@ export default function RegistrationPage() {
           </Fab>
         </Zoom>
       )}
-
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <Paper
-          sx={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 1000,
-            borderRadius: 0,
-            borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
-          }}
-          elevation={3}
-        >
-          <BottomNavigation
-            showLabels
-            sx={{
-              height: 64,
-              "& .MuiBottomNavigationAction-root": {
-                color: "text.secondary",
-                "&.Mui-selected": { color: PRIMARY },
-              },
-            }}
-          >
-            <BottomNavigationAction
-              label="Dashboard"
-              icon={<Dashboard />}
-              onClick={() => navigate("/dashboard")}
-            />
-            <BottomNavigationAction
-              label="Registrations"
-              icon={<HowToReg />}
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            />
-            <BottomNavigationAction
-              label="Profile"
-              icon={<Person />}
-              onClick={() => navigate("/profile")}
-            />
-          </BottomNavigation>
-        </Paper>
-      )}
     </LocalizationProvider>
   );
 }
