@@ -179,7 +179,7 @@ const INSTALLATION_STATUS_OPTIONS = [
 ];
 
 const INSTALLATION_STATUS_CONFIG = {
-  installation_in_progress: {
+  installation_progress: {
     bg: alpha(PRIMARY_COLOR, 0.08),
     color: PRIMARY_COLOR,
     icon: <Build sx={{ fontSize: 16 }} />,
@@ -3079,11 +3079,13 @@ export default function InstallationPage() {
     installations: [],
     summary: {
       totalInstallations: 0,
-      pendingInstallations: 0,
-      inProgressInstallations: 0,
-      jeeVerificationInstallations: 0,
-      meterChargeInstallations: 0,
-      finalPaymentInstallations: 0,
+      installationProgress: 0,
+      installationCompleted: 0,
+      sentForJeeVerification: 0,
+      enhancement: 0,
+      jeeVerified: 0,
+      meterCharge: 0,
+      finalPayment: 0,
     },
   });
 
@@ -3185,42 +3187,35 @@ export default function InstallationPage() {
           );
         }
 
-        console.log(
-          `Fetched ${rawInstallations.length} installations for role: ${userRole}`,
-        );
-
-        const totalInstallations = rawInstallations.length;
-        const pendingInstallations = rawInstallations.filter(
-          (lead) => lead.installationStatus?.toLowerCase() === "pending",
-        ).length;
-        const inProgressInstallations = rawInstallations.filter(
-          (lead) =>
-            lead.installationStatus?.toLowerCase() ===
-            "installation_in_progress",
-        ).length;
-        const jeeVerificationInstallations = rawInstallations.filter(
-          (lead) =>
-            lead.installationStatus?.toLowerCase() ===
-              "sent_for_jee_verification" ||
-            lead.installationStatus?.toLowerCase() === "jee_verified",
-        ).length;
-        const meterChargeInstallations = rawInstallations.filter(
-          (lead) => lead.installationStatus?.toLowerCase() === "meter_charge",
-        ).length;
-        const finalPaymentInstallations = rawInstallations.filter(
-          (lead) => lead.installationStatus?.toLowerCase() === "final_payment",
-        ).length;
+        // Calculate summary based on actual data
+        const summary = {
+          totalInstallations: rawInstallations.length,
+          installationProgress: rawInstallations.filter(
+            (lead) => lead.installationStatus === "installation_progress"
+          ).length,
+          installationCompleted: rawInstallations.filter(
+            (lead) => lead.installationStatus === "installation_completed"
+          ).length,
+          sentForJeeVerification: rawInstallations.filter(
+            (lead) => lead.installationStatus === "sent_for_jee_verification"
+          ).length,
+          enhancement: rawInstallations.filter(
+            (lead) => lead.installationStatus === "enhancement"
+          ).length,
+          jeeVerified: rawInstallations.filter(
+            (lead) => lead.installationStatus === "jee_verified"
+          ).length,
+          meterCharge: rawInstallations.filter(
+            (lead) => lead.installationStatus === "meter_charge"
+          ).length,
+          finalPayment: rawInstallations.filter(
+            (lead) => lead.installationStatus === "final_payment"
+          ).length,
+        };
 
         setInstallationData({
           installations: rawInstallations,
-          summary: {
-            totalInstallations,
-            pendingInstallations,
-            inProgressInstallations,
-            jeeVerificationInstallations,
-            meterChargeInstallations,
-            finalPaymentInstallations,
-          },
+          summary,
         });
       } else {
         throw new Error(
@@ -3235,11 +3230,13 @@ export default function InstallationPage() {
         installations: [],
         summary: {
           totalInstallations: 0,
-          pendingInstallations: 0,
-          inProgressInstallations: 0,
-          jeeVerificationInstallations: 0,
-          meterChargeInstallations: 0,
-          finalPaymentInstallations: 0,
+          installationProgress: 0,
+          installationCompleted: 0,
+          sentForJeeVerification: 0,
+          enhancement: 0,
+          jeeVerified: 0,
+          meterCharge: 0,
+          finalPayment: 0,
         },
       });
     } finally {
@@ -3312,8 +3309,8 @@ export default function InstallationPage() {
             aVal = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
             bVal = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
           } else if (sortConfig.key === "installationStatus") {
-            aVal = getInstallationStatusConfig(aVal)?.order || 0;
-            bVal = getInstallationStatusConfig(bVal)?.order || 0;
+            aVal = getInstallationStatusConfig(a.installationStatus)?.order || 0;
+            bVal = getInstallationStatusConfig(b.installationStatus)?.order || 0;
           }
 
           if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
@@ -3364,14 +3361,6 @@ export default function InstallationPage() {
     setViewMode(isMobile ? "card" : "table");
   }, [isMobile]);
 
-  // Debug log to check installations count
-  useEffect(() => {
-    console.log(
-      "Current installations count:",
-      installationData.installations.length,
-    );
-  }, [installationData.installations]);
-
   // Memoized Computed Values
   const filteredInstallations = useMemo(() => applyFilters(), [applyFilters]);
 
@@ -3406,38 +3395,52 @@ export default function InstallationPage() {
       },
       {
         label: "In Progress",
-        value: installationData.summary.inProgressInstallations,
+        value: installationData.summary.installationProgress,
         color: PRIMARY_COLOR,
         icon: <Build />,
         subText: "Ongoing work",
       },
       {
+        label: "Completed",
+        value: installationData.summary.installationCompleted,
+        color: PRIMARY_COLOR,
+        icon: <CheckCircle />,
+        subText: "Completed",
+      },
+      {
         label: "JEE Verification",
-        value: installationData.summary.jeeVerificationInstallations,
+        value: installationData.summary.sentForJeeVerification,
         color: PRIMARY_COLOR,
         icon: <VerifiedUser />,
         subText: "Under verification",
       },
       {
+        label: "JEE Verified",
+        value: installationData.summary.jeeVerified,
+        color: PRIMARY_COLOR,
+        icon: <TaskAlt />,
+        subText: "Verification Completed",
+      },
+      {
+        label: "Enhancement",
+        value: installationData.summary.enhancement,
+        color: PRIMARY_COLOR,
+        icon: <Schedule />,
+        subText: "Requires documents",
+      },
+      {
         label: "Meter Charge",
-        value: installationData.summary.meterChargeInstallations,
+        value: installationData.summary.meterCharge,
         color: PRIMARY_COLOR,
         icon: <LocalAtm />,
         subText: "Meter charging",
       },
       {
         label: "Final Payment",
-        value: installationData.summary.finalPaymentInstallations,
+        value: installationData.summary.finalPayment,
         color: PRIMARY_COLOR,
         icon: <Payments />,
         subText: "Completed",
-      },
-      {
-        label: "Pending",
-        value: installationData.summary.pendingInstallations,
-        color: PRIMARY_COLOR,
-        icon: <Schedule />,
-        subText: "Scheduled",
       },
     ],
     [installationData.summary],
@@ -3879,7 +3882,7 @@ export default function InstallationPage() {
         {/* Summary Cards */}
         <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
           {summaryCards.map((card, index) => (
-            <Grid item xs={6} sm={6} md={4} key={card.label}>
+            <Grid item xs={6} sm={6} md={3} key={card.label}>
               <SummaryCard card={card} index={index} />
             </Grid>
           ))}

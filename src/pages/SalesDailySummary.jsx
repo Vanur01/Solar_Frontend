@@ -1,901 +1,1254 @@
-// pages/SalesDailySummary.js
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+// pages/SalesDailySummary.jsx
+// ✅ FIX: getTeamLocations sourced from VisitContext (was missing)
+// ✅ NEW: Click visit card → map flies to location + info window opens
+// ✅ NEW: Default 5 recent visits shown on map as emoji pins
+// ✅ NEW: Completely redesigned — warm field-ops aesthetic, rich cards, smooth animations
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
-  Container,
+  AppBar,
+  Toolbar,
+  IconButton,
   Typography,
-  Button,
-  Grid,
+  Avatar,
   Paper,
+  Grid,
+  Button,
   Chip,
   Stack,
-  alpha,
-  useTheme,
-  IconButton,
-  Avatar,
+  Badge,
+  CircularProgress,
   Skeleton,
-  Alert,
-  Snackbar,
+  Fab,
+  Zoom,
+  Fade,
   useMediaQuery,
+  alpha,
+  Container,
   BottomNavigation,
   BottomNavigationAction,
+  Snackbar,
+  Alert,
+  Card,
+  CardContent,
+  LinearProgress,
   Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
+import { styled, useTheme } from "@mui/material/styles";
 import {
-  Login as LoginIcon,
-  Logout as LogoutIcon,
-  AddLocationAlt as AddLocationAltIcon,
-  Verified as VerifiedIcon,
-  LocationOn as LocationOnIcon,
-  Route as RouteIcon,
-  Visibility as VisibilityIcon,
-  Schedule as ScheduleIcon,
-  Refresh as RefreshIcon,
-  TrendingUp as TrendingUpIcon,
-  AccessTime as AccessTimeIcon,
   Menu as MenuIcon,
-  Person as PersonIcon,
-  Dashboard as DashboardIcon,
-  GpsFixed as GpsFixedIcon,
-  GpsOff as GpsOffIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  History as HistoryIcon,
+  MyLocation as MyLocationIcon,
+  ZoomOutMap as ZoomOutMapIcon,
   Map as MapIcon,
-  People as PeopleIcon,
-  AdminPanelSettings as AdminIcon,
-  SupervisorAccount as ManagerIcon,
+  Satellite as SatelliteIcon,
+  Add as AddIcon,
+  Dashboard as DashboardIcon,
+  ListAlt as VisitsIcon,
+  Route as RouteIcon,
+  Group as TeamIcon,
+  AccessTime as TimeIcon,
+  Straighten as DistanceIcon,
+  CheckCircle as CompletedIcon,
+  Today as TodayIcon,
+  ArrowForward as ArrowForwardIcon,
+  Close as CloseIcon,
+  Refresh as RefreshIcon,
+  LocationOn as LocationIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { format, isToday, isYesterday } from "date-fns";
+import { useVisit } from "../contexts/VisitContext";
+import {
+  GoogleMap,
+  LoadScript,
+  Marker,
+  InfoWindow,
+  Circle,
+  Polyline,
+} from "@react-google-maps/api";
 
-// ========== ROLE CONFIG ==========
-const ROLE_CONFIG = {
-  Head_office: { label: "Head Office", icon: <AdminIcon />, color: "#4569ea" },
-  ZSM: { label: "Zone Manager", icon: <ManagerIcon />, color: "#4caf50" },
-  ASM: { label: "Area Manager", icon: <ManagerIcon />, color: "#ff9800" },
-  TEAM: { label: "Team Member", icon: <PersonIcon />, color: "#2196f3" },
+const GOOGLE_MAPS_API_KEY = "AIzaSyCqM7uF9c0ZMQjdssHqSMJJ3mBcmz5RNS0";
+const LIBRARIES = ["places"];
+
+// ─── Design Tokens ────────────────────────────────────────────────────────────
+const T = {
+  bg: "#0D1117",
+  surface: "#161B22",
+  card: "#1C2128",
+  border: "#30363D",
+  text: "#E6EDF3",
+  muted: "#8B949E",
+  accent: "#F78166",
+  blue: "#58A6FF",
+  green: "#3FB950",
+  yellow: "#E3B341",
+  purple: "#D2A8FF",
+  red: "#F85149",
 };
 
-// ========== STATS CARD ==========
-const StatsCard = ({
-  icon: Icon,
-  title,
-  value,
-  subValue,
-  color = "primary",
-  onClick,
-}) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-  return (
-    <Paper
-      onClick={onClick}
-      elevation={0}
-      sx={{
-        p: isMobile ? 1.5 : 2.5,
-        borderRadius: 3,
-        background: `linear-gradient(135deg, ${alpha(theme.palette[color].main, 0.1)} 0%, ${alpha(theme.palette[color].main, 0.05)} 100%)`,
-        border: `1px solid ${alpha(theme.palette[color].main, 0.2)}`,
-        cursor: onClick ? "pointer" : "default",
-        height: isMobile ? "110px" : "130px",
-        position: "relative",
-        overflow: "hidden",
-        width: "100%",
-          ml: isMobile ? 3 : 3,
-        "&:hover": onClick
-          ? { transform: "translateY(-4px)", transition: "all 0.3s" }
-          : {},
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 4,
-          background: `linear-gradient(90deg, ${theme.palette[color].main}, ${alpha(theme.palette[color].main, 0.5)})`,
-        },
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <Box>
-          <Typography
-            variant="caption"
-            sx={{ color: "text.secondary", fontWeight: 600 }}
-          >
-            {title}
-          </Typography>
-          <Typography
-            variant={isMobile ? "h6" : "h5"}
-            sx={{
-              fontWeight: 800,
-              mt: 0.5,
-              color: theme.palette[color].main,
-            }}
-          >
-            {value}
-          </Typography>
-        </Box>
-        <Avatar
-          sx={{
-            bgcolor: alpha(theme.palette[color].main, 0.2),
-            color: theme.palette[color].main,
-          }}
-        >
-          <Icon sx={{ fontSize: isMobile ? 18 : 20 }} />
-        </Avatar>
-      </Box>
-      {subValue && (
-        <Typography
-          variant="caption"
-          sx={{ color: "text.secondary", mt: 1, display: "block" }}
-        >
-          {subValue}
-        </Typography>
-      )}
-    </Paper>
-  );
+// ─── Status config with emojis ────────────────────────────────────────────────
+const STATUS = {
+  completed: {
+    color: T.green,
+    bg: "#0D2818",
+    border: "#2EA043",
+    emoji: "✅",
+    label: "Completed",
+  },
+  inprogress: {
+    color: T.blue,
+    bg: "#0D1F35",
+    border: "#1F6FEB",
+    emoji: "🔵",
+    label: "In Progress",
+  },
+  cancelled: {
+    color: T.red,
+    bg: "#2D0F0F",
+    border: "#CF222E",
+    emoji: "❌",
+    label: "Cancelled",
+  },
+  pending: {
+    color: T.yellow,
+    bg: "#2D1F02",
+    border: "#BB8009",
+    emoji: "⏳",
+    label: "Pending",
+  },
 };
+const getStatus = (s) => STATUS[s?.toLowerCase()] || STATUS.pending;
 
-// ========== VISIT CARD ==========
-const VisitCard = ({ visit, onViewLiveRoute }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const [expanded, setExpanded] = useState(false);
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "completed":
-        return theme.palette.success;
-      case "inprogress":
-        return theme.palette.warning;
-      case "cancelled":
-        return theme.palette.error;
-      default:
-        return theme.palette.info;
-    }
+// ─── Map emoji pins as SVG data URIs ─────────────────────────────────────────
+const emojiPin = (emoji, selected = false) => {
+  const sz = selected ? 52 : 42;
+  const fz = selected ? 22 : 18;
+  return {
+    url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz + 12}" viewBox="0 0 52 64">
+        <filter id="sh"><feDropShadow dx="0" dy="3" stdDeviation="${selected ? 4 : 2}" flood-color="#000" flood-opacity="${selected ? 0.5 : 0.3}"/></filter>
+        <path d="M26 2C15.5 2 7 10.5 7 21C7 36 26 62 26 62C26 62 45 36 45 21C45 10.5 36.5 2 26 2Z"
+          fill="${selected ? "#F78166" : "#1C2128"}" stroke="${selected ? "#FF8A70" : "#58A6FF"}"
+          stroke-width="${selected ? 2.5 : 1.5}" filter="url(#sh)"/>
+        <circle cx="26" cy="21" r="13" fill="${selected ? "rgba(255,255,255,0.15)" : "rgba(88,166,255,0.1)"}"/>
+        <text x="26" y="27" text-anchor="middle" font-size="${fz}">${emoji}</text>
+      </svg>`)}`,
+    scaledSize: { width: sz, height: sz + 12 },
+    anchor: { x: sz / 2, y: sz + 12 },
   };
-
-  const formatVisitTime = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    if (isToday(date)) return `Today, ${format(date, "h:mm a")}`;
-    if (isYesterday(date)) return `Yesterday, ${format(date, "h:mm a")}`;
-    return format(date, "MMM d, h:mm a");
-  };
-
-  const statusColor = getStatusColor(visit.status);
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: isMobile ? 1.5 : 2,
-        borderRadius: 3,
-        border: `1px solid ${alpha(statusColor.main, 0.2)}`,
-        position: "relative",
-        overflow: "hidden",
-        cursor: "pointer",
-        "&:hover": { boxShadow: `0 4px 12px ${alpha(statusColor.main, 0.2)}` },
-      }}
-      onClick={() => setExpanded(!expanded)}
-    >
-      <Box
-        sx={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 4,
-          height: "100%",
-          bgcolor: statusColor.main,
-        }}
-      />
-
-      <Box sx={{ pl: 1.5 }}>
-        <Box sx={{ display: "flex", gap: 1.5 }}>
-          <Box
-            sx={{
-              width: isMobile ? 45 : 60,
-              height: isMobile ? 45 : 60,
-              borderRadius: 2,
-              bgcolor: alpha(statusColor.main, 0.1),
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <LocationOnIcon
-              sx={{
-                color: alpha(statusColor.main, 0.5),
-                fontSize: isMobile ? 20 : 30,
-              }}
-            />
-          </Box>
-
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                mb: 0.5,
-                flexWrap: "wrap",
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                {visit.locationName || "Unknown Location"}
-              </Typography>
-              <Chip
-                label={visit.status || "Pending"}
-                size="small"
-                sx={{
-                  bgcolor: alpha(statusColor.main, 0.1),
-                  color: statusColor.main,
-                  fontWeight: 600,
-                  height: 20,
-                }}
-              />
-            </Box>
-
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", display: "block", mb: 0.5 }}
-            >
-              {visit.address || "Address not available"}
-            </Typography>
-
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                flexWrap: "wrap",
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <ScheduleIcon sx={{ fontSize: 12, color: "text.disabled" }} />
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  {formatVisitTime(visit.visitDate || visit.createdAt)}
-                </Typography>
-              </Box>
-            </Box>
-
-            {expanded && (
-              <Box
-                sx={{
-                  mt: 1.5,
-                  pt: 1.5,
-                  borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                }}
-              >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<VisibilityIcon />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onViewLiveRoute(visit);
-                  }}
-                  sx={{ borderRadius: 2, mr: 1 }}
-                >
-                  View Route
-                </Button>
-                {visit.verified && (
-                  <Chip
-                    icon={<VerifiedIcon />}
-                    label="Verified"
-                    size="small"
-                    color="success"
-                    variant="outlined"
-                  />
-                )}
-              </Box>
-            )}
-          </Box>
-        </Box>
-      </Box>
-    </Paper>
-  );
 };
 
-// ========== LOCATION STATUS ==========
-const LocationStatus = ({ state, onRetry, onManual }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+const myLocationPin = (initial) => ({
+  url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
+      <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <circle cx="26" cy="26" r="24" fill="#1F6FEB" filter="url(#glow)" opacity="0.9"/>
+      <circle cx="26" cy="26" r="18" fill="#58A6FF"/>
+      <circle cx="26" cy="26" r="10" fill="white" opacity="0.9"/>
+      <text x="26" y="31" text-anchor="middle" fill="#1F6FEB" font-size="14" font-weight="800">${initial}</text>
+    </svg>`)}`,
+  scaledSize: { width: 52, height: 52 },
+  anchor: { x: 26, y: 26 },
+});
 
-  const getStatusConfig = () => {
-    if (state.error)
-      return { icon: <GpsOffIcon />, color: "error", message: state.error };
-    if (state.coords)
-      return {
-        icon: <GpsFixedIcon />,
-        color: "success",
-        message: `Location available (${Math.round(state.coords.accuracy)}m accuracy)`,
-      };
-    return {
-      icon: <GpsOffIcon />,
-      color: "info",
-      message: "Location not requested",
-    };
-  };
+const teamPin = (color, initial) => ({
+  url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+      <circle cx="22" cy="22" r="20" fill="${color}" opacity="0.9"/>
+      <circle cx="22" cy="22" r="14" fill="white" opacity="0.15"/>
+      <text x="22" y="28" text-anchor="middle" fill="white" font-size="15" font-weight="700">${initial}</text>
+    </svg>`)}`,
+  scaledSize: { width: 44, height: 44 },
+  anchor: { x: 22, y: 22 },
+});
 
-  const config = getStatusConfig();
+// ─── Dark map style ───────────────────────────────────────────────────────────
+const DARK_MAP = [
+  { elementType: "geometry", stylers: [{ color: "#0D1117" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0D1117" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#58A6FF" }] },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#161B22" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#21262D" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#8B949E" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#1C2128" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#0D1F35" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#3D6A9E" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#E3B341" }],
+  },
+  {
+    featureType: "landscape",
+    elementType: "geometry",
+    stylers: [{ color: "#12171E" }],
+  },
+];
 
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: isMobile ? 1.5 : 2,
-        borderRadius: 3,
-        bgcolor: alpha(theme.palette[config.color].main, 0.1),
-        border: `1px solid ${alpha(theme.palette[config.color].main, 0.2)}`,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        mb: 2,
-        flexWrap: "wrap",
-          ml: isMobile ? 3 : 3,
-        gap: 1,
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Box sx={{ color: theme.palette[config.color].main }}>
-          {config.icon}
-        </Box>
-        <Typography
-          variant="body2"
-          sx={{ color: theme.palette[config.color].main }}
-        >
-          {config.message}
-        </Typography>
-      </Box>
-
-      {(state.error || !state.coords) && (
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Button size="small" variant="outlined" onClick={onRetry}>
-            Retry
-          </Button>
-          <Button size="small" variant="contained" onClick={onManual}>
-            Manual
-          </Button>
-        </Box>
-      )}
-    </Paper>
-  );
+const ROLE_COLORS = {
+  TEAM: "#3FB950",
+  ZSM: "#58A6FF",
+  ASM: "#D2A8FF",
+  Head_office: "#E3B341",
 };
 
-// ========== MANUAL LOCATION DIALOG ==========
-const ManualLocationDialog = ({ open, onClose, onSubmit }) => {
-  const [lat, setLat] = useState("");
-  const [lng, setLng] = useState("");
+// ─── Styled Components ────────────────────────────────────────────────────────
+const GlassBar = styled(AppBar)(() => ({
+  background: `linear-gradient(180deg, ${T.surface}F0 0%, ${T.surface}CC 100%)`,
+  backdropFilter: "blur(24px)",
+  borderBottom: `1px solid ${T.border}`,
+  boxShadow: `0 1px 0 ${T.border}`,
+}));
 
-  const handleSubmit = () => {
-    if (lat && lng) {
-      onSubmit(parseFloat(lat), parseFloat(lng));
-      onClose();
-    }
-  };
+const SurfaceCard = styled(Card)(({ selected, accentcolor }) => ({
+  background: selected ? alpha(accentcolor || T.blue, 0.08) : T.card,
+  border: `1px solid ${selected ? accentcolor || T.blue : T.border}`,
+  borderRadius: 14,
+  cursor: "pointer",
+  transition: "all 0.22s cubic-bezier(0.4,0,0.2,1)",
+  "&:hover": {
+    border: `1px solid ${accentcolor || T.blue}`,
+    transform: "translateY(-2px)",
+    boxShadow: `0 8px 24px ${alpha(accentcolor || T.blue, 0.18)}`,
+  },
+}));
 
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Enter Location Manually</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            label="Latitude"
-            type="number"
-            fullWidth
-            value={lat}
-            onChange={(e) => setLat(e.target.value)}
-            size="small"
-            placeholder="e.g., 20.2767"
-          />
-          <TextField
-            label="Longitude"
-            type="number"
-            fullWidth
-            value={lng}
-            onChange={(e) => setLng(e.target.value)}
-            size="small"
-            placeholder="e.g., 85.7767"
-          />
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} variant="contained">
-          Submit
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
+const StatTile = styled(Paper)(({ tilecolor }) => ({
+  background: alpha(tilecolor || T.blue, 0.1),
+  border: `1px solid ${alpha(tilecolor || T.blue, 0.25)}`,
+  borderRadius: 14,
+  padding: "14px 8px",
+  textAlign: "center",
+  transition: "transform 0.18s",
+  "&:hover": { transform: "scale(1.04)" },
+}));
+
+const PulseDot = styled(Box)(({ dotcolor }) => ({
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: dotcolor || T.green,
+  animation: "pulse 1.8s infinite",
+  "@keyframes pulse": {
+    "0%,100%": { opacity: 1, transform: "scale(1)" },
+    "50%": { opacity: 0.4, transform: "scale(0.85)" },
+  },
+}));
+
+const MapWrap = styled(Box)({
+  height: 340,
+  position: "relative",
+  borderRadius: 14,
+  overflow: "hidden",
+  border: `1px solid ${T.border}`,
+});
+
+const NumberBadge = styled(Box)(({ badgecolor }) => ({
+  width: 26,
+  height: 26,
+  borderRadius: "50%",
+  background: alpha(badgecolor || T.blue, 0.15),
+  border: `1.5px solid ${alpha(badgecolor || T.blue, 0.4)}`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 11,
+  fontWeight: 800,
+  color: badgecolor || T.blue,
+  flexShrink: 0,
+}));
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fmtDist = (km) =>
+  !km ? "0 m" : km >= 1 ? `${km.toFixed(1)} km` : `${Math.round(km * 1000)} m`;
+const fmtTime = (min) => {
+  if (!min) return "0 m";
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h ? `${h}h ${m}m` : `${m}m`;
+};
+const fmtClock = (dt) => {
+  try {
+    return new Date(dt).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+};
+const fmtDate = (dt) => {
+  try {
+    return new Date(dt).toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  } catch {
+    return "";
+  }
 };
 
-// ========== MAIN COMPONENT ==========
-const SalesDailySummary = () => {
+// Visit emoji by index (makes each pin feel unique)
+const VISIT_EMOJIS = [
+  "📍",
+  "🏪",
+  "🏢",
+  "🏬",
+  "🏦",
+  "🏨",
+  "🛒",
+  "🏭",
+  "🏠",
+  "🗺️",
+];
+const visitEmoji = (i, status) => {
+  const s = status?.toLowerCase();
+  if (s === "completed") return "✅";
+  if (s === "cancelled") return "❌";
+  if (s === "inprogress") return "🔵";
+  return VISIT_EMOJIS[i % VISIT_EMOJIS.length];
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+export default function SalesDailySummary() {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const {
-    user,
-    locationState,
-    requestLocationWithPermission,
-    getCurrentLocation,
-    punchIn,
-    punchOut,
-    getVisitStats,
-    getRecentVisits,
-    checkAttendanceStatus,
-    attendance,
-  } = useAuth();
+  const { user, locationState, startWatchingPosition, stopWatchingPosition } =
+    useAuth();
+  // ✅ FIX: getTeamLocations is now correctly destructured from VisitContext
+  const { getVisitStats, getRecentVisits, getTeamLocations } = useVisit();
+  const { socket, emitLocationUpdate } = useSocket();
 
-  const userRole = user?.role;
-  const isTeamMember = userRole === "TEAM";
+  const isManager = ["ZSM", "ASM", "Head_office"].includes(user?.role);
 
-  const [loading, setLoading] = useState(true);
+  // ─── State ────────────────────────────────────────────────────────────────
   const [stats, setStats] = useState({
     visitsToday: 0,
-    totalVisits: 0,
     totalDistanceKm: 0,
     totalTravelTimeMinutes: 0,
     totalCompletedVisits: 0,
   });
-  const [recentVisits, setRecentVisits] = useState([]);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [manualLocationOpen, setManualLocationOpen] = useState(false);
-  const [bottomNav, setBottomNav] = useState(0);
+  const [visits, setVisits] = useState([]);
+  const [teamLocs, setTeamLocs] = useState([]);
+  const [myLoc, setMyLoc] = useState(null);
+  const [liveTrail, setLiveTrail] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [infoWin, setInfoWin] = useState(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mapType, setMapType] = useState("roadmap");
+  const [snack, setSnack] = useState({ open: false, msg: "", type: "success" });
+  const [navValue, setNavValue] = useState(0);
 
-  // Check attendance status on load
-  useEffect(() => {
-    const verifyAttendance = async () => {
-      if (user) {
-        await checkAttendanceStatus();
-      }
-    };
-    verifyAttendance();
-  }, [user, checkAttendanceStatus]);
+  const mapRef = useRef(null);
+  const pollRef = useRef(null);
+  const centeredRef = useRef(false);
 
-  // Load dashboard data
-  const loadDashboardData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [statsRes, visitsRes] = await Promise.all([
-        getVisitStats(),
-        getRecentVisits(10),
-      ]);
-
-      if (statsRes.success) setStats(statsRes.result);
-      if (visitsRes.success) setRecentVisits(visitsRes.result);
-    } catch (error) {
-      showSnackbar("Failed to load dashboard", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [getVisitStats, getRecentVisits]);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
-
-  const showSnackbar = (message, severity = "success") => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  // ========== PUNCH HANDLERS ==========
-  const handlePunchIn = async () => {
-    if (!isTeamMember) {
-      showSnackbar("Only team members can punch in", "warning");
-      return;
-    }
-
-    try {
-      setLocationLoading(true);
-      showSnackbar("Requesting location permission...", "info");
-
-      // This will trigger the browser's permission popup
-      const locationResult = await requestLocationWithPermission();
-
-      if (!locationResult.success) {
-        showSnackbar(locationResult.error, "error");
-
-        // If permission denied or timeout, offer manual entry
-        if (locationResult.code === 1 || locationResult.code === 3) {
-          setManualLocationOpen(true);
+  // ─── Load data ────────────────────────────────────────────────────────────
+  const loadData = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true);
+      else setLoading(true);
+      try {
+        const [sRes, vRes] = await Promise.all([
+          getVisitStats(refresh),
+          getRecentVisits(5, refresh),
+        ]);
+        if (sRes?.success) setStats(sRes.result || {});
+        if (vRes?.success) {
+          const list = Array.isArray(vRes.result)
+            ? vRes.result
+            : vRes.result?.visits || [];
+          setVisits(list.slice(0, 5));
         }
-        setLocationLoading(false);
-        return;
+      } catch (e) {
+        console.error("loadData:", e);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
+    },
+    [getVisitStats, getRecentVisits],
+  );
 
-      showSnackbar(
-        `Location acquired with ${Math.round(locationResult.accuracy)}m accuracy`,
-        "success",
-      );
+  useEffect(() => {
+    loadData();
+  }, []);
 
-      // Punch in with the obtained location
-      const result = await punchIn(
-        locationResult.lat,
-        locationResult.lng,
-        locationResult.source,
-      );
+  // ─── GPS watching ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    startWatchingPosition(
+      (loc) => {
+        setMyLoc({ lat: loc.lat, lng: loc.lng });
+        setLiveTrail((p) => [...p, { lat: loc.lat, lng: loc.lng }].slice(-300));
+        emitLocationUpdate?.({
+          lat: loc.lat,
+          lng: loc.lng,
+          accuracy: loc.accuracy,
+        });
+      },
+      () => {},
+      { enableHighAccuracy: true },
+    );
+    return () => stopWatchingPosition();
+  }, []);
 
-      if (result.success) {
-        showSnackbar("Punched in successfully!", "success");
-        loadDashboardData();
-      } else {
-        showSnackbar(result.error, "error");
-      }
-    } catch (error) {
-      console.error("Punch in error:", error);
-      showSnackbar("Failed to punch in. Please try again.", "error");
-    } finally {
-      setLocationLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (locationState?.coords && !myLoc) setMyLoc(locationState.coords);
+  }, [locationState]);
 
-  const handlePunchOut = async () => {
-    if (!isTeamMember) {
-      showSnackbar("Only team members can punch out", "warning");
-      return;
-    }
+  // ─── Team locations polling ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!isManager) return;
 
-    try {
-      setLocationLoading(true);
-      showSnackbar("Getting your location for punch out...", "info");
-
-      // Get current location for punch out
-      const locationResult = await getCurrentLocation();
-
-      if (!locationResult.success) {
-        showSnackbar(locationResult.error, "error");
-        setLocationLoading(false);
-        return;
-      }
-
-      const result = await punchOut(locationResult.lat, locationResult.lng);
-
-      if (result.success) {
-        showSnackbar("Punched out successfully!", "success");
-        loadDashboardData();
-      } else {
-        showSnackbar(result.error, "error");
-      }
-    } catch (error) {
-      console.error("Punch out error:", error);
-      showSnackbar("Failed to punch out. Please try again.", "error");
-    } finally {
-      setLocationLoading(false);
-    }
-  };
-
-  const handleManualLocation = async (lat, lng) => {
-    if (!isTeamMember) return;
-
-    setLocationLoading(true);
-    try {
-      showSnackbar("Using manually entered location...", "info");
-
-      const result = await punchIn(lat, lng, "manual");
-
-      if (result.success) {
-        showSnackbar("Punched in with manual location", "success");
-        loadDashboardData();
-      } else {
-        showSnackbar(result.error, "error");
-      }
-    } catch (error) {
-      console.error("Manual punch in error:", error);
-      showSnackbar("Failed to punch in", "error");
-    } finally {
-      setLocationLoading(false);
-    }
-  };
-
-  const handleStartVisit = () => {
-    if (!isTeamMember) {
-      showSnackbar("Only team members can create visits", "warning");
-      return;
-    }
-
-    if (!attendance || attendance.status !== "ON DUTY") {
-      showSnackbar("Please punch in first before starting a visit", "warning");
-      return;
-    }
-
-    navigate("/visit-details");
-  };
-
-  // Attendance status
-  const attendanceStatus = useMemo(() => {
-    if (!attendance || attendance.status === "OFF DUTY") {
-      return {
-        text: "OFF DUTY",
-        color: "info",
-        icon: CancelIcon,
-        showPunchIn: true,
-        showPunchOut: false,
-      };
-    }
-    return {
-      text: "ON DUTY",
-      color: "success",
-      icon: CheckCircleIcon,
-      time: attendance.punchInTime
-        ? format(new Date(attendance.punchInTime), "h:mm a")
-        : "",
-      showPunchIn: false,
-      showPunchOut: true,
+    const fetchTeam = async () => {
+      // ✅ FIX: getTeamLocations is a real function now
+      const res = await getTeamLocations();
+      if (res?.success && Array.isArray(res.result)) setTeamLocs(res.result);
     };
-  }, [attendance]);
 
-  // Navigation items
-  const navItems = useMemo(() => {
-    const items = [
-      { label: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
-      { label: "Visits", icon: <HistoryIcon />, path: "/total-visits" },
-      { label: "Map", icon: <MapIcon />, path: "/visit-route" },
-    ];
-    if (!isTeamMember) {
-      items.push({
-        label: "Team",
-        icon: <PeopleIcon />,
-        path: "/team-performance-report",
+    fetchTeam();
+    pollRef.current = setInterval(fetchTeam, 30000);
+    return () => clearInterval(pollRef.current);
+  }, [isManager, getTeamLocations]);
+
+  // ─── Socket: live team location updates ──────────────────────────────────
+  useEffect(() => {
+    if (!socket || !isManager) return;
+    const onUpdate = (d) =>
+      setTeamLocs((prev) => {
+        const idx = prev.findIndex((t) => t.userId === d.userId);
+        if (idx >= 0) {
+          const u = [...prev];
+          u[idx] = d;
+          return u;
+        }
+        return [...prev, d];
+      });
+    socket.on("team:location-update", onUpdate);
+    return () => socket.off("team:location-update", onUpdate);
+  }, [socket, isManager]);
+
+  // ─── Auto-center map on first load ────────────────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current || !mapLoaded || centeredRef.current) return;
+    const withCoords = visits.filter((v) => v.latitude && v.longitude);
+    if (withCoords.length > 0 && window.google) {
+      const b = new window.google.maps.LatLngBounds();
+      withCoords.forEach((v) =>
+        b.extend({ lat: v.latitude, lng: v.longitude }),
+      );
+      if (myLoc) b.extend(myLoc);
+      if (!b.isEmpty()) {
+        mapRef.current.fitBounds(b, { padding: 60 });
+        centeredRef.current = true;
+      }
+    }
+  }, [visits, mapLoaded, myLoc]);
+
+  // ─── Card click → map fly-to + info window ───────────────────────────────
+  const handleCardClick = useCallback((visit) => {
+    setSelectedId(visit._id);
+
+    if (!visit.latitude || !visit.longitude) {
+      setSnack({
+        open: true,
+        msg: "📍 No location data for this visit",
+        type: "warning",
+      });
+      return;
+    }
+
+    // Fly map to the visit location
+    if (mapRef.current) {
+      mapRef.current.panTo({ lat: visit.latitude, lng: visit.longitude });
+      mapRef.current.setZoom(16);
+      setInfoWin({
+        type: "visit",
+        data: visit,
+        pos: { lat: visit.latitude, lng: visit.longitude },
       });
     }
-    return items;
-  }, [isTeamMember]);
 
+    // Smooth scroll to map
+    document
+      .getElementById("map-section")
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
+
+  // ─── Map controls ─────────────────────────────────────────────────────────
+  const centerOnMe = () => {
+    if (mapRef.current && myLoc) {
+      mapRef.current.panTo(myLoc);
+      mapRef.current.setZoom(16);
+    }
+  };
+
+  const fitAll = () => {
+    if (!mapRef.current || !window.google) return;
+    const b = new window.google.maps.LatLngBounds();
+    visits.forEach(
+      (v) => v.latitude && b.extend({ lat: v.latitude, lng: v.longitude }),
+    );
+    if (myLoc) b.extend(myLoc);
+    teamLocs.forEach(
+      (t) =>
+        t.location && b.extend({ lat: t.location.lat, lng: t.location.lng }),
+    );
+    if (!b.isEmpty()) mapRef.current.fitBounds(b, { padding: 60 });
+  };
+
+  const mapCenter = visits.find((v) => v.latitude)
+    ? { lat: visits[0].latitude, lng: visits[0].longitude }
+    : myLoc || { lat: 20.2961, lng: 85.8245 };
+
+  const statItems = [
+    {
+      label: "Visits",
+      value: stats.visitsToday || 0,
+      icon: "📅",
+      color: T.blue,
+    },
+    {
+      label: "Done",
+      value: stats.totalCompletedVisits || 0,
+      icon: "✅",
+      color: T.green,
+    },
+    {
+      label: "Distance",
+      value: fmtDist(stats.totalDistanceKm),
+      icon: "📏",
+      color: T.yellow,
+    },
+    {
+      label: "On Road",
+      value: fmtTime(stats.totalTravelTimeMinutes),
+      icon: "⏱️",
+      color: T.purple,
+    },
+  ];
+
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ minHeight: "100vh", pb: isMobile ? 7 : 4, bgcolor: "#f8fafc" }}>
-      {/* Header */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: isMobile ? 2 : 3,
-          borderRadius: 0,
-          background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${alpha(theme.palette.primary.main, 0.8)})`,
-          color: "white",
-          position: "sticky",
-          ml: isMobile ? 3 : 3,
-          width: isMobile ? "320px" : "1150px",
-          top: 0,
-          zIndex: 100,
-        }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Box>
-            <Typography variant={isMobile ? "h6" : "h5"} fontWeight={800}>
-              Visit Summary
+    <Box
+      sx={{
+        bgcolor: T.bg,
+        minHeight: "100vh",
+        pt: { xs: 7.5, sm: 8.5 },
+        pb: { xs: 9, sm: 3 },
+        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+      }}
+    >
+      {/* ── App Bar ─────────────────────────────────────────────────────── */}
+      <GlassBar position="fixed" elevation={0}>
+        <Toolbar sx={{ minHeight: { xs: 58, sm: 64 } }}>
+          <IconButton
+            edge="start"
+            onClick={() => setDrawerOpen(true)}
+            sx={{ color: T.text, mr: 1 }}
+          >
+            <MenuIcon />
+          </IconButton>
+
+          <Box sx={{ flex: 1 }}>
+            <Typography
+              sx={{
+                fontWeight: 700,
+                color: T.text,
+                fontSize: { xs: 15, sm: 17 },
+                lineHeight: 1.2,
+                fontFamily: "inherit",
+              }}
+            >
+              📊 Daily Summary
             </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.9 }}>
-              {format(new Date(), "EEEE, MMMM d, yyyy")}
+            <Typography
+              sx={{ fontSize: 11, color: T.muted, fontFamily: "inherit" }}
+            >
+              {fmtDate(new Date())}
             </Typography>
           </Box>
-          {isMobile && (
-            <IconButton color="inherit" onClick={() => setDrawerOpen(true)}>
-              <MenuIcon />
-            </IconButton>
-          )}
-        </Box>
-      </Paper>
 
-      <Container maxWidth="xl" sx={{ px: isMobile ? 2 : 3, mt: 2 }}>
-        {/* Action Buttons - Team Member Only */}
-        {isTeamMember && (
-          <Paper
-            elevation={0}
+          <Stack direction="row" spacing={1} alignItems="center">
+            {/* Live indicator */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.75,
+                bgcolor: alpha(T.green, 0.12),
+                border: `1px solid ${alpha(T.green, 0.3)}`,
+                borderRadius: 20,
+                px: 1.25,
+                py: 0.5,
+              }}
+            >
+              <PulseDot dotcolor={T.green} />
+              <Typography
+                sx={{
+                  fontSize: 10,
+                  color: T.green,
+                  fontWeight: 700,
+                  fontFamily: "inherit",
+                }}
+              >
+                LIVE
+              </Typography>
+            </Box>
+
+            <IconButton
+              onClick={() => loadData(true)}
+              disabled={refreshing}
+              sx={{ color: T.muted }}
+            >
+              {refreshing ? (
+                <CircularProgress size={18} sx={{ color: T.blue }} />
+              ) : (
+                <RefreshIcon sx={{ fontSize: 20 }} />
+              )}
+            </IconButton>
+
+            <Avatar
+              sx={{
+                width: 34,
+                height: 34,
+                bgcolor: alpha(T.accent, 0.2),
+                color: T.accent,
+                fontWeight: 800,
+                fontSize: 14,
+              }}
+            >
+              {(user?.name || user?.firstName || "U")[0].toUpperCase()}
+            </Avatar>
+          </Stack>
+        </Toolbar>
+        {refreshing && (
+          <LinearProgress
             sx={{
-              p: isMobile ? 1.5 : 2,
-              mb: 2,
-              borderRadius: 3,
-              display: "flex",
-              ml: isMobile ? 3 : 3,
-              width: isMobile ? "320px" : "1150px",
-              gap: 1,
-              flexDirection: isMobile ? "column" : "row",
-              bgcolor: alpha(theme.palette.background.paper, 0.8),
+              height: 2,
+              bgcolor: alpha(T.blue, 0.1),
+              "& .MuiLinearProgress-bar": { bgcolor: T.blue },
+            }}
+          />
+        )}
+      </GlassBar>
+
+      <Container maxWidth="lg" sx={{ px: { xs: 1.5, sm: 2.5 } }}>
+        {/* ── Greeting ──────────────────────────────────────────────────── */}
+        <Box sx={{ mb: 2.5, mt: 0.5 }}>
+          <Typography
+            sx={{
+              fontSize: { xs: 20, sm: 24 },
+              fontWeight: 800,
+              color: T.text,
+              lineHeight: 1.3,
+              fontFamily: "inherit",
             }}
           >
-            <Button
-              fullWidth={isMobile}
-              variant="contained"
-              startIcon={
-                attendanceStatus.showPunchOut ? <LogoutIcon /> : <LoginIcon />
-              }
-              onClick={
-                attendanceStatus.showPunchOut ? handlePunchOut : handlePunchIn
-              }
-              disabled={locationLoading}
+            Good{" "}
+            {new Date().getHours() < 12
+              ? "morning"
+              : new Date().getHours() < 17
+                ? "afternoon"
+                : "evening"}{" "}
+            👋
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: 13,
+              color: T.muted,
+              mt: 0.25,
+              fontFamily: "inherit",
+            }}
+          >
+            {user?.name || "Field Officer"} · {user?.role}
+          </Typography>
+        </Box>
+
+        {/* ── Stat Cards ────────────────────────────────────────────────── */}
+        <Grid container spacing={1.5} sx={{ mb: 3 }}>
+          {statItems.map((s, i) => (
+            <Grid item xs={6} sm={3} key={s.label}>
+              <Fade in timeout={300 + i * 80}>
+                <StatTile elevation={0} tilecolor={s.color}>
+                  {loading ? (
+                    <Skeleton
+                      variant="rectangular"
+                      height={56}
+                      sx={{ borderRadius: 2, bgcolor: alpha(s.color, 0.1) }}
+                    />
+                  ) : (
+                    <>
+                      <Typography sx={{ fontSize: 22, lineHeight: 1, mb: 0.5 }}>
+                        {s.icon}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: { xs: "1.1rem", sm: "1.4rem" },
+                          fontWeight: 800,
+                          color: s.color,
+                          lineHeight: 1.1,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {s.value}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: 11,
+                          color: T.muted,
+                          fontWeight: 600,
+                          mt: 0.25,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {s.label}
+                      </Typography>
+                    </>
+                  )}
+                </StatTile>
+              </Fade>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* ── Map Section ───────────────────────────────────────────────── */}
+        <Box id="map-section" sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              mb: 1.5,
+            }}
+          >
+            <Box>
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  color: T.text,
+                  fontSize: 15,
+                  fontFamily: "inherit",
+                }}
+              >
+                🗺️ Live Map
+              </Typography>
+              <Typography
+                sx={{ fontSize: 11, color: T.muted, fontFamily: "inherit" }}
+              >
+                {visits.filter((v) => v.latitude).length} pinned · tap a visit
+                card to focus
+              </Typography>
+            </Box>
+            <ToggleButtonGroup
+              value={mapType}
+              exclusive
+              onChange={(_, v) => v && setMapType(v)}
+              size="small"
               sx={{
-                py: isMobile ? 1.5 : 1.5,
+                bgcolor: T.surface,
+                border: `1px solid ${T.border}`,
                 borderRadius: 2,
-                bgcolor: attendanceStatus.showPunchOut
-                  ? "error.main"
-                  : "success.main",
-                "&:hover": {
-                  bgcolor: attendanceStatus.showPunchOut
-                    ? "error.dark"
-                    : "success.dark",
+                "& .MuiToggleButton-root": {
+                  border: "none",
+                  color: T.muted,
+                  px: 1.25,
+                  py: 0.5,
+                  fontSize: 11,
+                },
+                "& .Mui-selected": {
+                  bgcolor: `${alpha(T.blue, 0.15)} !important`,
+                  color: `${T.blue} !important`,
                 },
               }}
             >
-              {locationLoading
-                ? "Getting Location..."
-                : attendanceStatus.showPunchOut
-                  ? "Punch Out"
-                  : "Punch In"}
-            </Button>
+              <ToggleButton value="roadmap">
+                <MapIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                Map
+              </ToggleButton>
+              <ToggleButton value="satellite">
+                <SatelliteIcon sx={{ fontSize: 14, mr: 0.5 }} />
+                Sat
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
 
-            <Button
-              fullWidth={isMobile}
-              variant="outlined"
-              startIcon={<AddLocationAltIcon />}
-              onClick={handleStartVisit}
-              disabled={!attendanceStatus.showPunchOut}
-              sx={{ py: isMobile ? 1.5 : 1.5, borderRadius: 2 }}
+          <MapWrap>
+            <LoadScript
+              googleMapsApiKey={GOOGLE_MAPS_API_KEY}
+              libraries={LIBRARIES}
             >
-              Start Visit
-            </Button>
+              <GoogleMap
+                mapContainerStyle={{ width: "100%", height: "100%" }}
+                center={mapCenter}
+                zoom={13}
+                options={{
+                  styles: DARK_MAP,
+                  disableDefaultUI: true,
+                  gestureHandling: "greedy",
+                  mapTypeId: mapType,
+                  clickableIcons: false,
+                  backgroundColor: T.bg,
+                }}
+                onLoad={(m) => {
+                  mapRef.current = m;
+                  setMapLoaded(true);
+                }}
+              >
+                {/* GPS trail */}
+                {liveTrail.length > 1 && (
+                  <Polyline
+                    path={liveTrail}
+                    options={{
+                      strokeColor: T.blue,
+                      strokeOpacity: 0.45,
+                      strokeWeight: 4,
+                    }}
+                  />
+                )}
 
-            <IconButton
-              onClick={loadDashboardData}
-              disabled={loading}
+                {/* My location */}
+                {myLoc && (
+                  <>
+                    <Circle
+                      center={myLoc}
+                      radius={locationState?.accuracy || 30}
+                      options={{
+                        fillColor: T.blue,
+                        fillOpacity: 0.12,
+                        strokeColor: T.blue,
+                        strokeOpacity: 0.3,
+                        strokeWeight: 1,
+                      }}
+                    />
+                    <Marker
+                      position={myLoc}
+                      icon={myLocationPin((user?.name || "U")[0].toUpperCase())}
+                      zIndex={200}
+                      onClick={() => setInfoWin({ type: "me", pos: myLoc })}
+                    />
+                  </>
+                )}
+
+                {/* Team members (managers only) */}
+                {isManager &&
+                  teamLocs.map((m) =>
+                    m.location ? (
+                      <Marker
+                        key={m.userId}
+                        position={{ lat: m.location.lat, lng: m.location.lng }}
+                        icon={teamPin(
+                          ROLE_COLORS[m.role] || T.muted,
+                          (m.name || "T")[0],
+                        )}
+                        zIndex={150}
+                        onClick={() =>
+                          setInfoWin({
+                            type: "team",
+                            data: m,
+                            pos: { lat: m.location.lat, lng: m.location.lng },
+                          })
+                        }
+                      />
+                    ) : null,
+                  )}
+
+                {/*
+                  ✅ Default 5 recent visits shown as emoji pins on map.
+                  Each pin uses a unique emoji based on index or status.
+                  Selected pin is larger and uses accent color.
+                */}
+                {visits.map((v, i) =>
+                  v.latitude ? (
+                    <Marker
+                      key={v._id}
+                      position={{ lat: v.latitude, lng: v.longitude }}
+                      icon={emojiPin(
+                        visitEmoji(i, v.status),
+                        selectedId === v._id,
+                      )}
+                      zIndex={selectedId === v._id ? 180 : 100 - i}
+                      onClick={() => handleCardClick(v)}
+                    />
+                  ) : null,
+                )}
+
+                {/* Info Window */}
+                {infoWin && (
+                  <InfoWindow
+                    position={infoWin.pos}
+                    onCloseClick={() => {
+                      setInfoWin(null);
+                      setSelectedId(null);
+                    }}
+                    options={{
+                      pixelOffset:
+                        infoWin.type !== "me"
+                          ? new window.google.maps.Size(0, -16)
+                          : new window.google.maps.Size(0, 0),
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        bgcolor: T.card,
+                        color: T.text,
+                        borderRadius: 2,
+                        p: 1.5,
+                        minWidth: 170,
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    >
+                      {infoWin.type === "me" && (
+                        <>
+                          <Typography
+                            sx={{
+                              fontWeight: 700,
+                              fontSize: 13,
+                              color: T.text,
+                            }}
+                          >
+                            📍 You are here
+                          </Typography>
+                          <Typography sx={{ fontSize: 11, color: T.muted }}>
+                            ±{Math.round(locationState?.accuracy || 0)}m
+                            accuracy
+                          </Typography>
+                        </>
+                      )}
+                      {infoWin.type === "team" && (
+                        <>
+                          <Typography
+                            sx={{
+                              fontWeight: 700,
+                              fontSize: 13,
+                              color: T.text,
+                            }}
+                          >
+                            👤 {infoWin.data.name}
+                          </Typography>
+                          <Typography sx={{ fontSize: 11, color: T.muted }}>
+                            {infoWin.data.role}
+                          </Typography>
+                        </>
+                      )}
+                      {infoWin.type === "visit" &&
+                        (() => {
+                          const cfg = getStatus(infoWin.data.status);
+                          return (
+                            <>
+                              <Typography
+                                sx={{
+                                  fontWeight: 700,
+                                  fontSize: 13,
+                                  color: T.text,
+                                  mb: 0.5,
+                                }}
+                              >
+                                {cfg.emoji}{" "}
+                                {infoWin.data.locationName || "Visit"}
+                              </Typography>
+                              {infoWin.data.address && (
+                                <Typography
+                                  sx={{
+                                    fontSize: 11,
+                                    color: T.muted,
+                                    mb: 0.75,
+                                  }}
+                                >
+                                  {infoWin.data.address}
+                                </Typography>
+                              )}
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 0.5,
+                                }}
+                              >
+                                <Box
+                                  sx={{
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: "50%",
+                                    bgcolor: cfg.color,
+                                  }}
+                                />
+                                <Typography
+                                  sx={{
+                                    fontSize: 11,
+                                    color: cfg.color,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {cfg.label}
+                                </Typography>
+                              </Box>
+                              {infoWin.data.createdAt && (
+                                <Typography
+                                  sx={{ fontSize: 10, color: T.muted, mt: 0.5 }}
+                                >
+                                  🕐 {fmtClock(infoWin.data.createdAt)}
+                                </Typography>
+                              )}
+                            </>
+                          );
+                        })()}
+                    </Box>
+                  </InfoWindow>
+                )}
+              </GoogleMap>
+            </LoadScript>
+
+            {/* Map control buttons */}
+            <Fade in={mapLoaded}>
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 0.75,
+                }}
+              >
+                {[
+                  {
+                    icon: <MyLocationIcon sx={{ fontSize: 18 }} />,
+                    onClick: centerOnMe,
+                    tip: "My Location",
+                  },
+                  {
+                    icon: <ZoomOutMapIcon sx={{ fontSize: 18 }} />,
+                    onClick: fitAll,
+                    tip: "Fit All",
+                  },
+                ].map((btn, i) => (
+                  <IconButton
+                    key={i}
+                    size="small"
+                    onClick={btn.onClick}
+                    sx={{
+                      bgcolor: T.surface,
+                      color: T.blue,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 2,
+                      backdropFilter: "blur(8px)",
+                      "&:hover": { bgcolor: alpha(T.blue, 0.12) },
+                      width: 34,
+                      height: 34,
+                    }}
+                  >
+                    {btn.icon}
+                  </IconButton>
+                ))}
+              </Box>
+            </Fade>
+
+            {/* Visit count badge overlay */}
+            {visits.filter((v) => v.latitude).length > 0 && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: 10,
+                  left: 10,
+                  bgcolor: alpha(T.surface, 0.9),
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 20,
+                  px: 1.5,
+                  py: 0.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                  backdropFilter: "blur(8px)",
+                }}
+              >
+                <Typography sx={{ fontSize: 14 }}>📍</Typography>
+                <Typography
+                  sx={{
+                    fontSize: 11,
+                    color: T.text,
+                    fontWeight: 600,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {visits.filter((v) => v.latitude).length} locations
+                </Typography>
+              </Box>
+            )}
+          </MapWrap>
+
+          {/* Team online strip (managers only) */}
+          {isManager && teamLocs.length > 0 && (
+            <Box
               sx={{
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                mt: 1,
+                p: 1.5,
+                bgcolor: T.surface,
                 borderRadius: 2,
+                border: `1px solid ${T.border}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+                overflowX: "auto",
+                "&::-webkit-scrollbar": { display: "none" },
               }}
             >
-              <RefreshIcon />
-            </IconButton>
-          </Paper>
-        )}
+              <Typography
+                sx={{
+                  fontSize: 10,
+                  color: T.muted,
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  fontFamily: "inherit",
+                }}
+              >
+                👥 ONLINE
+              </Typography>
+              {teamLocs.map((m) => (
+                <Box
+                  key={m.userId}
+                  onClick={() => {
+                    if (mapRef.current && m.location) {
+                      mapRef.current.panTo({
+                        lat: m.location.lat,
+                        lng: m.location.lng,
+                      });
+                      mapRef.current.setZoom(15);
+                      setInfoWin({
+                        type: "team",
+                        data: m,
+                        pos: { lat: m.location.lat, lng: m.location.lng },
+                      });
+                    }
+                  }}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0.75,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Badge
+                    overlap="circular"
+                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                    badgeContent={
+                      <Box
+                        sx={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: "50%",
+                          bgcolor: T.green,
+                          border: `2px solid ${T.surface}`,
+                        }}
+                      />
+                    }
+                  >
+                    <Avatar
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: alpha(ROLE_COLORS[m.role] || T.muted, 0.2),
+                        color: ROLE_COLORS[m.role] || T.muted,
+                        fontWeight: 800,
+                        fontSize: 13,
+                      }}
+                    >
+                      {(m.name || "T")[0]}
+                    </Avatar>
+                  </Badge>
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      color: T.text,
+                      display: { xs: "none", sm: "block" },
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {m.name?.split(" ")[0]}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
 
-        {/* Location Status - Team Member Only */}
-        {isTeamMember && (
-          <LocationStatus
-            state={locationState}
-            onRetry={handlePunchIn}
-            onManual={() => setManualLocationOpen(true)}
-          />
-        )}
-
-        {/* Stats Grid */}
-        <Grid container spacing={isMobile ? 1.5 : 3} sx={{ my: 2 }}>
-          <Grid item xs={6} md={3}>
-            {loading ? (
-              <Skeleton
-                variant="rounded"
-                height={isMobile ? 100 : 130}
-                sx={{ borderRadius: 3 }}
-              />
-            ) : (
-              <StatsCard
-                icon={TrendingUpIcon}
-                title="Today's Visits"
-                value={stats.visitsToday || 0}
-                subValue={`${stats.totalCompletedVisits || 0} completed`}
-                color="primary"
-                onClick={() => navigate("/total-visits")}
-              />
-            )}
-          </Grid>
-
-          <Grid item xs={6} md={3}>
-            {loading ? (
-              <Skeleton
-                variant="rounded"
-                height={isMobile ? 100 : 130}
-                sx={{ borderRadius: 3 }}
-              />
-            ) : (
-              <StatsCard
-                icon={RouteIcon}
-                title="Distance"
-                value={`${(stats.totalDistanceKm || 0).toFixed(1)} km`}
-                subValue={`Avg ${((stats.totalDistanceKm || 0) / (stats.visitsToday || 1)).toFixed(1)} km`}
-                color="success"
-              />
-            )}
-          </Grid>
-
-          <Grid item xs={6} md={3}>
-            {loading ? (
-              <Skeleton
-                variant="rounded"
-                height={isMobile ? 100 : 130}
-                sx={{ borderRadius: 3 }}
-              />
-            ) : (
-              <StatsCard
-                icon={AccessTimeIcon}
-                title="Travel Time"
-                value={`${Math.floor((stats.totalTravelTimeMinutes || 0) / 60)}h ${(stats.totalTravelTimeMinutes || 0) % 60}m`}
-                subValue="Total today"
-                color="warning"
-              />
-            )}
-          </Grid>
-
-          <Grid item xs={6} md={3}>
-            {loading ? (
-              <Skeleton
-                variant="rounded"
-                height={isMobile ? 100 : 130}
-                sx={{ borderRadius: 3 }}
-              />
-            ) : (
-              <StatsCard
-                icon={attendanceStatus.icon}
-                title="Status"
-                value={attendanceStatus.text}
-                subValue={attendanceStatus.time}
-                color={attendanceStatus.color}
-              />
-            )}
-          </Grid>
-        </Grid>
-
-        {/* Recent Visits */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: isMobile ? 1.5 : 3,
-            borderRadius: 3,
-            bgcolor: alpha(theme.palette.background.paper, 0.6),
-            mb: isMobile ? 2 : 0,
-          }}
-        >
+        {/* ── Recent Visits ─────────────────────────────────────────────── */}
+        <Box sx={{ mb: 3 }}>
           <Box
             sx={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              mb: 2,
+              mb: 1.5,
             }}
           >
             <Typography
-              variant={isMobile ? "subtitle1" : "h6"}
-              sx={{ fontWeight: 700 }}
+              sx={{
+                fontWeight: 700,
+                color: T.text,
+                fontSize: 15,
+                fontFamily: "inherit",
+              }}
             >
-              Recent Visits
+              🕐 Recent Visits
             </Typography>
             <Button
-              size="small"
+              endIcon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
               onClick={() => navigate("/team-performance-report")}
-              sx={{ borderRadius: 2 }}
+              sx={{
+                color: T.blue,
+                fontSize: 12,
+                fontFamily: "inherit",
+                fontWeight: 600,
+                minWidth: 0,
+              }}
             >
-              View All
+              View all
             </Button>
           </Box>
 
@@ -905,146 +1258,506 @@ const SalesDailySummary = () => {
                 <Skeleton
                   key={i}
                   variant="rounded"
-                  height={isMobile ? 80 : 100}
-                  sx={{ borderRadius: 2 }}
+                  height={90}
+                  sx={{ borderRadius: 2, bgcolor: alpha(T.muted, 0.08) }}
                 />
               ))}
             </Stack>
-          ) : recentVisits.length > 0 ? (
-            <Stack spacing={1.5}>
-              {recentVisits.map((visit) => (
-                <VisitCard
-                  key={visit._id}
-                  visit={visit}
-                  onViewLiveRoute={(v) =>
-                    navigate("/visit-route", { state: { visit: v } })
-                  }
-                />
-              ))}
-            </Stack>
-          ) : (
-            <Box sx={{ textAlign: "center", py: 3 }}>
-              <LocationOnIcon
-                sx={{ fontSize: 40, color: "text.disabled", mb: 1 }}
-              />
-              <Typography variant="body2" color="text.secondary">
-                No visits yet today
+          ) : visits.length === 0 ? (
+            <Box
+              sx={{
+                textAlign: "center",
+                py: 5,
+                bgcolor: T.surface,
+                borderRadius: 3,
+                border: `1px solid ${T.border}`,
+              }}
+            >
+              <Typography sx={{ fontSize: 36, mb: 1 }}>🗺️</Typography>
+              <Typography
+                sx={{
+                  color: T.muted,
+                  fontSize: 14,
+                  mb: 2,
+                  fontFamily: "inherit",
+                }}
+              >
+                No visits recorded today
               </Typography>
-              {isTeamMember && attendanceStatus.showPunchOut && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleStartVisit}
-                  sx={{ mt: 2, borderRadius: 2 }}
-                >
-                  Create First Visit
-                </Button>
-              )}
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate("/visit-details")}
+                sx={{
+                  borderRadius: 3,
+                  px: 3,
+                  bgcolor: T.accent,
+                  "&:hover": { bgcolor: "#E05A42" },
+                  fontFamily: "inherit",
+                }}
+              >
+                Start your first visit
+              </Button>
             </Box>
+          ) : (
+            <Stack spacing={1.25}>
+              {visits.map((v, i) => {
+                const cfg = getStatus(v.status);
+                const isSelected = selectedId === v._id;
+                const emoji = visitEmoji(i, v.status);
+                return (
+                  <Zoom
+                    in
+                    key={v._id}
+                    style={{ transitionDelay: `${i * 60}ms` }}
+                  >
+                    {/*
+                      ✅ Click card → map flies to visit location & info window opens
+                    */}
+                    <SurfaceCard
+                      elevation={0}
+                      selected={isSelected ? 1 : 0}
+                      accentcolor={cfg.color}
+                      onClick={() => handleCardClick(v)}
+                    >
+                      <CardContent sx={{ p: "14px 16px !important" }}>
+                        <Stack
+                          direction="row"
+                          spacing={1.5}
+                          alignItems="flex-start"
+                        >
+                          {/* Number badge */}
+                          <NumberBadge badgecolor={cfg.color}>
+                            {i + 1}
+                          </NumberBadge>
+
+                          {/* Content */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Stack
+                              direction="row"
+                              justifyContent="space-between"
+                              alignItems="flex-start"
+                              sx={{ mb: 0.5 }}
+                            >
+                              <Typography
+                                sx={{
+                                  fontWeight: 700,
+                                  color: T.text,
+                                  fontSize: 13.5,
+                                  fontFamily: "inherit",
+                                  lineHeight: 1.3,
+                                }}
+                                noWrap
+                              >
+                                {emoji} {v.locationName || "Untitled visit"}
+                              </Typography>
+                              <Typography
+                                sx={{
+                                  fontSize: 10.5,
+                                  color: T.muted,
+                                  flexShrink: 0,
+                                  ml: 1,
+                                  fontFamily: "inherit",
+                                }}
+                              >
+                                🕐 {fmtClock(v.createdAt)}
+                              </Typography>
+                            </Stack>
+
+                            <Typography
+                              sx={{
+                                fontSize: 11.5,
+                                color: T.muted,
+                                mb: 1,
+                                fontFamily: "inherit",
+                              }}
+                              noWrap
+                            >
+                              📍{" "}
+                              {v.address ||
+                                (v.latitude
+                                  ? `${v.latitude.toFixed(5)}, ${v.longitude.toFixed(5)}`
+                                  : "No location")}
+                            </Typography>
+
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              alignItems="center"
+                              flexWrap="wrap"
+                            >
+                              {/* Status chip */}
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 0.5,
+                                  bgcolor: alpha(cfg.color, 0.12),
+                                  border: `1px solid ${alpha(cfg.color, 0.3)}`,
+                                  borderRadius: 10,
+                                  px: 1,
+                                  py: 0.25,
+                                }}
+                              >
+                                <Box
+                                  sx={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: "50%",
+                                    bgcolor: cfg.color,
+                                  }}
+                                />
+                                <Typography
+                                  sx={{
+                                    fontSize: 10.5,
+                                    color: cfg.color,
+                                    fontWeight: 700,
+                                    fontFamily: "inherit",
+                                  }}
+                                >
+                                  {cfg.label}
+                                </Typography>
+                              </Box>
+
+                              {v.distanceFromPrevious > 0 && (
+                                <Typography
+                                  sx={{
+                                    fontSize: 10.5,
+                                    color: T.muted,
+                                    fontFamily: "inherit",
+                                  }}
+                                >
+                                  📏 +{fmtDist(v.distanceFromPrevious)}
+                                </Typography>
+                              )}
+
+                              {!v.latitude && (
+                                <Typography
+                                  sx={{
+                                    fontSize: 10.5,
+                                    color: alpha(T.muted, 0.5),
+                                    fontFamily: "inherit",
+                                  }}
+                                >
+                                  No map data
+                                </Typography>
+                              )}
+                            </Stack>
+                          </Box>
+
+                          {/* Focus indicator */}
+                          {isSelected && (
+                            <Box
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: "50%",
+                                bgcolor: alpha(cfg.color, 0.15),
+                                border: `1.5px solid ${alpha(cfg.color, 0.4)}`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Typography sx={{ fontSize: 13 }}>🎯</Typography>
+                            </Box>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </SurfaceCard>
+                  </Zoom>
+                );
+              })}
+            </Stack>
           )}
-        </Paper>
+        </Box>
+
+        {/* ── Quick Actions ─────────────────────────────────────────────── */}
+        <Grid container spacing={1.5} sx={{ mb: 2 }}>
+          <Grid item xs={6}>
+            <Button
+              fullWidth
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate("/visit-details")}
+              sx={{
+                py: 1.5,
+                borderRadius: 3,
+                bgcolor: T.accent,
+                "&:hover": { bgcolor: "#E05A42" },
+                fontWeight: 700,
+                fontFamily: "inherit",
+                boxShadow: `0 4px 16px ${alpha(T.accent, 0.35)}`,
+              }}
+            >
+              New Visit
+            </Button>
+          </Grid>
+          <Grid item xs={6}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<RouteIcon />}
+              onClick={() => navigate("/route-history")}
+              sx={{
+                py: 1.5,
+                borderRadius: 3,
+                borderColor: T.border,
+                color: T.text,
+                "&:hover": {
+                  bgcolor: alpha(T.blue, 0.08),
+                  borderColor: T.blue,
+                },
+                fontWeight: 600,
+                fontFamily: "inherit",
+              }}
+            >
+              Route History
+            </Button>
+          </Grid>
+          {isManager && (
+            <Grid item xs={12}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<TeamIcon />}
+                onClick={() => navigate("/team-performance")}
+                sx={{
+                  py: 1.5,
+                  borderRadius: 3,
+                  borderColor: T.border,
+                  color: T.text,
+                  "&:hover": {
+                    bgcolor: alpha(T.purple, 0.08),
+                    borderColor: T.purple,
+                  },
+                  fontWeight: 600,
+                  fontFamily: "inherit",
+                }}
+              >
+                👥 Team Performance
+              </Button>
+            </Grid>
+          )}
+        </Grid>
       </Container>
 
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <Paper
-          elevation={3}
+      {/* ── Bottom Nav ────────────────────────────────────────────────────── */}
+      <Paper
+        sx={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 200,
+          bgcolor: alpha(T.surface, 0.96),
+          backdropFilter: "blur(24px)",
+          borderTop: `1px solid ${T.border}`,
+        }}
+        elevation={0}
+      >
+        <BottomNavigation
+          value={navValue}
+          onChange={(_, v) => {
+            setNavValue(v);
+            [
+              "/dashboard",
+              "/total-visits",
+              "/route-history",
+              "/team-performance",
+            ][v] &&
+              navigate(
+                [
+                  "/dashboard",
+                  "/total-visits",
+                  "/route-history",
+                  "/team-performance",
+                ][v],
+              );
+          }}
+          showLabels
           sx={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            borderRadius: 0,
-            zIndex: 100,
+            bgcolor: "transparent",
+            height: 64,
+            "& .Mui-selected": { color: T.accent },
+            "& .MuiBottomNavigationAction-root": {
+              color: T.muted,
+              fontFamily: "inherit",
+              fontSize: 11,
+            },
           }}
         >
-          <BottomNavigation
-            value={bottomNav}
-            onChange={(e, newValue) => {
-              setBottomNav(newValue);
-              navigate(navItems[newValue].path);
-            }}
-            showLabels
-          >
-            {navItems.map((item) => (
-              <BottomNavigationAction
-                key={item.label}
-                label={item.label}
-                icon={item.icon}
-              />
-            ))}
-          </BottomNavigation>
-        </Paper>
-      )}
+          <BottomNavigationAction label="Dashboard" icon={<DashboardIcon />} />
+          <BottomNavigationAction label="Visits" icon={<VisitsIcon />} />
+          <BottomNavigationAction label="Route" icon={<RouteIcon />} />
+          {isManager && (
+            <BottomNavigationAction label="Team" icon={<TeamIcon />} />
+          )}
+        </BottomNavigation>
+        <Fab
+          onClick={() => navigate("/visit-details")}
+          sx={{
+            position: "absolute",
+            top: -26,
+            left: "50%",
+            transform: "translateX(-50%)",
+            bgcolor: T.accent,
+            color: "#fff",
+            boxShadow: `0 4px 20px ${alpha(T.accent, 0.5)}`,
+            "&:hover": { bgcolor: "#E05A42" },
+            width: 52,
+            height: 52,
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      </Paper>
 
-      {/* Mobile Drawer */}
+      {/* ── Side Drawer ───────────────────────────────────────────────────── */}
       <Drawer
         anchor="left"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        PaperProps={{
+          sx: {
+            width: { xs: "78%", sm: 290 },
+            bgcolor: T.surface,
+            borderRight: `1px solid ${T.border}`,
+          },
+        }}
       >
-        <Box sx={{ width: 250, p: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-            <Avatar sx={{ bgcolor: "primary.main" }}>
-              {user?.firstName?.[0] || user?.name?.[0] || "U"}
+        <Box sx={{ p: 3 }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            sx={{ mb: 3 }}
+          >
+            <Typography
+              sx={{
+                fontWeight: 800,
+                color: T.text,
+                fontSize: 16,
+                fontFamily: "inherit",
+              }}
+            >
+              📊 Menu
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => setDrawerOpen(false)}
+              sx={{ color: T.muted }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              mb: 3,
+              p: 2,
+              bgcolor: alpha(T.accent, 0.08),
+              borderRadius: 3,
+              border: `1px solid ${alpha(T.accent, 0.2)}`,
+            }}
+          >
+            <Avatar
+              sx={{
+                width: 46,
+                height: 46,
+                bgcolor: alpha(T.accent, 0.2),
+                color: T.accent,
+                fontWeight: 800,
+                fontSize: 20,
+              }}
+            >
+              {(user?.name || "U")[0]}
             </Avatar>
             <Box>
-              <Typography variant="subtitle2" fontWeight={700}>
-                {user?.firstName} {user?.lastName}
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  color: T.text,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                }}
+              >
+                {user?.name || "User"}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {ROLE_CONFIG[userRole]?.label || userRole}
+              <Typography
+                sx={{ fontSize: 11, color: T.muted, fontFamily: "inherit" }}
+              >
+                {user?.role}
               </Typography>
             </Box>
           </Box>
-          <Divider sx={{ my: 2 }} />
-          <List>
-            {navItems.map((item) => (
-              <ListItem
-                button
+
+          <Divider sx={{ borderColor: T.border, mb: 2 }} />
+
+          <Stack spacing={0.75}>
+            {[
+              { label: "Dashboard", icon: "📊", path: "/dashboard" },
+              { label: "Start Visits", icon: "📋", path: "/visit-details" },
+              { label: "Track Location", icon: "🗺️", path: "/visit-route" },
+              ...(isManager
+                ? [
+                    {
+                      label: "Team Performance",
+                      icon: "👥",
+                      path: "/team-performance",
+                    },
+                  ]
+                : []),
+            ].map((item) => (
+              <Button
                 key={item.label}
+                fullWidth
                 onClick={() => {
-                  setDrawerOpen(false);
                   navigate(item.path);
+                  setDrawerOpen(false);
+                }}
+                sx={{
+                  justifyContent: "flex-start",
+                  px: 2,
+                  py: 1.25,
+                  color: T.text,
+                  borderRadius: 2.5,
+                  fontFamily: "inherit",
+                  fontWeight: 600,
+                  fontSize: 13.5,
+                  "&:hover": { bgcolor: alpha(T.blue, 0.1) },
                 }}
               >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItem>
+                <Typography component="span" sx={{ mr: 1.5, fontSize: 16 }}>
+                  {item.icon}
+                </Typography>
+                {item.label}
+              </Button>
             ))}
-          </List>
+          </Stack>
         </Box>
       </Drawer>
 
-      {/* Manual Location Dialog */}
-      {isTeamMember && (
-        <ManualLocationDialog
-          open={manualLocationOpen}
-          onClose={() => setManualLocationOpen(false)}
-          onSubmit={handleManualLocation}
-        />
-      )}
-
-      {/* Snackbar */}
+      {/* ── Snackbar ──────────────────────────────────────────────────────── */}
       <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{
-          vertical: "top",
-          horizontal: isMobile ? "center" : "right",
-        }}
+        open={snack.open}
+        autoHideDuration={3200}
+        onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        sx={{ mb: 8 }}
       >
         <Alert
-          severity={snackbar.severity}
+          severity={snack.type}
           variant="filled"
-          sx={{ borderRadius: 2 }}
+          sx={{ borderRadius: 3, fontFamily: "inherit" }}
         >
-          {snackbar.message}
+          {snack.msg}
         </Alert>
       </Snackbar>
     </Box>
   );
-};
-
-export default SalesDailySummary;
+}

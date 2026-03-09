@@ -1,4 +1,4 @@
-// pages/TeamAttendance.jsx (Updated with Edit Attendance)
+// pages/TeamAttendance.jsx
 import React, {
   useState,
   useEffect,
@@ -43,13 +43,13 @@ import {
   Skeleton,
   Fade,
   Slide,
+  Zoom,
   BottomNavigation,
   BottomNavigationAction,
   SwipeableDrawer,
   Collapse,
   Badge,
   Fab,
-  Zoom,
   alpha,
   Pagination,
 } from "@mui/material";
@@ -84,77 +84,84 @@ import { useAttendance } from "../hooks/useAttendance";
 import AttendanceDetails from "./AttendanceDetails";
 import { useNavigate } from "react-router-dom";
 
-const PRIMARY_COLOR = "#4569ea";
-const SECONDARY_COLOR = "#1a237e";
+// ─── Constants ─────────────────────────────────────────────────────────────
+const PRIMARY = "#4569ea";
+const SECONDARY = "#1a237e";
+const SUCCESS = "#22c55e";
+const DANGER = "#ef4444";
+const WARNING = "#f59e0b";
 
 const PERIOD_OPTIONS = [
-  { value: "Today", label: "Today", icon: <CalendarToday /> },
-  { value: "This Week", label: "This Week", icon: <DateRange /> },
-  { value: "This Month", label: "This Month", icon: <DateRange /> },
-  { value: "All", label: "All Time", icon: <DateRange /> },
+  { value: "Today", label: "Today" },
+  { value: "This Week", label: "This Week" },
+  { value: "This Month", label: "This Month" },
+  { value: "All", label: "All Time" },
 ];
 
 const STATUS_CONFIG = {
   present: {
-    bg: alpha("#4caf50", 0.08),
-    color: "#4caf50",
-    icon: <CheckCircle sx={{ fontSize: 16 }} />,
+    bg: alpha(SUCCESS, 0.08),
+    color: SUCCESS,
+    icon: <CheckCircle sx={{ fontSize: 14 }} />,
     label: "Present",
   },
   absent: {
-    bg: alpha("#f44336", 0.08),
-    color: "#f44336",
-    icon: <ErrorIcon sx={{ fontSize: 16 }} />,
+    bg: alpha(DANGER, 0.08),
+    color: DANGER,
+    icon: <ErrorIcon sx={{ fontSize: 14 }} />,
     label: "Absent",
   },
   late: {
-    bg: alpha("#ff9800", 0.08),
-    color: "#ff9800",
-    icon: <Warning sx={{ fontSize: 16 }} />,
+    bg: alpha(WARNING, 0.08),
+    color: WARNING,
+    icon: <Warning sx={{ fontSize: 14 }} />,
     label: "Late",
   },
   leave: {
-    bg: alpha("#9c27b0", 0.08),
-    color: "#9c27b0",
-    icon: <Person sx={{ fontSize: 16 }} />,
+    bg: alpha("#a855f7", 0.08),
+    color: "#a855f7",
+    icon: <Person sx={{ fontSize: 14 }} />,
     label: "Leave",
   },
   holiday: {
-    bg: alpha("#2196f3", 0.08),
-    color: "#2196f3",
-    icon: <CalendarToday sx={{ fontSize: 16 }} />,
+    bg: alpha("#3b82f6", 0.08),
+    color: "#3b82f6",
+    icon: <CalendarToday sx={{ fontSize: 14 }} />,
     label: "Holiday",
   },
 };
 
-const StyledCard = styled(Card)(({ theme }) => ({
+// ─── Styled ────────────────────────────────────────────────────────────────
+const MemberCard = styled(Card)(() => ({
   borderRadius: 16,
-  boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-  transition: "transform 0.2s ease, box-shadow 0.2s ease",
+  boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+  border: `1px solid ${alpha(PRIMARY, 0.1)}`,
+  transition: "transform .2s, box-shadow .2s",
   "&:hover": {
-    transform: "translateY(-4px)",
-    boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+    transform: "translateY(-3px)",
+    boxShadow: `0 8px 24px ${alpha(PRIMARY, 0.12)}`,
   },
 }));
 
-const StatusChip = ({ status, size = "small" }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.present;
+// ─── StatusChip ────────────────────────────────────────────────────────────
+const StatusChip = ({ status }) => {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.present;
   return (
     <Chip
-      size={size}
-      label={config.label}
-      icon={config.icon}
+      size="small"
+      label={cfg.label}
+      icon={cfg.icon}
       sx={{
-        bgcolor: config.bg,
-        color: config.color,
-        fontWeight: 600,
-        "& .MuiChip-icon": { color: config.color },
+        bgcolor: cfg.bg,
+        color: cfg.color,
+        fontWeight: 700,
+        "& .MuiChip-icon": { color: cfg.color },
       }}
     />
   );
 };
 
-// ========== EDIT ATTENDANCE DIALOG ==========
+// ─── EditAttendanceDialog ──────────────────────────────────────────────────
 const EditAttendanceDialog = ({
   open,
   onClose,
@@ -164,52 +171,45 @@ const EditAttendanceDialog = ({
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-  const [formData, setFormData] = useState({
-    status: "",
-    remarks: "",
-  });
+  const [form, setForm] = useState({ status: "present", remarks: "" });
   const [errors, setErrors] = useState({});
 
-  // Sync form when attendance changes
   useEffect(() => {
-    if (attendance) {
-      setFormData({
+    if (open && attendance) {
+      setForm({
         status: attendance.status || "present",
         remarks: attendance.remarks || "",
       });
       setErrors({});
     }
-  }, [attendance]);
+  }, [open, attendance]);
 
   const validate = () => {
-    const newErrors = {};
-    if (!formData.status) newErrors.status = "Status is required";
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    const e = {};
+    if (!form.status) e.status = "Status is required";
+    setErrors(e);
+    return !Object.keys(e).length;
   };
 
   const handleSubmit = () => {
     if (!validate()) return;
-    if (!attendance?._id) {
+    const id = attendance?._id || attendance?.id;
+    if (!id) {
       onSave(null, { error: "Invalid attendance record" });
       return;
     }
-    onSave(attendance._id, {
-      status: formData.status,
-      remarks: formData.remarks.trim(),
-    });
+    onSave(id, { status: form.status, remarks: form.remarks.trim() });
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "-";
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
+  const fmt = (ts) =>
+    !ts
+      ? "—"
+      : new Date(ts).toLocaleDateString("en-US", {
+          weekday: "long",
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        });
 
   return (
     <Dialog
@@ -220,19 +220,14 @@ const EditAttendanceDialog = ({
       fullScreen={isMobile}
       TransitionComponent={isMobile ? Slide : Zoom}
       TransitionProps={isMobile ? { direction: "up" } : {}}
-      transitionDuration={300}
       PaperProps={{
-        sx: {
-          borderRadius: isMobile ? 0 : 4,
-          overflow: "hidden",
-        },
+        sx: { borderRadius: isMobile ? 0 : 4, overflow: "hidden" },
       }}
     >
-      {/* Colored top bar */}
       <Box
         sx={{
           height: 5,
-          background: `linear-gradient(90deg, ${PRIMARY_COLOR}, ${SECONDARY_COLOR})`,
+          background: `linear-gradient(90deg, ${PRIMARY}, ${SECONDARY})`,
         }}
       />
 
@@ -246,19 +241,19 @@ const EditAttendanceDialog = ({
           justifyContent: "space-between",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
           <Box
             sx={{
               width: 40,
               height: 40,
               borderRadius: "50%",
-              bgcolor: alpha(PRIMARY_COLOR, 0.1),
+              bgcolor: alpha(PRIMARY, 0.1),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <EditNote sx={{ color: PRIMARY_COLOR, fontSize: 22 }} />
+            <EditNote sx={{ color: PRIMARY, fontSize: 22 }} />
           </Box>
           <Box>
             <Typography variant="h6" fontWeight={700} lineHeight={1.2}>
@@ -266,11 +261,11 @@ const EditAttendanceDialog = ({
             </Typography>
             {attendance && (
               <Typography variant="caption" color="text.secondary">
-                {formatDate(attendance.date)}
+                {fmt(attendance.date)}
               </Typography>
             )}
           </Box>
-        </Box>
+        </Stack>
         <IconButton
           onClick={onClose}
           size="small"
@@ -285,15 +280,15 @@ const EditAttendanceDialog = ({
 
       <DialogContent sx={{ px: { xs: 2, sm: 3 }, pt: 2, pb: 1 }}>
         <Stack spacing={2.5}>
-          {/* Current status preview */}
+          {/* Current record preview */}
           {attendance && (
             <Paper
               elevation={0}
               sx={{
                 p: 2,
                 borderRadius: 2,
-                bgcolor: alpha(PRIMARY_COLOR, 0.04),
-                border: `1px solid ${alpha(PRIMARY_COLOR, 0.12)}`,
+                bgcolor: alpha(PRIMARY, 0.04),
+                border: `1px solid ${alpha(PRIMARY, 0.12)}`,
               }}
             >
               <Typography
@@ -301,98 +296,84 @@ const EditAttendanceDialog = ({
                 color="text.secondary"
                 fontWeight={600}
                 display="block"
-                mb={1}
+                sx={{ mb: 1 }}
               >
                 Current Record
               </Typography>
-              <Stack direction="row" spacing={2} flexWrap="wrap" gap={1}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Punch In
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    {attendance.punchIn
+              <Grid container spacing={1.5}>
+                {[
+                  [
+                    "Punch In",
+                    attendance.punchIn
                       ? new Date(attendance.punchIn.time).toLocaleTimeString(
                           "en-US",
                           { hour: "2-digit", minute: "2-digit", hour12: true },
                         )
-                      : "—"}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Punch Out
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    {attendance.punchOut
+                      : "—",
+                  ],
+                  [
+                    "Punch Out",
+                    attendance.punchOut
                       ? new Date(attendance.punchOut.time).toLocaleTimeString(
                           "en-US",
                           { hour: "2-digit", minute: "2-digit", hour12: true },
                         )
                       : attendance.punchIn
                         ? "Ongoing"
-                        : "—"}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Work Hours
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    fontWeight={600}
-                    color={PRIMARY_COLOR}
-                  >
-                    {attendance.workHoursFormatted || "00:00"}
-                  </Typography>
-                </Box>
-              </Stack>
+                        : "—",
+                  ],
+                  ["Work Hours", attendance.workHoursFormatted || "—"],
+                ].map(([l, v]) => (
+                  <Grid item xs={4} key={l}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                    >
+                      {l}
+                    </Typography>
+                    <Typography variant="body2" fontWeight={700}>
+                      {v}
+                    </Typography>
+                  </Grid>
+                ))}
+              </Grid>
             </Paper>
           )}
 
-          {/* Status Select */}
+          {/* Status */}
           <FormControl fullWidth size="small" error={!!errors.status}>
             <InputLabel>Status *</InputLabel>
             <Select
-              value={formData.status}
-              onChange={(e) => {
-                setFormData((prev) => ({ ...prev, status: e.target.value }));
-                if (errors.status)
-                  setErrors((prev) => ({ ...prev, status: "" }));
-              }}
+              value={form.status}
               label="Status *"
-              sx={{
-                borderRadius: 2,
+              sx={{ borderRadius: 2 }}
+              onChange={(e) => {
+                setForm((p) => ({ ...p, status: e.target.value }));
+                if (errors.status) setErrors((p) => ({ ...p, status: "" }));
               }}
               renderValue={(val) => {
                 const cfg = STATUS_CONFIG[val];
                 if (!cfg) return val;
                 return (
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
                     <Box sx={{ color: cfg.color, display: "flex" }}>
                       {cfg.icon}
                     </Box>
                     <Typography
                       variant="body2"
-                      fontWeight={600}
+                      fontWeight={700}
                       sx={{ color: cfg.color }}
                     >
                       {cfg.label}
                     </Typography>
-                  </Box>
+                  </Stack>
                 );
               }}
             >
-              {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                <MenuItem key={key} value={key}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                      py: 0.25,
-                    }}
-                  >
+              {Object.entries(STATUS_CONFIG).map(([k, cfg]) => (
+                <MenuItem key={k} value={k}>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
                     <Box
                       sx={{
                         width: 28,
@@ -410,7 +391,7 @@ const EditAttendanceDialog = ({
                     <Typography variant="body2" fontWeight={500}>
                       {cfg.label}
                     </Typography>
-                  </Box>
+                  </Stack>
                 </MenuItem>
               ))}
             </Select>
@@ -430,19 +411,17 @@ const EditAttendanceDialog = ({
             fullWidth
             size="small"
             label="Remarks"
-            placeholder="e.g. Approved by ASM"
-            value={formData.remarks}
+            placeholder="e.g. Approved by manager"
+            value={form.remarks}
             onChange={(e) =>
-              setFormData((prev) => ({ ...prev, remarks: e.target.value }))
+              setForm((p) => ({ ...p, remarks: e.target.value }))
             }
             multiline
             rows={3}
             inputProps={{ maxLength: 250 }}
-            helperText={`${formData.remarks.length}/250`}
+            helperText={`${form.remarks.length}/250`}
             FormHelperTextProps={{ sx: { textAlign: "right", mr: 0 } }}
-            sx={{
-              "& .MuiOutlinedInput-root": { borderRadius: 2 },
-            }}
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
           />
         </Stack>
       </DialogContent>
@@ -453,7 +432,7 @@ const EditAttendanceDialog = ({
           pt: 2,
           gap: 1.5,
           flexDirection: { xs: "column", sm: "row" },
-          borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
         }}
       >
         <Button
@@ -464,8 +443,8 @@ const EditAttendanceDialog = ({
           sx={{
             borderRadius: 2,
             px: 3,
-            borderColor: alpha(PRIMARY_COLOR, 0.4),
-            color: PRIMARY_COLOR,
+            borderColor: alpha(PRIMARY, 0.4),
+            color: PRIMARY,
             order: isMobile ? 2 : 1,
           }}
         >
@@ -482,9 +461,9 @@ const EditAttendanceDialog = ({
           sx={{
             borderRadius: 2,
             px: 3,
-            bgcolor: PRIMARY_COLOR,
-            "&:hover": { bgcolor: SECONDARY_COLOR },
+            bgcolor: PRIMARY,
             order: isMobile ? 1 : 2,
+            "&:hover": { bgcolor: SECONDARY },
           }}
         >
           {loading ? "Saving…" : "Save Changes"}
@@ -494,328 +473,34 @@ const EditAttendanceDialog = ({
   );
 };
 
-// ========== MOBILE FILTER DRAWER ==========
-const MobileFilterDrawer = ({
-  open,
-  onClose,
-  period,
-  setPeriod,
-  statusFilter,
-  setStatusFilter,
-  handleClearFilters,
-  searchQuery,
-  setSearchQuery,
-  activeFilterCount,
-}) => {
-  const [expandedSection, setExpandedSection] = useState("search");
-  const toggleSection = (section) =>
-    setExpandedSection(expandedSection === section ? null : section);
-
+// ─── Mobile Team Member Card ────────────────────────────────────────────────
+const MobileTeamCard = ({ member, onViewAttendance, index }) => {
+  const [exp, setExp] = useState(false);
   return (
-    <SwipeableDrawer
-      anchor="bottom"
-      open={open}
-      onClose={onClose}
-      onOpen={() => {}}
-      disableSwipeToOpen={false}
-      PaperProps={{
-        sx: {
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          maxHeight: "90vh",
-          overflow: "hidden",
-        },
-      }}
-    >
-      <Box sx={{ position: "relative" }}>
-        <Box
-          sx={{
-            width: 40,
-            height: 4,
-            bgcolor: "grey.300",
-            borderRadius: 2,
-            mx: "auto",
-            my: 1.5,
-          }}
-        />
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            px: 3,
-            pb: 2,
-            borderBottom: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-          }}
-        >
-          <Box>
-            <Typography variant="h6" fontWeight="700" color={PRIMARY_COLOR}>
-              Filter Team Attendance
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
-            </Typography>
-          </Box>
-          <IconButton
-            onClick={onClose}
-            size="small"
-            sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.1) }}
-          >
-            <Close />
-          </IconButton>
-        </Box>
-
-        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
-          <Stack spacing={2.5}>
-            {/* Search */}
-            <Paper
-              elevation={0}
-              sx={{
-                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-                onClick={() => toggleSection("search")}
-              >
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Search sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Search
-                  </Typography>
-                </Stack>
-                {expandedSection === "search" ? <ExpandLess /> : <ExpandMore />}
-              </Box>
-              <Collapse in={expandedSection === "search"}>
-                <Box sx={{ p: 2 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search by name, email, ID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search
-                            sx={{ color: "text.secondary", fontSize: 20 }}
-                          />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery && (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            <Close fontSize="small" />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
-              </Collapse>
-            </Paper>
-
-            {/* Period */}
-            <Paper
-              elevation={0}
-              sx={{
-                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-                onClick={() => toggleSection("period")}
-              >
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <DateRange sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Time Period
-                  </Typography>
-                </Stack>
-                {expandedSection === "period" ? <ExpandLess /> : <ExpandMore />}
-              </Box>
-              <Collapse in={expandedSection === "period"}>
-                <Box sx={{ p: 2 }}>
-                  <Grid container spacing={1}>
-                    {PERIOD_OPTIONS.map((option) => (
-                      <Grid item xs={6} key={option.value}>
-                        <Button
-                          fullWidth
-                          variant={
-                            period === option.value ? "contained" : "outlined"
-                          }
-                          onClick={() => setPeriod(option.value)}
-                          startIcon={option.icon}
-                          size="small"
-                          sx={{
-                            bgcolor:
-                              period === option.value
-                                ? PRIMARY_COLOR
-                                : "transparent",
-                            color:
-                              period === option.value ? "#fff" : PRIMARY_COLOR,
-                            borderColor: PRIMARY_COLOR,
-                            "&:hover": {
-                              bgcolor:
-                                period === option.value
-                                  ? SECONDARY_COLOR
-                                  : alpha(PRIMARY_COLOR, 0.1),
-                            },
-                          }}
-                        >
-                          {option.label}
-                        </Button>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              </Collapse>
-            </Paper>
-
-            {/* Status */}
-            <Paper
-              elevation={0}
-              sx={{
-                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-                onClick={() => toggleSection("status")}
-              >
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <FilterAlt sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Status
-                  </Typography>
-                </Stack>
-                {expandedSection === "status" ? <ExpandLess /> : <ExpandMore />}
-              </Box>
-              <Collapse in={expandedSection === "status"}>
-                <Box sx={{ p: 2 }}>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      displayEmpty
-                    >
-                      <MenuItem value="">All Statuses</MenuItem>
-                      <MenuItem value="present">Present</MenuItem>
-                      <MenuItem value="absent">Absent</MenuItem>
-                      <MenuItem value="late">Late</MenuItem>
-                      <MenuItem value="leave">Leave</MenuItem>
-                      <MenuItem value="holiday">Holiday</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Box>
-              </Collapse>
-            </Paper>
-          </Stack>
-        </Box>
-
-        <Box
-          sx={{
-            p: 3,
-            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-            bgcolor: "#fff",
-          }}
-        >
-          <Stack direction="row" spacing={2}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                handleClearFilters();
-                onClose();
-              }}
-              startIcon={<Clear />}
-              sx={{
-                borderColor: PRIMARY_COLOR,
-                color: PRIMARY_COLOR,
-                "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.05) },
-              }}
-            >
-              Clear All
-            </Button>
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={onClose}
-              sx={{
-                bgcolor: PRIMARY_COLOR,
-                "&:hover": { bgcolor: SECONDARY_COLOR },
-              }}
-            >
-              Apply Filters
-            </Button>
-          </Stack>
-        </Box>
-      </Box>
-    </SwipeableDrawer>
-  );
-};
-
-// ========== MOBILE TEAM MEMBER CARD ==========
-const MobileTeamMemberCard = ({ member, onViewAttendance, index }) => {
-  console.log("member..", member)
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <Fade in={true} timeout={500 + index * 50}>
+    <Fade in timeout={400 + index * 50}>
       <Paper
         sx={{
           mb: 1.5,
           borderRadius: 3,
-          border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+          border: `1px solid ${alpha(PRIMARY, 0.1)}`,
           overflow: "hidden",
         }}
       >
         <Box sx={{ p: 2 }}>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              mb: 1.5,
-            }}
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-start"
+            sx={{ mb: 1.5 }}
           >
-            <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
               <Avatar
                 sx={{
-                  bgcolor: PRIMARY_COLOR,
+                  bgcolor: PRIMARY,
                   color: "#fff",
                   width: 48,
                   height: 48,
-                  fontWeight: 600,
+                  fontWeight: 700,
                 }}
               >
                 {member.firstName?.charAt(0) || "U"}
@@ -823,53 +508,57 @@ const MobileTeamMemberCard = ({ member, onViewAttendance, index }) => {
               <Box>
                 <Typography
                   variant="subtitle1"
-                  fontWeight="700"
-                  color={PRIMARY_COLOR}
+                  fontWeight={700}
+                  color={PRIMARY}
                 >
                   {member.firstName} {member.lastName}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {member.phoneNumber || "N/A"}
+                  {member.phoneNumber || member.email || "N/A"}
                 </Typography>
               </Box>
-            </Box>
+            </Stack>
             <IconButton
               size="small"
-              onClick={() => setExpanded(!expanded)}
+              onClick={() => setExp(!exp)}
               sx={{
-                transform: expanded ? "rotate(180deg)" : "none",
-                transition: "transform 0.3s",
-                bgcolor: alpha(PRIMARY_COLOR, 0.1),
+                bgcolor: alpha(PRIMARY, 0.08),
+                transform: exp ? "rotate(180deg)" : "none",
+                transition: "transform .25s",
               }}
             >
-              {expanded ? <ExpandLess /> : <ExpandMore />}
+              <ExpandMore />
             </IconButton>
-          </Box>
-          <Grid container spacing={1} sx={{ mb: 1.5 }}>
-            <Grid item xs={12}>
-              <Typography variant="body2" color="text.secondary">
+          </Stack>
+
+          <Stack direction="row" spacing={1}>
+            <Chip
+              size="small"
+              label={member.role || "TEAM"}
+              sx={{
+                bgcolor: alpha(PRIMARY, 0.1),
+                color: PRIMARY,
+                fontSize: "0.7rem",
+              }}
+            />
+            {member.email && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                noWrap
+                sx={{ mt: 0.3 }}
+              >
                 {member.email}
               </Typography>
-            </Grid>
-            <Grid item xs={6}>
-              <Chip
-                size="small"
-                label={member.role || "TEAM"}
-                sx={{
-                  bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                  color: PRIMARY_COLOR,
-                  height: 24,
-                  fontSize: "0.7rem",
-                }}
-              />
-            </Grid>
-          </Grid>
-          <Collapse in={expanded}>
+            )}
+          </Stack>
+
+          <Collapse in={exp}>
             <Box
               sx={{
                 mt: 2,
                 pt: 2,
-                borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+                borderTop: `1px dashed ${alpha(PRIMARY, 0.12)}`,
               }}
             >
               <Button
@@ -879,9 +568,9 @@ const MobileTeamMemberCard = ({ member, onViewAttendance, index }) => {
                 startIcon={<History />}
                 onClick={() => onViewAttendance(member)}
                 sx={{
-                  bgcolor: PRIMARY_COLOR,
+                  bgcolor: PRIMARY,
                   borderRadius: 2,
-                  "&:hover": { bgcolor: SECONDARY_COLOR },
+                  "&:hover": { bgcolor: SECONDARY },
                 }}
               >
                 View Attendance
@@ -894,196 +583,169 @@ const MobileTeamMemberCard = ({ member, onViewAttendance, index }) => {
   );
 };
 
-// ========== MOBILE ATTENDANCE CARD ==========
-const MobileAttendanceCard = ({
-  attendance,
+// ─── Mobile Attendance Card ─────────────────────────────────────────────────
+const MobileAttCard = ({
+  attendance: a,
   onView,
   onEdit,
   onDelete,
-  canDelete,
   canEdit,
+  canDelete,
   index,
 }) => {
-  const [expanded, setExpanded] = useState(false);
-  const statusConfig =
-    STATUS_CONFIG[attendance.status] || STATUS_CONFIG.present;
-
-  const formatTime = (timestamp) => {
-    if (!timestamp) return "-";
-    return new Date(timestamp).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "-";
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+  const [exp, setExp] = useState(false);
+  const cfg = STATUS_CONFIG[a.status] || STATUS_CONFIG.present;
+  const ft = (ts) =>
+    ts
+      ? new Date(ts).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "—";
+  const fd = (ts) =>
+    ts
+      ? new Date(ts).toLocaleDateString("en-US", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      : "—";
 
   return (
-    <Fade in={true} timeout={500 + index * 50}>
+    <Fade in timeout={400 + index * 50}>
       <Paper
         sx={{
           mb: 1.5,
           borderRadius: 3,
-          border: `1px solid ${alpha(statusConfig.color, 0.2)}`,
+          border: `1px solid ${alpha(cfg.color, 0.2)}`,
           overflow: "hidden",
         }}
       >
         <Box sx={{ p: 2 }}>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              mb: 1.5,
-            }}
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-start"
+            sx={{ mb: 1.5 }}
           >
             <Box>
-              <Typography variant="subtitle1" fontWeight="700">
-                {formatDate(attendance.date)}
+              <Typography variant="subtitle2" fontWeight={700}>
+                {fd(a.date)}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {attendance.user?.name || "Attendance Record"}
-              </Typography>
+              <StatusChip status={a.status || "present"} />
             </Box>
             <IconButton
               size="small"
-              onClick={() => setExpanded(!expanded)}
+              onClick={() => setExp(!exp)}
               sx={{
-                transform: expanded ? "rotate(180deg)" : "none",
-                transition: "transform 0.3s",
-                bgcolor: alpha(statusConfig.color, 0.1),
+                bgcolor: alpha(cfg.color, 0.08),
+                transform: exp ? "rotate(180deg)" : "none",
+                transition: "transform .25s",
               }}
             >
-              {expanded ? <ExpandLess /> : <ExpandMore />}
+              <ExpandMore />
             </IconButton>
-          </Box>
-          <Grid container spacing={1} sx={{ mb: 1.5 }}>
-            <Grid item xs={4}>
-              <Typography variant="caption" color="text.secondary">
-                Punch In
-              </Typography>
-              <Typography variant="body2" fontWeight={600}>
-                {attendance.punchIn ? formatTime(attendance.punchIn.time) : "-"}
-              </Typography>
-            </Grid>
-            <Grid item xs={4}>
-              <Typography variant="caption" color="text.secondary">
-                Punch Out
-              </Typography>
-              <Typography
-                variant="body2"
-                fontWeight={600}
-                color={attendance.punchOut ? "text.primary" : PRIMARY_COLOR}
-              >
-                {attendance.punchOut
-                  ? formatTime(attendance.punchOut.time)
-                  : "Ongoing"}
-              </Typography>
-            </Grid>
-            <Grid item xs={4}>
-              <Typography variant="caption" color="text.secondary">
-                Hours
-              </Typography>
-              <Typography
-                variant="body2"
-                fontWeight={600}
-                color={PRIMARY_COLOR}
-              >
-                {attendance.workHoursFormatted || "00:00"}
-              </Typography>
-            </Grid>
+          </Stack>
+
+          <Grid container spacing={1} sx={{ mb: 1 }}>
+            {[
+              ["In", ft(a.punchIn?.time), SUCCESS],
+              [
+                "Out",
+                a.punchOut ? ft(a.punchOut.time) : "Ongoing",
+                a.punchOut ? WARNING : PRIMARY,
+              ],
+              ["Hrs", a.workHoursFormatted || "—", PRIMARY],
+            ].map(([l, v, c]) => (
+              <Grid item xs={4} key={l}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  display="block"
+                >
+                  {l}
+                </Typography>
+                <Typography variant="body2" fontWeight={700} color={c}>
+                  {v}
+                </Typography>
+              </Grid>
+            ))}
           </Grid>
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
-            <StatusChip status={attendance.status || "present"} />
-            {attendance.remarks && (
-              <Chip
-                size="small"
-                label={attendance.remarks}
-                variant="outlined"
-                sx={{ fontSize: "0.65rem", maxWidth: 160, height: 22 }}
-              />
-            )}
-          </Box>
-          {attendance.punchIn?.address && (
-            <Box display="flex" alignItems="center" gap={1}>
-              <LocationOn sx={{ fontSize: 16, color: "text.secondary" }} />
+
+          {a.remarks && (
+            <Chip
+              size="small"
+              label={a.remarks}
+              variant="outlined"
+              sx={{ fontSize: "0.65rem", maxWidth: 200, height: 22, mb: 1 }}
+            />
+          )}
+
+          {a.punchIn?.address && (
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <LocationOn sx={{ fontSize: 13, color: "text.disabled" }} />
               <Typography
                 variant="caption"
                 color="text.secondary"
                 noWrap
-                sx={{ maxWidth: 200 }}
+                sx={{ maxWidth: 220 }}
               >
-                {attendance.punchIn.address.split(",")[0]}
+                {a.punchIn.address.split(",")[0]}
               </Typography>
-            </Box>
+            </Stack>
           )}
-          <Collapse in={expanded}>
-            <Box
+
+          <Collapse in={exp}>
+            <Stack
+              direction="row"
+              spacing={1}
               sx={{
                 mt: 2,
                 pt: 2,
-                borderTop: `1px solid ${alpha(statusConfig.color, 0.1)}`,
+                borderTop: `1px dashed ${alpha(cfg.color, 0.15)}`,
               }}
             >
-              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="contained"
+                startIcon={<Visibility />}
+                onClick={() => onView(a)}
+                sx={{
+                  borderRadius: 2,
+                  bgcolor: PRIMARY,
+                  "&:hover": { bgcolor: SECONDARY },
+                }}
+              >
+                View
+              </Button>
+              {canEdit && (
                 <Button
                   fullWidth
                   size="small"
-                  variant="contained"
-                  startIcon={<Visibility />}
-                  onClick={() => onView(attendance)}
-                  sx={{
-                    bgcolor: PRIMARY_COLOR,
-                    borderRadius: 2,
-                    "&:hover": { bgcolor: SECONDARY_COLOR },
-                  }}
+                  variant="outlined"
+                  startIcon={<Edit />}
+                  onClick={() => onEdit(a)}
+                  sx={{ borderRadius: 2, borderColor: WARNING, color: WARNING }}
                 >
-                  View
+                  Edit
                 </Button>
-                {canEdit && (
-                  <Button
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    startIcon={<Edit />}
-                    onClick={() => onEdit(attendance)}
-                    sx={{
-                      borderRadius: 2,
-                      borderColor: "#ff9800",
-                      color: "#ff9800",
-                      "&:hover": { bgcolor: alpha("#ff9800", 0.08) },
-                    }}
-                  >
-                    Edit
-                  </Button>
-                )}
-                {canDelete && (
-                  <Button
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    startIcon={<Delete />}
-                    onClick={() => onDelete(attendance)}
-                    sx={{
-                      borderRadius: 2,
-                      borderColor: "#f44336",
-                      color: "#f44336",
-                      "&:hover": { bgcolor: alpha("#f44336", 0.1) },
-                    }}
-                  >
-                    Delete
-                  </Button>
-                )}
-              </Stack>
-            </Box>
+              )}
+              {canDelete && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<Delete />}
+                  onClick={() => onDelete(a)}
+                  sx={{ borderRadius: 2 }}
+                >
+                  Del
+                </Button>
+              )}
+            </Stack>
           </Collapse>
         </Box>
       </Paper>
@@ -1091,50 +753,41 @@ const MobileAttendanceCard = ({
   );
 };
 
-// ========== LOADING SKELETON ==========
-const LoadingSkeleton = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
-        {[1, 2, 3, 4].map((item) => (
-          <Grid item xs={6} sm={6} md={3} key={item}>
-            <Skeleton
-              variant="rectangular"
-              height={isMobile ? 90 : 120}
-              sx={{ borderRadius: 3 }}
-            />
-          </Grid>
-        ))}
-      </Grid>
-      <Skeleton
-        variant="rectangular"
-        height={isMobile ? 500 : 400}
-        sx={{ borderRadius: 3, mb: 2 }}
-      />
-      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
-    </Box>
-  );
-};
+// ─── Loading Skeleton ───────────────────────────────────────────────────────
+const LoadingSkeleton = () => (
+  <Box sx={{ p: { xs: 2, sm: 3 } }}>
+    <Grid container spacing={2} sx={{ mb: 3 }}>
+      {[1, 2, 3, 4].map((i) => (
+        <Grid item xs={6} sm={3} key={i}>
+          <Skeleton
+            variant="rectangular"
+            height={100}
+            sx={{ borderRadius: 3 }}
+          />
+        </Grid>
+      ))}
+    </Grid>
+    <Skeleton variant="rectangular" height={420} sx={{ borderRadius: 3 }} />
+  </Box>
+);
 
-// ========== EMPTY STATE ==========
-const EmptyState = ({ onClearFilters, hasFilters, message }) => (
-  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
+// ─── Empty State ────────────────────────────────────────────────────────────
+const EmptyState = ({ onClear, hasFilters, message }) => (
+  <Box sx={{ textAlign: "center", py: 7, px: 2 }}>
     <Box
       sx={{
-        width: 120,
-        height: 120,
+        width: 80,
+        height: 80,
         borderRadius: "50%",
-        bgcolor: alpha(PRIMARY_COLOR, 0.1),
+        bgcolor: alpha(PRIMARY, 0.08),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         mx: "auto",
-        mb: 3,
+        mb: 2,
       }}
     >
-      <Group sx={{ fontSize: 48, color: PRIMARY_COLOR }} />
+      <Group sx={{ fontSize: 36, color: PRIMARY }} />
     </Box>
     <Typography variant="h6" fontWeight={600} gutterBottom>
       {message || "No records found"}
@@ -1142,26 +795,24 @@ const EmptyState = ({ onClearFilters, hasFilters, message }) => (
     <Typography
       variant="body2"
       color="text.secondary"
-      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
+      sx={{ mb: hasFilters ? 2 : 0 }}
     >
-      {hasFilters
-        ? "No records match your current filters."
-        : "Records will appear here."}
+      {hasFilters ? "Try adjusting your filters." : "Records will appear here."}
     </Typography>
     {hasFilters && (
       <Button
         variant="contained"
-        onClick={onClearFilters}
         startIcon={<Clear />}
-        sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
+        onClick={onClear}
+        sx={{ bgcolor: PRIMARY, borderRadius: 2 }}
       >
-        Clear All Filters
+        Clear Filters
       </Button>
     )}
   </Box>
 );
 
-// ========== MAIN COMPONENT ==========
+// ─── Main Component ─────────────────────────────────────────────────────────
 export default function TeamAttendance() {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -1180,76 +831,75 @@ export default function TeamAttendance() {
     clearMessages,
   } = useAttendance();
 
+  // ── State ──────────────────────────────────────────────────────────────
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(isMobile ? 5 : 10);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [period, setPeriod] = useState("Today");
   const [selectedMember, setSelectedMember] = useState(null);
-  const [selectedAttendance, setSelectedAttendance] = useState(null);
+  const [selAtt, setSelAtt] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-
-  // Edit state
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [attendanceToEdit, setAttendanceToEdit] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editAtt, setEditAtt] = useState(null);
   const [editLoading, setEditLoading] = useState(false);
-
-  // Delete state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [attendanceToDelete, setAttendanceToDelete] = useState(null);
-
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteAtt, setDeleteAtt] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [navValue, setNavValue] = useState(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [navValue, setNavValue] = useState(0);
   const containerRef = useRef(null);
 
   const userRole = getUserRole();
-  const isHeadOffice = userRole === "Head_office";
-  const isASM = userRole === "ASM";
-  const isZSM = userRole === "ZSM";
-  // Managers (ASM, ZSM, Head_office) can edit; only Head_office can delete
-  const canEdit = isHeadOffice || isASM || isZSM;
-  const canDelete = isHeadOffice;
+  const canEdit = ["Head_office", "ASM", "ZSM"].includes(userRole);
+  const canDelete = userRole === "Head_office";
 
   const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (searchTerm) count++;
-    if (statusFilter) count++;
-    if (period !== "Today") count++;
-    return count;
+    let n = 0;
+    if (searchTerm) n++;
+    if (statusFilter) n++;
+    if (period !== "Today") n++;
+    return n;
   }, [searchTerm, statusFilter, period]);
 
+  const showSnack = useCallback(
+    (msg, sev = "success") =>
+      setSnackbar({ open: true, message: msg, severity: sev }),
+    [],
+  );
+
+  // ── Load team members ──────────────────────────────────────────────────
   const loadTeamMembers = useCallback(async () => {
     setLoadingMembers(true);
     try {
       const members = await getTeamMembers();
       setTeamMembers(members || []);
-    } catch (err) {
-      console.error("Error loading team members:", err);
-      showSnackbar("Failed to load team members", "error");
+    } catch (e) {
+      showSnack("Failed to load team members", "error");
     } finally {
       setLoadingMembers(false);
     }
-  }, [getTeamMembers]);
+  }, [getTeamMembers, showSnack]);
 
-  const loadMemberAttendance = useCallback(
+  // ── Load member attendance ─────────────────────────────────────────────
+  const loadMemberAtt = useCallback(
     async (userId) => {
       if (!userId) return;
-      
-      const filters = {
+      await fetchAttendances({
         page: page + 1,
         limit: rowsPerPage,
         userId,
         ...(statusFilter && { status: statusFilter }),
-        ...(period !== "All" && { period: period.toLowerCase() }),
-      };
-      await fetchAttendances(filters);
+        ...(period !== "All" && {
+          period: period.toLowerCase().replace(" ", "_"),
+        }),
+      });
     },
     [fetchAttendances, page, rowsPerPage, statusFilter, period],
   );
@@ -1259,318 +909,173 @@ export default function TeamAttendance() {
   }, [loadTeamMembers]);
 
   useEffect(() => {
-    if (selectedMember?._id) {
-      loadMemberAttendance(selectedMember._id);
-    }
-  }, [selectedMember, page, rowsPerPage, statusFilter, period, loadMemberAttendance]);
+    if (selectedMember?._id) loadMemberAtt(selectedMember._id);
+  }, [selectedMember, page, rowsPerPage, statusFilter, period, loadMemberAtt]);
 
   useEffect(() => {
-    if (error) setSnackbar({ open: true, message: error, severity: "error" });
-    if (success)
-      setSnackbar({ open: true, message: success, severity: "success" });
-  }, [error, success]);
+    if (error) showSnack(error, "error");
+    if (success) showSnack(success, "success");
+  }, [error, success, showSnack]);
 
-  const showSnackbar = (message, severity = "success") => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage - 1);
-    containerRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const handleStatusChange = (e) => {
-    setStatusFilter(e.target.value);
-    setPage(0);
-  };
-  
-  const handleSearchChange = (e) => setSearchTerm(e.target.value);
-  
-  const handleViewDetails = (attendance) => {
-    setSelectedAttendance(attendance);
-    setDetailsOpen(true);
-  };
-
-  // ── Edit handlers ────────────────────────────────────────────────────────────
-  const handleEditOpen = (attendance) => {
-    // Validate attendance has an ID
-    if (!attendance || !attendance._id) {
-      showSnackbar("Cannot edit: Invalid attendance record", "error");
-      return;
-    }
-    console.log("Opening edit for attendance:", attendance._id);
-    setAttendanceToEdit(attendance);
-    setEditDialogOpen(true);
-  };
-
-  const handleEditClose = () => {
-    setEditDialogOpen(false);
-    setAttendanceToEdit(null);
-  };
-
-  const handleEditSave = async (id, data) => {
-    // Validate ID
-    if (!id) {
-      showSnackbar("Invalid attendance record: Missing ID", "error");
-      setEditLoading(false);
-      setEditDialogOpen(false);
-      return;
-    }
-
-    setEditLoading(true);
-    try {
-      const result = await updateAttendance(id, data);
-      console.log("Edit result:", result);
-      
-      if (result?.success) {
-        showSnackbar("Attendance updated successfully", "success");
-        setEditDialogOpen(false);
-        setAttendanceToEdit(null);
-        if (selectedMember?._id) {
-          await loadMemberAttendance(selectedMember._id);
-        }
-      } else {
-        showSnackbar(result?.error || "Failed to update attendance", "error");
+  // ── Handlers ──────────────────────────────────────────────────────────
+  const handleMemberSelect = useCallback(
+    (member) => {
+      if (!member?._id) {
+        showSnack("Invalid member", "error");
+        return;
       }
-    } catch (err) {
-      console.error("Edit error:", err);
-      showSnackbar("Failed to update attendance", "error");
-    } finally {
-      setEditLoading(false);
-    }
-  };
+      setSelectedMember(member);
+      setPage(0);
+      setSearchTerm("");
+      setStatusFilter("");
+    },
+    [showSnack],
+  );
 
-  // ── Delete handlers ──────────────────────────────────────────────────────────
-  const handleDelete = (attendance) => {
-    if (!attendance || !attendance._id) {
-      showSnackbar("Cannot delete: Invalid attendance record", "error");
-      return;
-    }
-    setAttendanceToDelete(attendance);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!attendanceToDelete?._id) {
-      showSnackbar("Invalid attendance record", "error");
-      setDeleteDialogOpen(false);
-      return;
-    }
-
-    const result = await deleteAttendance(attendanceToDelete._id);
-    if (result?.success) {
-      showSnackbar("Attendance deleted successfully", "success");
-      if (selectedMember?._id) {
-        await loadMemberAttendance(selectedMember._id);
-      }
-    } else {
-      showSnackbar(result?.error || "Failed to delete attendance", "error");
-    }
-    setDeleteDialogOpen(false);
-    setAttendanceToDelete(null);
-  };
-
-  const handleMemberSelect = (member) => {
-    if (!member?._id) {
-      showSnackbar("Invalid member selected", "error");
-      return;
-    }
-    setSelectedMember(member);
-    setPage(0);
-    setSearchTerm("");
-    setStatusFilter("");
-  };
-  
-  const handleBackToMembers = () => {
+  const handleBack = useCallback(() => {
     setSelectedMember(null);
+    setPage(0);
+    setSearchTerm("");
+    setStatusFilter("");
+    setPeriod("Today");
+  }, []);
+
+  const handleEditOpen = useCallback(
+    (a) => {
+      const id = a?._id || a?.id;
+      if (!id) {
+        showSnack("Invalid record", "error");
+        return;
+      }
+      setEditAtt(a);
+      setEditOpen(true);
+    },
+    [showSnack],
+  );
+
+  const handleEditSave = useCallback(
+    async (id, data) => {
+      if (!id) {
+        showSnack("Missing ID", "error");
+        return;
+      }
+      setEditLoading(true);
+      try {
+        const res = await updateAttendance(id, data);
+        if (res?.success) {
+          showSnack("Attendance updated");
+          setEditOpen(false);
+          setEditAtt(null);
+          if (selectedMember?._id) await loadMemberAtt(selectedMember._id);
+        } else {
+          showSnack(res?.error || "Update failed", "error");
+        }
+      } catch (e) {
+        showSnack("Update failed", "error");
+      } finally {
+        setEditLoading(false);
+      }
+    },
+    [updateAttendance, selectedMember, loadMemberAtt, showSnack],
+  );
+
+  const handleDeleteOpen = useCallback(
+    (a) => {
+      if (!a?._id && !a?.id) {
+        showSnack("Invalid record", "error");
+        return;
+      }
+      setDeleteAtt(a);
+      setDeleteOpen(true);
+    },
+    [showSnack],
+  );
+
+  const handleDeleteConfirm = useCallback(async () => {
+    const id = deleteAtt?._id || deleteAtt?.id;
+    if (!id) {
+      showSnack("Invalid record", "error");
+      setDeleteOpen(false);
+      return;
+    }
+    const res = await deleteAttendance(id);
+    if (res?.success) {
+      showSnack("Attendance deleted");
+      if (selectedMember?._id) await loadMemberAtt(selectedMember._id);
+    } else {
+      showSnack(res?.error || "Delete failed", "error");
+    }
+    setDeleteOpen(false);
+    setDeleteAtt(null);
+  }, [deleteAtt, deleteAttendance, selectedMember, loadMemberAtt, showSnack]);
+
+  const handleClearFilters = useCallback(() => {
     setSearchTerm("");
     setStatusFilter("");
     setPeriod("Today");
     setPage(0);
-  };
-  
-  const handleClearFilters = () => {
-    setSearchTerm("");
-    setStatusFilter("");
-    setPeriod("Today");
-    setPage(0);
-  };
+  }, []);
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "-";
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const filteredMembers = teamMembers.filter((member) => {
-    if (!searchTerm) return true;
+  const filteredMembers = useMemo(() => {
+    if (!searchTerm) return teamMembers;
     const s = searchTerm.toLowerCase();
-    return (
-      member.firstName?.toLowerCase().includes(s) ||
-      member.lastName?.toLowerCase().includes(s) ||
-      member.email?.toLowerCase().includes(s) ||
-      member.employeeId?.toLowerCase().includes(s)
+    return teamMembers.filter(
+      (m) =>
+        m.firstName?.toLowerCase().includes(s) ||
+        m.lastName?.toLowerCase().includes(s) ||
+        m.email?.toLowerCase().includes(s) ||
+        m.employeeId?.toLowerCase().includes(s),
     );
-  });
+  }, [teamMembers, searchTerm]);
+
+  const fmt = (ts) =>
+    !ts
+      ? "—"
+      : new Date(ts).toLocaleDateString("en-US", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
 
   if (loadingMembers && !teamMembers.length && !selectedMember)
     return <LoadingSkeleton />;
 
+  // ─── Render ─────────────────────────────────────────────────────────────
   return (
     <Box
       ref={containerRef}
       sx={{
         p: { xs: 1.5, sm: 2, md: 3 },
         minHeight: "100vh",
-        pb: { xs: 8, sm: 3 },
-        bgcolor: "#f8fafc",
+        pb: { xs: 9, sm: 3 },
+        bgcolor: "#f4f6fb",
       }}
     >
-      {/* Filter Drawer */}
-      <MobileFilterDrawer
-        open={mobileFilterOpen}
-        onClose={() => setMobileFilterOpen(false)}
-        period={period}
-        setPeriod={setPeriod}
-        statusFilter={statusFilter}
-        setStatusFilter={handleStatusChange}
-        handleClearFilters={handleClearFilters}
-        searchQuery={searchTerm}
-        setSearchQuery={handleSearchChange}
-        activeFilterCount={activeFilterCount}
-      />
-
       {/* Edit Dialog */}
       <EditAttendanceDialog
-        open={editDialogOpen}
-        onClose={handleEditClose}
-        attendance={attendanceToEdit}
+        open={editOpen}
+        onClose={() => {
+          setEditOpen(false);
+          setEditAtt(null);
+        }}
+        attendance={editAtt}
         onSave={handleEditSave}
         loading={editLoading}
       />
 
-      {/* Header */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 2, sm: 3 },
-          mb: 3,
-          borderRadius: 3,
-          background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${SECONDARY_COLOR} 100%)`,
-          color: "#fff",
-        }}
-      >
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
-        >
-          <Box display="flex" alignItems="center" gap={2}>
-            {selectedMember && (
-              <IconButton
-                onClick={handleBackToMembers}
-                sx={{
-                  color: "#fff",
-                  bgcolor: "rgba(255,255,255,0.2)",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                }}
-              >
-                <ArrowBack />
-              </IconButton>
-            )}
-            <Box>
-              <Typography
-                variant={isMobile ? "h6" : "h5"}
-                fontWeight={700}
-                gutterBottom
-              >
-                {selectedMember
-                  ? `${selectedMember.firstName} ${selectedMember.lastName}'s Attendance`
-                  : "Team Attendance"}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  opacity: 0.9,
-                  fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                }}
-              >
-                {selectedMember
-                  ? "View and manage individual attendance records"
-                  : "Manage team attendance records"}
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            {isMobile && selectedMember && (
-              <Button
-                variant="contained"
-                startIcon={<FilterAlt />}
-                onClick={() => setMobileFilterOpen(true)}
-                size="small"
-                sx={{
-                  bgcolor: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                  position: "relative",
-                }}
-              >
-                Filter
-                {activeFilterCount > 0 && (
-                  <Badge
-                    badgeContent={activeFilterCount}
-                    color="error"
-                    sx={{
-                      position: "absolute",
-                      top: -8,
-                      right: -8,
-                      "& .MuiBadge-badge": {
-                        fontSize: "0.6rem",
-                        minWidth: 16,
-                        height: 16,
-                      },
-                    }}
-                  />
-                )}
-              </Button>
-            )}
-            <Button
-              variant="contained"
-              startIcon={<Refresh />}
-              onClick={() =>
-                selectedMember?._id
-                  ? loadMemberAttendance(selectedMember._id)
-                  : loadTeamMembers()
-              }
-              disabled={loading}
-              size={isMobile ? "small" : "medium"}
-              sx={{
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#fff",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-              }}
-            >
-              Refresh
-            </Button>
-          </Box>
-        </Stack>
-      </Paper>
 
+      {/* ─── Team members list ───────────────────────────────────────────── */}
       {!selectedMember ? (
-        // ── Team Members View ──
         <>
+          {/* Search */}
           {isMobile ? (
             <Box sx={{ mb: 2 }}>
               <TextField
                 fullWidth
                 size="small"
-                placeholder="Search team members..."
+                placeholder="Search team members…"
                 value={searchTerm}
-                onChange={handleSearchChange}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -1587,23 +1092,26 @@ export default function TeamAttendance() {
                       </IconButton>
                     </InputAdornment>
                   ),
-                }}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 3,
-                    bgcolor: "#fff",
-                  },
+                  sx: { borderRadius: 3, bgcolor: "#fff" },
                 }}
               />
             </Box>
           ) : (
-            <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                mb: 3,
+                borderRadius: 3,
+                border: `1px solid ${alpha(PRIMARY, 0.08)}`,
+              }}
+            >
               <Stack direction="row" spacing={2} alignItems="center">
                 <TextField
                   size="small"
-                  placeholder="Search team members..."
+                  placeholder="Search team members…"
                   value={searchTerm}
-                  onChange={handleSearchChange}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   sx={{ minWidth: 300 }}
                   InputProps={{
                     startAdornment: (
@@ -1611,6 +1119,7 @@ export default function TeamAttendance() {
                         <Search sx={{ color: "text.secondary" }} />
                       </InputAdornment>
                     ),
+                    sx: { borderRadius: 2 },
                   }}
                 />
                 {searchTerm && (
@@ -1618,7 +1127,7 @@ export default function TeamAttendance() {
                     variant="text"
                     startIcon={<Clear />}
                     onClick={() => setSearchTerm("")}
-                    sx={{ color: "error.main" }}
+                    sx={{ color: DANGER }}
                   >
                     Clear
                   </Button>
@@ -1632,50 +1141,64 @@ export default function TeamAttendance() {
               <CircularProgress />
             </Box>
           ) : filteredMembers.length > 0 ? (
-            <Grid container spacing={isMobile ? 1.5 : 3}>
+            <Grid container spacing={isMobile ? 1.5 : 2.5}>
               {filteredMembers.map((member, index) => (
                 <Grid item xs={12} sm={6} md={4} lg={3} key={member._id}>
                   {isMobile ? (
-                    <MobileTeamMemberCard
+                    <MobileTeamCard
                       member={member}
                       onViewAttendance={handleMemberSelect}
                       index={index}
                     />
                   ) : (
-                    <StyledCard>
-                      <CardContent>
+                    <MemberCard>
+                      <CardContent sx={{ p: 2.5 }}>
                         <Stack spacing={2}>
-                          <Box display="flex" alignItems="center" gap={2}>
+                          <Stack
+                            direction="row"
+                            spacing={1.5}
+                            alignItems="center"
+                          >
                             <Avatar
                               sx={{
-                                bgcolor: PRIMARY_COLOR,
+                                bgcolor: PRIMARY,
                                 width: 48,
                                 height: 48,
+                                fontWeight: 700,
                               }}
                             >
                               {member.firstName?.charAt(0)}
                             </Avatar>
-                            <Box flex={1}>
-                              <Typography variant="subtitle1" fontWeight={700}>
+                            <Box flex={1} minWidth={0}>
+                              <Typography
+                                variant="subtitle1"
+                                fontWeight={700}
+                                noWrap
+                              >
                                 {member.firstName} {member.lastName}
                               </Typography>
                               <Typography
                                 variant="caption"
                                 color="text.secondary"
+                                noWrap
                               >
-                                {member.employeeId || "No ID"}
+                                {member.phoneNumber || "No ID"}
                               </Typography>
                             </Box>
-                          </Box>
-                          <Typography variant="body2" color="text.secondary">
+                          </Stack>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            noWrap
+                          >
                             {member.email}
                           </Typography>
                           <Chip
                             label={member.role || "TEAM"}
                             size="small"
                             sx={{
-                              bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                              color: PRIMARY_COLOR,
+                              bgcolor: alpha(PRIMARY, 0.1),
+                              color: PRIMARY,
                               alignSelf: "flex-start",
                             }}
                           />
@@ -1686,305 +1209,353 @@ export default function TeamAttendance() {
                             onClick={() => handleMemberSelect(member)}
                             sx={{
                               borderRadius: 2,
-                              borderColor: PRIMARY_COLOR,
-                              color: PRIMARY_COLOR,
+                              borderColor: PRIMARY,
+                              color: PRIMARY,
+                              "&:hover": { bgcolor: alpha(PRIMARY, 0.06) },
                             }}
                           >
                             View Attendance
                           </Button>
                         </Stack>
                       </CardContent>
-                    </StyledCard>
+                    </MemberCard>
                   )}
                 </Grid>
               ))}
             </Grid>
           ) : (
             <EmptyState
-              onClearFilters={() => setSearchTerm("")}
+              onClear={() => setSearchTerm("")}
               hasFilters={!!searchTerm}
               message="No team members found"
             />
           )}
         </>
       ) : (
-        // ── Member Attendance View ──
+        /* ─── Member attendance ─────────────────────────────────────────── */
         <>
+          {/* Desktop filters */}
           {!isMobile && (
-            <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-              <Stack spacing={2.5}>
-                <Stack
-                  direction={{ xs: "column", md: "row" }}
-                  spacing={2}
-                  alignItems={{ xs: "stretch", md: "center" }}
-                >
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={statusFilter}
-                      onChange={handleStatusChange}
-                      label="Status"
-                      sx={{ borderRadius: 2 }}
-                    >
-                      <MenuItem value="">All</MenuItem>
-                      <MenuItem value="present">Present</MenuItem>
-                      <MenuItem value="absent">Absent</MenuItem>
-                      <MenuItem value="late">Late</MenuItem>
-                      <MenuItem value="leave">Leave</MenuItem>
-                      <MenuItem value="holiday">Holiday</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Period</InputLabel>
-                    <Select
-                      value={period}
-                      onChange={(e) => setPeriod(e.target.value)}
-                      label="Period"
-                      sx={{ borderRadius: 2 }}
-                    >
-                      {PERIOD_OPTIONS.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          <Stack
-                            direction="row"
-                            alignItems="center"
-                            spacing={1}
-                          >
-                            {option.icon}
-                            <span>{option.label}</span>
-                          </Stack>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  {activeFilterCount > 0 && (
-                    <Button
-                      variant="text"
-                      startIcon={<Clear />}
-                      onClick={handleClearFilters}
-                      sx={{ color: "error.main" }}
-                    >
-                      Clear All
-                    </Button>
-                  )}
-                </Stack>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                mb: 3,
+                borderRadius: 3,
+                border: `1px solid ${alpha(PRIMARY, 0.08)}`,
+              }}
+            >
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                flexWrap="wrap"
+              >
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    label="Status"
+                    sx={{ borderRadius: 2 }}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setPage(0);
+                    }}
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                      <MenuItem key={k} value={k}>
+                        {v.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Period</InputLabel>
+                  <Select
+                    value={period}
+                    label="Period"
+                    sx={{ borderRadius: 2 }}
+                    onChange={(e) => setPeriod(e.target.value)}
+                  >
+                    {PERIOD_OPTIONS.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>
+                        {o.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 {activeFilterCount > 0 && (
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mb: 1, display: "block" }}
-                    >
-                      Active Filters:
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {statusFilter && (
-                        <Chip
-                          label={`Status: ${statusFilter}`}
-                          size="small"
-                          onDelete={() => setStatusFilter("")}
-                          sx={{
-                            bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                            color: PRIMARY_COLOR,
-                          }}
-                        />
-                      )}
-                      {period !== "Today" && (
-                        <Chip
-                          label={`Period: ${period}`}
-                          size="small"
-                          onDelete={() => setPeriod("Today")}
-                          sx={{
-                            bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                            color: PRIMARY_COLOR,
-                          }}
-                        />
-                      )}
-                    </Stack>
-                  </Box>
+                  <Button
+                    variant="text"
+                    startIcon={<Clear />}
+                    onClick={handleClearFilters}
+                    sx={{ color: DANGER }}
+                  >
+                    Clear All
+                  </Button>
+                )}
+                {activeFilterCount > 0 && (
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    flexWrap="wrap"
+                    sx={{ ml: 1 }}
+                  >
+                    {statusFilter && (
+                      <Chip
+                        size="small"
+                        label={`Status: ${statusFilter}`}
+                        onDelete={() => setStatusFilter("")}
+                        sx={{ bgcolor: alpha(PRIMARY, 0.1), color: PRIMARY }}
+                      />
+                    )}
+                    {period !== "Today" && (
+                      <Chip
+                        size="small"
+                        label={`Period: ${period}`}
+                        onDelete={() => setPeriod("Today")}
+                        sx={{ bgcolor: alpha(PRIMARY, 0.1), color: PRIMARY }}
+                      />
+                    )}
+                  </Stack>
                 )}
               </Stack>
             </Paper>
           )}
 
-          <Paper sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: 3,
+              overflow: "hidden",
+              border: `1px solid ${alpha(PRIMARY, 0.08)}`,
+            }}
+          >
             {!isMobile ? (
               <TableContainer>
+                {loading && (
+                  <Box sx={{ position: "relative" }}>
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 3,
+                        bgcolor: alpha(PRIMARY, 0.1),
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: "40%",
+                          height: "100%",
+                          bgcolor: PRIMARY,
+                          animation: "slide 1.2s infinite",
+                          "@keyframes slide": {
+                            "0%": { left: "-40%" },
+                            "100%": { left: "100%" },
+                          },
+                          position: "absolute",
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                )}
                 <Table>
-                  <TableHead sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.05) }}>
+                  <TableHead sx={{ bgcolor: alpha(PRIMARY, 0.04) }}>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Punch In</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Punch Out</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Hours</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                      <TableCell sx={{ fontWeight: 700 }}>Remarks</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 700 }}>
-                        Actions
-                      </TableCell>
+                      {[
+                        "Date",
+                        "Punch In",
+                        "Punch Out",
+                        "Hours",
+                        "Status",
+                        "Remarks",
+                        "Actions",
+                      ].map((h) => (
+                        <TableCell
+                          key={h}
+                          sx={{ fontWeight: 700, py: 1.5, fontSize: "0.78rem" }}
+                        >
+                          {h}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                          <CircularProgress />
+                        <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                          <CircularProgress sx={{ color: PRIMARY }} />
                         </TableCell>
                       </TableRow>
-                    ) : attendances && attendances.length > 0 ? (
-                      attendances.map((attendance) => (
-                        <TableRow
-                          key={attendance._id}
-                          hover
-                          sx={{
-                            "&:hover": { bgcolor: alpha(PRIMARY_COLOR, 0.02) },
-                          }}
-                        >
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={500}>
-                              {formatDate(attendance.date)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            {attendance.punchIn ? (
-                              <Chip
-                                label={new Date(
-                                  attendance.punchIn.time,
-                                ).toLocaleTimeString("en-US", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                })}
-                                size="small"
-                                sx={{
-                                  bgcolor: alpha("#4caf50", 0.1),
-                                  color: "#4caf50",
-                                }}
-                              />
-                            ) : (
-                              "-"
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {attendance.punchOut ? (
-                              <Chip
-                                label={new Date(
-                                  attendance.punchOut.time,
-                                ).toLocaleTimeString("en-US", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                })}
-                                size="small"
-                                sx={{
-                                  bgcolor: alpha("#ff9800", 0.1),
-                                  color: "#ff9800",
-                                }}
-                              />
-                            ) : attendance.punchIn ? (
-                              <Chip
-                                label="Ongoing"
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                              />
-                            ) : (
-                              "-"
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Typography
-                              variant="body2"
-                              fontWeight={600}
-                              color={PRIMARY_COLOR}
-                            >
-                              {attendance.workHoursFormatted || "00:00"}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <StatusChip
-                              status={attendance.status || "present"}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {attendance.remarks ? (
-                              <Tooltip title={attendance.remarks}>
+                    ) : attendances?.length > 0 ? (
+                      attendances.map((a) => {
+                        const ft = (ts) =>
+                          ts
+                            ? new Date(ts).toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                            : "—";
+                        return (
+                          <TableRow
+                            key={a._id || a.id}
+                            hover
+                            sx={{
+                              "&:hover": { bgcolor: alpha(PRIMARY, 0.02) },
+                            }}
+                          >
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={600}>
+                                {fmt(a.date)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              {a.punchIn ? (
+                                <Chip
+                                  label={ft(a.punchIn.time)}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: alpha(SUCCESS, 0.1),
+                                    color: SUCCESS,
+                                    fontWeight: 600,
+                                  }}
+                                />
+                              ) : (
+                                "—"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {a.punchOut ? (
+                                <Chip
+                                  label={ft(a.punchOut.time)}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: alpha(WARNING, 0.1),
+                                    color: WARNING,
+                                    fontWeight: 600,
+                                  }}
+                                />
+                              ) : a.punchIn ? (
+                                <Chip
+                                  label="Ongoing"
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{
+                                    color: PRIMARY,
+                                    borderColor: PRIMARY,
+                                    fontWeight: 600,
+                                  }}
+                                />
+                              ) : (
+                                "—"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                fontWeight={700}
+                                color={PRIMARY}
+                              >
+                                {a.workHoursFormatted || "—"}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <StatusChip status={a.status || "present"} />
+                            </TableCell>
+                            <TableCell>
+                              {a.remarks ? (
+                                <Tooltip title={a.remarks}>
+                                  <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    noWrap
+                                    sx={{ maxWidth: 140 }}
+                                  >
+                                    {a.remarks}
+                                  </Typography>
+                                </Tooltip>
+                              ) : (
                                 <Typography
                                   variant="body2"
-                                  color="text.secondary"
-                                  noWrap
-                                  sx={{ maxWidth: 150 }}
+                                  color="text.disabled"
                                 >
-                                  {attendance.remarks}
+                                  —
                                 </Typography>
-                              </Tooltip>
-                            ) : (
-                              <Typography variant="body2" color="text.disabled">
-                                —
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell align="center">
-                            <Stack
-                              direction="row"
-                              spacing={0.5}
-                              justifyContent="center"
-                            >
-                              <Tooltip title="View Details">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleViewDetails(attendance)}
-                                  sx={{
-                                    color: PRIMARY_COLOR,
-                                    "&:hover": {
-                                      bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                                    },
-                                  }}
-                                >
-                                  <Visibility fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              {canEdit && (
-                                <Tooltip title="Edit Attendance">
+                              )}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Stack
+                                direction="row"
+                                spacing={0.5}
+                                justifyContent="center"
+                              >
+                                <Tooltip title="View">
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleEditOpen(attendance)}
+                                    onClick={() => {
+                                      setSelAtt(a);
+                                      setDetailsOpen(true);
+                                    }}
                                     sx={{
-                                      color: "#ff9800",
+                                      color: PRIMARY,
                                       "&:hover": {
-                                        bgcolor: alpha("#ff9800", 0.1),
+                                        bgcolor: alpha(PRIMARY, 0.08),
                                       },
                                     }}
                                   >
-                                    <Edit fontSize="small" />
+                                    <Visibility fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
-                              )}
-                              {canDelete && (
-                                <Tooltip title="Delete">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleDelete(attendance)}
-                                    sx={{
-                                      color: "#f44336",
-                                      "&:hover": {
-                                        bgcolor: alpha("#f44336", 0.1),
-                                      },
-                                    }}
-                                  >
-                                    <Delete fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                                {canEdit && (
+                                  <Tooltip title="Edit">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleEditOpen(a)}
+                                      sx={{
+                                        color: WARNING,
+                                        "&:hover": {
+                                          bgcolor: alpha(WARNING, 0.08),
+                                        },
+                                      }}
+                                    >
+                                      <Edit fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                                {canDelete && (
+                                  <Tooltip title="Delete">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleDeleteOpen(a)}
+                                      sx={{
+                                        color: DANGER,
+                                        "&:hover": {
+                                          bgcolor: alpha(DANGER, 0.08),
+                                        },
+                                      }}
+                                    >
+                                      <Delete fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                          <Typography color="text.secondary">
-                            No attendance records found
-                          </Typography>
+                        <TableCell colSpan={7}>
+                          <EmptyState
+                            onClear={handleClearFilters}
+                            hasFilters={activeFilterCount > 0}
+                            message="No attendance records found"
+                          />
                         </TableCell>
                       </TableRow>
                     )}
@@ -1997,22 +1568,25 @@ export default function TeamAttendance() {
                   <Box display="flex" justifyContent="center" p={4}>
                     <CircularProgress />
                   </Box>
-                ) : attendances && attendances.length > 0 ? (
-                  attendances.map((attendance, index) => (
-                    <MobileAttendanceCard
-                      key={attendance._id}
-                      attendance={attendance}
-                      onView={handleViewDetails}
+                ) : attendances?.length > 0 ? (
+                  attendances.map((a, i) => (
+                    <MobileAttCard
+                      key={a._id || a.id}
+                      attendance={a}
+                      onView={(e) => {
+                        setSelAtt(e);
+                        setDetailsOpen(true);
+                      }}
                       onEdit={handleEditOpen}
-                      onDelete={handleDelete}
-                      canDelete={canDelete}
+                      onDelete={handleDeleteOpen}
                       canEdit={canEdit}
-                      index={index}
+                      canDelete={canDelete}
+                      index={i}
                     />
                   ))
                 ) : (
                   <EmptyState
-                    onClearFilters={handleClearFilters}
+                    onClear={handleClearFilters}
                     hasFilters={activeFilterCount > 0}
                     message="No attendance records found"
                   />
@@ -2021,85 +1595,165 @@ export default function TeamAttendance() {
             )}
 
             {/* Pagination */}
-            {attendances &&
-              attendances.length > 0 &&
-              pagination &&
-              pagination.totalPages > 1 && (
-                <Box
-                  sx={{
-                    p: 2,
-                    borderTop: 1,
-                    borderColor: "divider",
-                    display: "flex",
-                    flexDirection: { xs: "column", sm: "row" },
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 2,
+            {attendances?.length > 0 && pagination?.totalPages > 1 && (
+              <Box
+                sx={{
+                  p: 2,
+                  borderTop: `1px solid ${alpha(PRIMARY, 0.08)}`,
+                  display: "flex",
+                  flexDirection: { xs: "column", sm: "row" },
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 2,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  {page * rowsPerPage + 1}–
+                  {Math.min((page + 1) * rowsPerPage, pagination.totalItems)} of{" "}
+                  {pagination.totalItems}
+                </Typography>
+                <Pagination
+                  count={pagination.totalPages}
+                  page={page + 1}
+                  onChange={(_, v) => {
+                    setPage(v - 1);
+                    containerRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                    });
                   }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Showing {page * rowsPerPage + 1}–
-                    {Math.min((page + 1) * rowsPerPage, pagination.totalItems)}{" "}
-                    of {pagination.totalItems}
-                  </Typography>
-                  <Pagination
-                    count={pagination.totalPages}
-                    page={page + 1}
-                    onChange={handleChangePage}
-                    color="primary"
-                    size={isMobile ? "small" : "medium"}
-                    sx={{
-                      "& .MuiPaginationItem-root": {
-                        borderRadius: 2,
-                        "&.Mui-selected": {
-                          bgcolor: PRIMARY_COLOR,
-                          color: "#fff",
-                        },
-                      },
-                    }}
-                  />
-                </Box>
-              )}
+                  color="primary"
+                  size={isMobile ? "small" : "medium"}
+                  sx={{
+                    "& .MuiPaginationItem-root.Mui-selected": {
+                      bgcolor: PRIMARY,
+                      color: "#fff",
+                    },
+                  }}
+                />
+              </Box>
+            )}
           </Paper>
         </>
       )}
 
-      {/* Mobile FAB */}
+      {/* ─── Mobile filter drawer ──────────────────────────────────────── */}
+      <SwipeableDrawer
+        anchor="bottom"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onOpen={() => {}}
+        PaperProps={{
+          sx: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+        }}
+      >
+        <Box
+          sx={{
+            width: 40,
+            height: 4,
+            bgcolor: "grey.300",
+            borderRadius: 2,
+            mx: "auto",
+            my: 1.5,
+          }}
+        />
+        <Box sx={{ px: 3, pb: 3 }}>
+          <Typography
+            variant="h6"
+            fontWeight={700}
+            color={PRIMARY}
+            sx={{ mb: 2.5 }}
+          >
+            Filter Attendance
+          </Typography>
+          <Stack spacing={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                sx={{ borderRadius: 2 }}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <MenuItem value="">All</MenuItem>
+                {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                  <MenuItem key={k} value={k}>
+                    {v.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Period</InputLabel>
+              <Select
+                value={period}
+                label="Period"
+                sx={{ borderRadius: 2 }}
+                onChange={(e) => setPeriod(e.target.value)}
+              >
+                {PERIOD_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Stack direction="row" spacing={1.5}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<Clear />}
+                onClick={() => {
+                  handleClearFilters();
+                  setDrawerOpen(false);
+                }}
+                sx={{
+                  borderRadius: 2,
+                  borderColor: alpha(PRIMARY, 0.3),
+                  color: PRIMARY,
+                }}
+              >
+                Clear
+              </Button>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => setDrawerOpen(false)}
+                sx={{ borderRadius: 2, bgcolor: PRIMARY }}
+              >
+                Apply
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      </SwipeableDrawer>
+
+      {/* ─── Mobile FAB ───────────────────────────────────────────────── */}
       {isMobile && selectedMember && (
-        <Zoom in={true}>
+        <Zoom in>
           <Fab
-            color="primary"
-            aria-label="filter"
-            onClick={() => setMobileFilterOpen(true)}
+            size="medium"
+            onClick={() => setDrawerOpen(true)}
             sx={{
               position: "fixed",
               bottom: 80,
               right: 16,
               zIndex: 1000,
-              bgcolor: PRIMARY_COLOR,
-              "&:hover": { bgcolor: SECONDARY_COLOR },
-              boxShadow: `0 4px 12px ${alpha(PRIMARY_COLOR, 0.3)}`,
+              bgcolor: PRIMARY,
+              color: "#fff",
+              boxShadow: `0 4px 14px ${alpha(PRIMARY, 0.35)}`,
             }}
           >
-            <Badge
-              badgeContent={activeFilterCount}
-              color="error"
-              max={9}
-              sx={{
-                "& .MuiBadge-badge": {
-                  fontSize: "0.6rem",
-                  minWidth: 16,
-                  height: 16,
-                },
-              }}
-            >
+            <Badge badgeContent={activeFilterCount} color="error">
               <FilterAlt />
             </Badge>
           </Fab>
         </Zoom>
       )}
 
-      {/* Mobile Bottom Nav */}
+      {/* ─── Bottom nav ───────────────────────────────────────────────── */}
       {isMobile && (
         <Paper
           sx={{
@@ -2109,28 +1763,22 @@ export default function TeamAttendance() {
             right: 0,
             zIndex: 1000,
             borderRadius: 0,
-            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
           }}
           elevation={3}
         >
           <BottomNavigation
             showLabels
             value={navValue}
-            onChange={(event, newValue) => {
-              setNavValue(newValue);
-              if (newValue === 0) {
+            onChange={(_, v) => {
+              setNavValue(v);
+              if (v === 0)
                 selectedMember
-                  ? handleBackToMembers()
+                  ? handleBack()
                   : window.scrollTo({ top: 0, behavior: "smooth" });
-              } else if (newValue === 1) navigate("/dashboard");
+              else if (v === 1) navigate("/dashboard");
             }}
-            sx={{
-              height: 64,
-              "& .MuiBottomNavigationAction-root": {
-                color: "text.secondary",
-                "&.Mui-selected": { color: PRIMARY_COLOR },
-              },
-            }}
+            sx={{ height: 60, "& .Mui-selected": { color: PRIMARY } }}
           >
             <BottomNavigationAction
               label={selectedMember ? "Back" : "Team"}
@@ -2141,91 +1789,76 @@ export default function TeamAttendance() {
         </Paper>
       )}
 
-      {/* Attendance Details Modal */}
+      {/* ─── Details modal ────────────────────────────────────────────── */}
       <AttendanceDetails
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
-        attendance={selectedAttendance}
+        attendance={selAtt}
         canEdit={canEdit}
         canDelete={canDelete}
         onEdit={handleEditOpen}
-        onDelete={handleDelete}
+        onDelete={handleDeleteOpen}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* ─── Delete confirm ───────────────────────────────────────────── */}
       <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        fullScreen={isMobile}
-        PaperProps={{
-          sx: { borderRadius: isMobile ? 0 : 4, margin: isMobile ? 0 : 24 },
-        }}
-        TransitionComponent={isMobile ? Slide : Fade}
-        transitionDuration={300}
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 4, overflow: "hidden" } }}
       >
-        <DialogTitle
-          sx={{ bgcolor: "#f44336", color: "white", px: { xs: 2, sm: 3 } }}
-        >
-          <Box
-            display="flex"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Typography variant="h6" fontWeight={700}>
-              Confirm Delete
-            </Typography>
-            <IconButton
-              onClick={() => setDeleteDialogOpen(false)}
-              size="small"
-              sx={{ color: "white" }}
-            >
-              <Close />
-            </IconButton>
-          </Box>
+        <Box sx={{ height: 5, bgcolor: DANGER }} />
+        <DialogTitle sx={{ pt: 2.5, pb: 1 }}>
+          <Typography variant="h6" fontWeight={700}>
+            Confirm Delete
+          </Typography>
         </DialogTitle>
-        <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <DialogContent>
           <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
             This action cannot be undone.
           </Alert>
-          {attendanceToDelete && (
+          {deleteAtt && (
             <Paper
-              sx={{ p: 2, bgcolor: alpha("#f44336", 0.05), borderRadius: 2 }}
+              elevation={0}
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: alpha(DANGER, 0.04),
+                border: `1px solid ${alpha(DANGER, 0.12)}`,
+              }}
             >
               <Typography variant="body2">
-                <strong>Date:</strong> {formatDate(attendanceToDelete.date)}
+                <strong>Date:</strong> {fmt(deleteAtt.date)}
                 <br />
-                <strong>Status:</strong> {attendanceToDelete.status}
+                <strong>Status:</strong> {deleteAtt.status}
               </Typography>
             </Paper>
           )}
         </DialogContent>
         <DialogActions
           sx={{
-            p: { xs: 2, sm: 3 },
-            pt: { xs: 1.5, sm: 2 },
-            borderTop: 1,
-            borderColor: "divider",
+            px: 3,
+            pb: 3,
             gap: 1.5,
-            flexDirection: { xs: "column", sm: "row" },
+            borderTop: `1px solid ${alpha(DANGER, 0.08)}`,
           }}
         >
           <Button
-            onClick={() => setDeleteDialogOpen(false)}
             variant="outlined"
-            fullWidth={isMobile}
+            onClick={() => setDeleteOpen(false)}
             sx={{
               borderRadius: 2,
-              borderColor: PRIMARY_COLOR,
-              color: PRIMARY_COLOR,
+              borderColor: alpha(PRIMARY, 0.3),
+              color: PRIMARY,
             }}
           >
             Cancel
           </Button>
           <Button
-            onClick={confirmDelete}
             variant="contained"
             color="error"
-            fullWidth={isMobile}
+            onClick={handleDeleteConfirm}
             sx={{ borderRadius: 2 }}
           >
             Delete
@@ -2233,12 +1866,12 @@ export default function TeamAttendance() {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
+      {/* ─── Snackbar ─────────────────────────────────────────────────── */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={3500}
         onClose={() => {
-          setSnackbar({ ...snackbar, open: false });
+          setSnackbar((s) => ({ ...s, open: false }));
           clearMessages();
         }}
         anchorOrigin={{
@@ -2249,7 +1882,7 @@ export default function TeamAttendance() {
         <Alert
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2, color: "#fff" }}
+          sx={{ borderRadius: 2, color: "#fff", fontWeight: 600 }}
         >
           {snackbar.message}
         </Alert>

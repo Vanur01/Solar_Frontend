@@ -1,9 +1,10 @@
-// hooks/useAttendance.js (Updated with getTeamMembers)
+// hooks/useAttendance.js
 import { useState, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 export const useAttendance = () => {
-  const { user, fetchAPI, safeFetchAPI, getUserRole } = useAuth();
+  const { user, fetchAPI, punchIn: authPunchIn, punchOut: authPunchOut } = useAuth();
+
   const [attendances, setAttendances] = useState([]);
   const [todayAttendance, setTodayAttendance] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -25,45 +26,55 @@ export const useAttendance = () => {
     holidayCount: 0,
   });
 
-  // Fetch all attendances with filters
+  // ── helpers ────────────────────────────────────────────────────────────────
+  const clearMessages = useCallback(() => {
+    setError(null);
+    setSuccess(null);
+  }, []);
+
+  // ── fetchAttendances ───────────────────────────────────────────────────────
   const fetchAttendances = useCallback(
     async (filters = {}) => {
       setLoading(true);
       setError(null);
       try {
-        const queryParams = new URLSearchParams();
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value) queryParams.append(key, value);
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== "") params.append(k, v);
         });
-
         const url = `/attendance/`;
-        const response = await fetchAPI(url);
+        
+        const res = await fetchAPI(url);
 
-        if (response?.success && response?.result) {
-          console.log("attendance data:", response.result);
-          setAttendances(response.result.attendances || []);
+        if (res?.success && res?.result) {
+          const {
+            attendances: list = [],
+            pagination: pg,
+            summary: sm,
+          } = res.result;
+          
+          setAttendances(list);
           setPagination(
-            response.result.pagination || {
+            pg || {
               currentPage: 1,
               totalPages: 1,
-              totalItems: response.result.attendances?.length || 0,
+              totalItems: list.length,
               itemsPerPage: 10,
             },
           );
-          setSummary(response.result.summary || {});
+          setSummary(sm || {});
 
-          // Check for today's attendance
-          const today = new Date().toDateString();
-          const todayAtt = response.result.attendances?.find(
-            (a) => new Date(a.date).toDateString() === today,
-          );
-          setTodayAttendance(todayAtt);
-          
-          return response.result;
+          const todayStr = new Date().toDateString();
+          const today = list.find((a) => new Date(a.date).toDateString() === todayStr) || null;
+          setTodayAttendance(today);
+
+          return res.result;
         }
+        return null;
       } catch (err) {
         setError(err.message || "Failed to fetch attendance records");
-        console.error("Fetch attendances error:", err);
+        console.error("fetchAttendances:", err);
+        return null;
       } finally {
         setLoading(false);
       }
@@ -71,58 +82,47 @@ export const useAttendance = () => {
     [fetchAPI],
   );
 
-  // Get my attendance history (for TEAM members)
+  // ── getMyAttendanceHistory ─────────────────────────────────────────────────
   const getMyAttendanceHistory = useCallback(
     async (filters = {}) => {
-      if (!user?._id) return;
+      if (!user?._id) return null;
       return fetchAttendances({ ...filters, userId: user._id });
     },
     [user, fetchAttendances],
   );
 
-  // Get team members (for managers)
+  // ── getTeamMembers ─────────────────────────────────────────────────────────
   const getTeamMembers = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await fetchAPI("/user/getAllUsers");
-
-      if (response?.success) {
-        const users = response.result.users || [];
-
-        // Filter only TEAM role
-        const teamMembers = users.filter((user) => user.role === "TEAM");
-
-        return teamMembers;
+      const res = await fetchAPI("/user/getAllUsers");
+      if (res?.success) {
+        const all = res.result?.users || [];
+        return all.filter((u) => u.role === "TEAM");
       }
-
       return [];
     } catch (err) {
-      console.error("Error fetching team members:", err);
       setError(err.message || "Failed to fetch team members");
+      console.error("getTeamMembers:", err);
       return [];
     } finally {
       setLoading(false);
     }
   }, [fetchAPI]);
 
-  // Get attendance by ID
+  // ── getAttendanceById ──────────────────────────────────────────────────────
   const getAttendanceById = useCallback(
     async (id) => {
       if (!id) {
         setError("Attendance ID is required");
         return null;
       }
-      
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchAPI(`/attendance/${id}`);
-        if (response?.success) {
-          return response.result;
-        }
-        return null;
+        const res = await fetchAPI(`/attendance/${id}`);
+        return res?.success ? res.result : null;
       } catch (err) {
         setError(err.message || "Failed to fetch attendance details");
         return null;
@@ -133,111 +133,119 @@ export const useAttendance = () => {
     [fetchAPI],
   );
 
-  // Punch In
+  // ── punchIn ────────────────────────────────────────────────────────────────
   const punchIn = useCallback(
-    async (formData) => {
+    async (locationData) => {
       setLoading(true);
       setError(null);
       setSuccess(null);
+      
+      // Validate authPunchIn is available
+      if (!authPunchIn) {
+        const error = "Punch in function not available";
+        console.error(error);
+        setError(error);
+        setLoading(false);
+        return { success: false, error };
+      }
+      
       try {
-        // Ensure formData has the required fields
-        if (!(formData instanceof FormData)) {
-          const newFormData = new FormData();
-          Object.entries(formData).forEach(([key, value]) => {
-            newFormData.append(key, value);
-          });
-          formData = newFormData;
-        }
+        // Prepare the punch data
+        const punchData = {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+        };
 
-        const response = await fetchAPI("/attendance/punch-in", {
-          method: "POST",
-          body: formData,
-          headers: {}, // Let browser set content-type for FormData
-        });
-
-        if (response?.success) {
-          setSuccess(response.message || "Punch in successful");
-          // Refresh attendance data
+        console.log("Calling authPunchIn with:", punchData); // Debug log
+        const result = await authPunchIn(punchData);
+        console.log("authPunchIn result:", result); // Debug log
+        
+        if (result?.success) {
+          setSuccess(result.message || "Punch in successful");
           await fetchAttendances();
-          return { success: true, data: response.result };
+        } else {
+          setError(result?.error || "Punch in failed");
         }
-        return { success: false, error: response?.message || "Punch in failed" };
+        return result;
       } catch (err) {
+        console.error("Punch in error:", err);
         setError(err.message || "Punch in failed");
         return { success: false, error: err.message };
       } finally {
         setLoading(false);
       }
     },
-    [fetchAPI, fetchAttendances],
+    [authPunchIn, fetchAttendances],
   );
 
-  // Punch Out
+  // ── punchOut ───────────────────────────────────────────────────────────────
   const punchOut = useCallback(
-    async (formData) => {
+    async (locationData) => {
       setLoading(true);
       setError(null);
       setSuccess(null);
+      
+      // Validate authPunchOut is available
+      if (!authPunchOut) {
+        const error = "Punch out function not available";
+        console.error(error);
+        setError(error);
+        setLoading(false);
+        return { success: false, error };
+      }
+      
       try {
-        // Ensure formData has the required fields
-        if (!(formData instanceof FormData)) {
-          const newFormData = new FormData();
-          Object.entries(formData).forEach(([key, value]) => {
-            newFormData.append(key, value);
-          });
-          formData = newFormData;
-        }
+        // Prepare the punch data
+        const punchData = {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+        };
 
-        const response = await fetchAPI("/attendance/punch-out", {
-          method: "POST",
-          body: formData,
-          headers: {}, // Let browser set content-type for FormData
-        });
-
-        if (response?.success) {
-          setSuccess(response.message || "Punch out successful");
-          // Refresh attendance data
+        console.log("Calling authPunchOut with:", punchData); // Debug log
+        const result = await authPunchOut(punchData);
+        console.log("authPunchOut result:", result); // Debug log
+        
+        if (result?.success) {
+          setSuccess(result.message || "Punch out successful");
           await fetchAttendances();
-          return { success: true, data: response.result };
+        } else {
+          setError(result?.error || "Punch out failed");
         }
-        return { success: false, error: response?.message || "Punch out failed" };
+        return result;
       } catch (err) {
+        console.error("Punch out error:", err);
         setError(err.message || "Punch out failed");
         return { success: false, error: err.message };
       } finally {
         setLoading(false);
       }
     },
-    [fetchAPI, fetchAttendances],
+    [authPunchOut, fetchAttendances],
   );
 
-  // Update attendance (for managers)
+  // ── updateAttendance ───────────────────────────────────────────────────────
   const updateAttendance = useCallback(
     async (id, data) => {
-      // Validate ID
       if (!id) {
-        setError("Attendance ID is required for update");
+        setError("Attendance ID is required");
         return { success: false, error: "Attendance ID is required" };
       }
-
       setLoading(true);
       setError(null);
       setSuccess(null);
       try {
-        const response = await fetchAPI(`/attendance/${id}`, {
+        const res = await fetchAPI(`/attendance/${id}`, {
           method: "PUT",
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
 
-        if (response?.success) {
-          setSuccess(response.message || "Attendance updated successfully");
+        if (res?.success) {
+          setSuccess(res.message || "Attendance updated successfully");
           await fetchAttendances();
-          return { success: true, data: response.result };
+          return { success: true, data: res.result };
         }
-        return { success: false, error: response?.message || "Update failed" };
+        return { success: false, error: res?.message || "Update failed" };
       } catch (err) {
         setError(err.message || "Failed to update attendance");
         return { success: false, error: err.message };
@@ -248,29 +256,24 @@ export const useAttendance = () => {
     [fetchAPI, fetchAttendances],
   );
 
-  // Delete attendance (Head Office only)
+  // ── deleteAttendance ───────────────────────────────────────────────────────
   const deleteAttendance = useCallback(
     async (id) => {
-      // Validate ID
       if (!id) {
-        setError("Attendance ID is required for deletion");
+        setError("Attendance ID is required");
         return { success: false, error: "Attendance ID is required" };
       }
-
       setLoading(true);
       setError(null);
       setSuccess(null);
       try {
-        const response = await fetchAPI(`/attendance/${id}`, {
-          method: "DELETE",
-        });
-
-        if (response?.success) {
-          setSuccess(response.message || "Attendance deleted successfully");
+        const res = await fetchAPI(`/attendance/${id}`, { method: "DELETE" });
+        if (res?.success) {
+          setSuccess(res.message || "Attendance deleted");
           await fetchAttendances();
           return { success: true };
         }
-        return { success: false, error: response?.message || "Delete failed" };
+        return { success: false, error: res?.message || "Delete failed" };
       } catch (err) {
         setError(err.message || "Failed to delete attendance");
         return { success: false, error: err.message };
@@ -281,35 +284,8 @@ export const useAttendance = () => {
     [fetchAPI, fetchAttendances],
   );
 
-  // Get attendance stats
-  const fetchStats = useCallback(
-    async (filters = {}) => {
-      try {
-        const queryParams = new URLSearchParams();
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value) queryParams.append(key, value);
-        });
-
-        const response = await fetchAPI(
-          `/attendance/stats?${queryParams.toString()}`,
-        );
-        if (response?.success) {
-          setSummary(response.result || {});
-        }
-      } catch (err) {
-        console.error("Fetch stats error:", err);
-      }
-    },
-    [fetchAPI],
-  );
-
-  const clearMessages = useCallback(() => {
-    setError(null);
-    setSuccess(null);
-  }, []);
-
   return {
-    // State
+    // state
     attendances,
     todayAttendance,
     loading,
@@ -317,8 +293,7 @@ export const useAttendance = () => {
     success,
     pagination,
     summary,
-
-    // Methods
+    // methods
     fetchAttendances,
     getMyAttendanceHistory,
     getTeamMembers,
@@ -327,7 +302,6 @@ export const useAttendance = () => {
     punchOut,
     updateAttendance,
     deleteAttendance,
-    fetchStats,
     clearMessages,
   };
 };

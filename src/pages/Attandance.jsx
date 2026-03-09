@@ -1,8 +1,13 @@
-// pages/Attandance.jsx (Updated with Mobile View)
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+// pages/Attandance.jsx (Updated with address integration)
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Box,
-  Container,
   Grid,
   Paper,
   Typography,
@@ -10,14 +15,11 @@ import {
   Avatar,
   IconButton,
   Stack,
-  Divider,
   Card,
   CardContent,
-  LinearProgress,
   Button,
   useTheme,
   useMediaQuery,
-  DialogActions,
   Skeleton,
   Dialog,
   Slide,
@@ -29,10 +31,8 @@ import {
   InputLabel,
   Select,
   Pagination,
-  Tooltip,
   Fade,
   Zoom,
-  Grow,
   Badge,
   DialogTitle,
   DialogContent,
@@ -43,167 +43,2371 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
   Collapse,
-  Tab,
-  Tabs,
   Fab,
   SwipeableDrawer,
-  BottomNavigation,InputAdornment,
+  BottomNavigation,
   BottomNavigationAction,
+  InputAdornment,
+  DialogActions,
+  Tooltip,
   alpha,
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
+} from "@mui/material";
+import { styled } from "@mui/material/styles";
 import {
   CalendarToday,
   ChevronLeft,
   ChevronRight,
   AccessTime,
-  TrendingUp,
-  TrendingDown,
   Person,
-  Work,
   CheckCircle,
   Warning,
-  Error,
-  Info,
-  Weekend,
-  EventBusy,
-  WatchLater,
-  Schedule,
+  Error as ErrorIcon,
   Visibility,
-  Edit,
   Delete,
   Login,
   Logout,
   LocationOn,
-  PhotoCamera,
   Close,
-  History,
   Dashboard,
   Group,
-  AdminPanelSettings,
-  PhotoLibrary,
-  ArrowBack,
-  ArrowForward,
-  People,
-  DateRange,
   ExpandMore,
-  ExpandLess,
   Search,
-  FilterList,
-  Download,
-  Print,
-  Add,
   FilterAlt,
-  Sort,
-  ViewList,
-  ViewModule,
-  FiberManualRecord,Refresh,Clear,
-} from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import { useAttendance } from '../hooks/useAttendance';
-import AttendanceDetails from './AttendanceDetails';
-import TeamAttendance from './TeamAttendance';
-import { format } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+  Clear,
+  Refresh,
+  GpsFixed,
+  GpsNotFixed,
+  Timer,
+  PlayArrow,
+  Home,
+  Business,
+} from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
+import { useAttendance } from "../hooks/useAttendance";
+import { useGeo } from "../hooks/useGeo";
+import AttendanceDetails from "./AttendanceDetails";
+import TeamAttendance from "./TeamAttendance";
+import { format, differenceInSeconds } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
-// ========== CONSTANTS & CONFIGURATION ==========
-const PRIMARY_COLOR = "#4569ea";
-const SECONDARY_COLOR = "#1a237e";
+// ─── Constants ────────────────────────────────────────────────────────────────
+const PRIMARY = "#4569ea";
+const SECONDARY = "#1a237e";
+const SUCCESS = "#22c55e";
+const DANGER = "#ef4444";
+const WARNING = "#f59e0b";
 
-// Period Options
+// Roles that should NOT see personal punch-in / punch-out UI
+const MANAGER_ROLES = ["Head_office", "ZSM", "ASM"];
+
 const PERIOD_OPTIONS = [
-  { value: "Today", label: "Today", icon: <CalendarToday /> },
-  { value: "This Week", label: "This Week", icon: <DateRange /> },
-  { value: "This Month", label: "This Month", icon: <DateRange /> },
-  { value: "All", label: "All Time", icon: <DateRange /> },
+  { value: "Today", label: "Today" },
+  { value: "This Week", label: "This Week" },
+  { value: "This Month", label: "This Month" },
+  { value: "All", label: "All Time" },
 ];
 
-// Status Configuration
 const STATUS_CONFIG = {
   present: {
-    bg: alpha("#4caf50", 0.08),
-    color: "#4caf50",
-    icon: <CheckCircle sx={{ fontSize: 16 }} />,
+    bg: alpha(SUCCESS, 0.1),
+    color: SUCCESS,
+    icon: <CheckCircle sx={{ fontSize: 14 }} />,
     label: "Present",
-    order: 1,
   },
   absent: {
-    bg: alpha("#f44336", 0.08),
-    color: "#f44336",
-    icon: <Error sx={{ fontSize: 16 }} />,
+    bg: alpha(DANGER, 0.1),
+    color: DANGER,
+    icon: <ErrorIcon sx={{ fontSize: 14 }} />,
     label: "Absent",
-    order: 2,
   },
   late: {
-    bg: alpha("#ff9800", 0.08),
-    color: "#ff9800",
-    icon: <Warning sx={{ fontSize: 16 }} />,
+    bg: alpha(WARNING, 0.1),
+    color: WARNING,
+    icon: <Warning sx={{ fontSize: 14 }} />,
     label: "Late",
-    order: 3,
   },
   leave: {
-    bg: alpha("#9c27b0", 0.08),
-    color: "#9c27b0",
-    icon: <Person sx={{ fontSize: 16 }} />,
+    bg: alpha("#a855f7", 0.1),
+    color: "#a855f7",
+    icon: <Person sx={{ fontSize: 14 }} />,
     label: "Leave",
-    order: 4,
   },
   holiday: {
-    bg: alpha("#2196f3", 0.08),
-    color: "#2196f3",
-    icon: <Weekend sx={{ fontSize: 16 }} />,
+    bg: alpha("#3b82f6", 0.1),
+    color: "#3b82f6",
+    icon: <CalendarToday sx={{ fontSize: 14 }} />,
     label: "Holiday",
-    order: 5,
   },
 };
 
-// ========== MOBILE FILTER DRAWER ==========
-const MobileFilterDrawer = ({
-  open,
-  onClose,
-  period,
-  setPeriod,
-  statusFilter,
-  setStatusFilter,
-  handleClearFilters,
-  searchQuery,
-  setSearchQuery,
-  sortConfig,
-  setSortConfig,
-  viewMode,
-  setViewMode,
-  activeFilterCount,
-}) => {
-  const [expandedSection, setExpandedSection] = useState("search");
+// ─── useWorkTimer Hook ────────────────────────────────────────────────────────
+function useWorkTimer(initialStartTime = null) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [isActive, setIsActive] = useState(false);
+  const timerRef = useRef(null);
 
-  const toggleSection = (section) => {
-    setExpandedSection(expandedSection === section ? null : section);
+  const formatTime = useCallback((seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }, []);
+
+  const start = useCallback((ts = new Date()) => {
+    setStartTime(ts);
+    setIsActive(true);
+  }, []);
+
+  const stop = useCallback(() => {
+    setIsActive(false);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setElapsedSeconds(0);
+    setStartTime(null);
+    setIsActive(false);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isActive && startTime) {
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(differenceInSeconds(new Date(), new Date(startTime)));
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isActive, startTime]);
+
+  return {
+    elapsedSeconds,
+    formattedTime: formatTime(elapsedSeconds),
+    isActive,
+    start,
+    stop,
+    reset,
   };
+}
 
+// ─── Styled Components ───────────────────────────────────────────────────────
+const GlassCard = styled(Card)(() => ({
+  background: "rgba(255,255,255,0.97)",
+  backdropFilter: "blur(12px)",
+  border: `1px solid ${alpha(PRIMARY, 0.08)}`,
+  boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+  borderRadius: 20,
+}));
+
+const PulsingDot = styled(Box)(({ dotcolor }) => ({
+  width: 9,
+  height: 9,
+  borderRadius: "50%",
+  backgroundColor: dotcolor,
+  flexShrink: 0,
+  animation: "pulseAnim 2s ease-in-out infinite",
+  "@keyframes pulseAnim": {
+    "0%, 100%": { boxShadow: `0 0 0 0px ${dotcolor}55` },
+    "50%": { boxShadow: `0 0 0 6px ${dotcolor}00` },
+  },
+}));
+
+const TimerDisplay = styled(Box)(({ theme, isrunning }) => ({
+  background: `linear-gradient(135deg, ${alpha(PRIMARY, 0.1)} 0%, ${alpha(SECONDARY, 0.1)} 100%)`,
+  borderRadius: 16,
+  padding: theme.spacing(2, 3),
+  border: `1px solid ${alpha(isrunning === "true" ? SUCCESS : PRIMARY, 0.2)}`,
+  boxShadow: `0 4px 12px ${alpha(isrunning === "true" ? SUCCESS : PRIMARY, 0.1)}`,
+}));
+
+// ─── StatusBadge ─────────────────────────────────────────────────────────────
+const StatusBadge = ({ status, size = "small" }) => {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.present;
   return (
-    <SwipeableDrawer
-      anchor="bottom"
-      open={open}
-      onClose={onClose}
-      onOpen={() => {}}
-      disableSwipeToOpen={false}
-      PaperProps={{
-        sx: {
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          maxHeight: "90vh",
-          overflow: "hidden",
+    <Chip
+      size={size}
+      label={cfg.label}
+      icon={cfg.icon}
+      sx={{
+        bgcolor: cfg.bg,
+        color: cfg.color,
+        fontWeight: 700,
+        "& .MuiChip-icon": { color: cfg.color },
+      }}
+    />
+  );
+};
+
+// ─── StatCard ─────────────────────────────────────────────────────────────────
+const StatCard = ({
+  icon: Icon,
+  label,
+  value,
+  color = PRIMARY,
+  sub,
+  loading,
+  index,
+}) => (
+  <Fade in timeout={300 + index * 80}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 2.5 },
+        borderRadius: 3,
+        height: "100%",
+        border: `1px solid ${alpha(color, 0.12)}`,
+        background: `linear-gradient(140deg, #fff 55%, ${alpha(color, 0.05)})`,
+        transition: "transform .2s, box-shadow .2s",
+        "&:hover": {
+          transform: "translateY(-3px)",
+          boxShadow: `0 8px 24px ${alpha(color, 0.14)}`,
         },
       }}
     >
-      <Box sx={{ position: "relative" }}>
-        {/* Drag Handle */}
+      {loading ? (
+        <Skeleton variant="rectangular" height={80} sx={{ borderRadius: 2 }} />
+      ) : (
+        <Stack spacing={1}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-start"
+          >
+            <Box
+              sx={{
+                width: { xs: 34, sm: 42 },
+                height: { xs: 34, sm: 42 },
+                borderRadius: 2,
+                bgcolor: alpha(color, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color,
+              }}
+            >
+              <Icon sx={{ fontSize: { xs: 18, sm: 22 } }} />
+            </Box>
+            <Typography
+              variant="h5"
+              fontWeight={800}
+              color={color}
+              sx={{ fontSize: { xs: "1.2rem", sm: "1.6rem" } }}
+            >
+              {value}
+            </Typography>
+          </Stack>
+          <Box>
+            <Typography
+              variant="body2"
+              fontWeight={700}
+              sx={{ fontSize: { xs: "0.72rem", sm: "0.82rem" } }}
+            >
+              {label}
+            </Typography>
+            {sub && (
+              <Typography variant="caption" color="text.secondary">
+                {sub}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      )}
+    </Paper>
+  </Fade>
+);
+
+// ─── CalCell ──────────────────────────────────────────────────────────────────
+const CalCell = ({
+  day,
+  isSelected,
+  isToday,
+  isWeekend,
+  status,
+  onClick,
+  isPrev,
+}) => {
+  const cfg = STATUS_CONFIG[status];
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        height: { xs: 36, sm: 44 },
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 2,
+        cursor: isPrev ? "default" : "pointer",
+        fontSize: { xs: "0.7rem", sm: "0.8rem" },
+        fontWeight: 600,
+        transition: "all .18s ease",
+        opacity: isPrev ? 0.2 : 1,
+        userSelect: "none",
+        bgcolor: isSelected
+          ? PRIMARY
+          : isToday
+            ? alpha(PRIMARY, 0.12)
+            : cfg
+              ? cfg.bg
+              : "transparent",
+        color: isSelected
+          ? "#fff"
+          : isToday
+            ? PRIMARY
+            : cfg
+              ? cfg.color
+              : isWeekend
+                ? alpha("#000", 0.3)
+                : "text.primary",
+        border:
+          isToday && !isSelected
+            ? `2px solid ${PRIMARY}`
+            : "2px solid transparent",
+        "&:hover": !isPrev
+          ? {
+              bgcolor: isSelected ? PRIMARY : alpha(PRIMARY, 0.1),
+              transform: "scale(1.08)",
+            }
+          : {},
+      }}
+    >
+      {day}
+    </Box>
+  );
+};
+
+// ─── LiveTimer ────────────────────────────────────────────────────────────────
+const LiveTimer = ({ startTime, isRunning }) => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (isRunning) {
+      timerRef.current = setInterval(() => setCurrentTime(new Date()), 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isRunning]);
+
+  if (!startTime || !isRunning) return null;
+
+  const diffMs = currentTime - new Date(startTime);
+  const diffHrs = Math.floor(diffMs / 3600000);
+  const diffMins = Math.floor((diffMs % 3600000) / 60000);
+  const diffSecs = Math.floor((diffMs % 60000) / 1000);
+  const formatted = `${diffHrs.toString().padStart(2, "0")}:${diffMins.toString().padStart(2, "0")}:${diffSecs.toString().padStart(2, "0")}`;
+
+  return (
+    <TimerDisplay isrunning="true">
+      <Stack direction="row" spacing={2} alignItems="center">
+        <Box
+          sx={{
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            bgcolor: alpha(SUCCESS, 0.15),
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Timer sx={{ color: SUCCESS }} />
+        </Box>
+        <Box>
+          <Typography
+            variant="caption"
+            sx={{ color: "rgba(255,255,255,0.85)", fontWeight: 700 }}
+          >
+            Current Session Duration
+          </Typography>
+          <Typography variant="h4" fontWeight={800} color={SUCCESS}>
+            {formatted}
+          </Typography>
+        </Box>
+        <Box sx={{ flex: 1, textAlign: "right" }}>
+          <Chip
+            icon={<PlayArrow />}
+            label="LIVE"
+            size="small"
+            sx={{
+              bgcolor: alpha(SUCCESS, 0.15),
+              color: SUCCESS,
+              fontWeight: 700,
+              animation: "pulse 1.5s infinite",
+              "@keyframes pulse": {
+                "0%, 100%": { opacity: 1 },
+                "50%": { opacity: 0.5 },
+              },
+            }}
+          />
+        </Box>
+      </Stack>
+    </TimerDisplay>
+  );
+};
+
+// ─── PunchModal ───────────────────────────────────────────────────────────────
+const PunchModal = ({
+  open,
+  mode,
+  onClose,
+  onConfirm,
+  punchLoading,
+  geo,
+  timer,
+}) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isPunchIn = mode === "in";
+  const accentColor = isPunchIn ? SUCCESS : DANGER;
+  const [tick, setTick] = useState(new Date());
+  const [fetchingAddress, setFetchingAddress] = useState(false);
+  const [showFullAddress, setShowFullAddress] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setInterval(() => setTick(new Date()), 1000);
+    return () => clearInterval(t);
+  }, [open]);
+
+  // Fetch address when location is available
+  useEffect(() => {
+    const getAddress = async () => {
+      if (geo.latitude && geo.longitude && !geo.address && !fetchingAddress && open) {
+        setFetchingAddress(true);
+        try {
+          // Use the refreshAddress method if available, otherwise fetch directly
+          if (geo.refreshAddress) {
+            await geo.refreshAddress();
+          } else {
+            // Fallback: fetch address directly
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${geo.latitude}&lon=${geo.longitude}&zoom=18&addressdetails=1`;
+            const response = await fetch(url, {
+              headers: {
+                'Accept-Language': 'en',
+                'User-Agent': 'AttendanceApp/1.0'
+              }
+            });
+            const data = await response.json();
+            if (data) {
+              geo.address = {
+                full: data.display_name,
+                short: data.address?.road 
+                  ? `${data.address.road}${data.address.house_number ? ' ' + data.address.house_number : ''}`
+                  : data.display_name?.split(',')[0] || 'Unknown location',
+                ...data.address
+              };
+            }
+          }
+        } catch (error) {
+          console.error('Address fetch failed:', error);
+        } finally {
+          setFetchingAddress(false);
+        }
+      }
+    };
+    
+    if (open && geo.latitude && !geo.address) {
+      getAddress();
+    }
+  }, [open, geo.latitude, geo.longitude, geo.address, geo, fetchingAddress]);
+
+  const showTimer = !isPunchIn && timer?.isActive && timer?.formattedTime;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={punchLoading ? undefined : onClose}
+      maxWidth="xs"
+      fullWidth
+      fullScreen={isMobile}
+      TransitionComponent={isMobile ? Slide : Zoom}
+      TransitionProps={isMobile ? { direction: "up" } : {}}
+      PaperProps={{
+        sx: { borderRadius: isMobile ? 0 : 4, overflow: "hidden" },
+      }}
+    >
+      <Box
+        sx={{
+          height: 5,
+          background: `linear-gradient(90deg, ${PRIMARY}, ${accentColor})`,
+        }}
+      />
+
+      <DialogTitle
+        sx={{
+          pb: 1,
+          pt: 2.5,
+          px: { xs: 2, sm: 3 },
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box
+            sx={{
+              width: 46,
+              height: 46,
+              borderRadius: "50%",
+              bgcolor: alpha(accentColor, 0.12),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {isPunchIn ? (
+              <Login sx={{ color: accentColor, fontSize: 24 }} />
+            ) : (
+              <Logout sx={{ color: accentColor, fontSize: 24 }} />
+            )}
+          </Box>
+          <Box>
+            <Typography variant="h6" fontWeight={800} lineHeight={1.2}>
+              {isPunchIn ? "Punch In" : "Punch Out"}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {format(tick, "EEEE, dd MMM yyyy")}
+            </Typography>
+          </Box>
+        </Stack>
+        <IconButton
+          onClick={onClose}
+          disabled={punchLoading}
+          size="small"
+          sx={{
+            bgcolor: alpha("#000", 0.05),
+            "&:hover": { bgcolor: alpha("#000", 0.1) },
+          }}
+        >
+          <Close fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ px: { xs: 2, sm: 3 }, pt: 1.5, pb: 2 }}>
+        <Stack spacing={2.5}>
+          {/* Live clock */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              textAlign: "center",
+              background: `linear-gradient(135deg, ${alpha(accentColor, 0.07)}, ${alpha(PRIMARY, 0.04)})`,
+              border: `1px solid ${alpha(accentColor, 0.15)}`,
+            }}
+          >
+            <Typography
+              variant="h2"
+              fontWeight={900}
+              lineHeight={1}
+              sx={{
+                color: accentColor,
+                fontSize: { xs: "2.8rem", sm: "3.5rem" },
+                letterSpacing: -2,
+              }}
+            >
+              {format(tick, "hh:mm")}
+              <Typography
+                component="span"
+                variant="h5"
+                fontWeight={600}
+                color="text.secondary"
+                sx={{ ml: 0.75, letterSpacing: 0 }}
+              >
+                {format(tick, "ss")}
+              </Typography>
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {format(tick, "a")} · Current Time
+            </Typography>
+          </Paper>
+
+          {/* Session timer (punch-out only) */}
+          {showTimer && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                borderRadius: 2.5,
+                bgcolor: alpha(SUCCESS, 0.08),
+                border: `1px solid ${alpha(SUCCESS, 0.2)}`,
+              }}
+            >
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    bgcolor: alpha(SUCCESS, 0.15),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Timer sx={{ color: SUCCESS, fontSize: 20 }} />
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Current Session
+                  </Typography>
+                  <Typography variant="h5" fontWeight={800} color={SUCCESS}>
+                    {timer.formattedTime}
+                  </Typography>
+                </Box>
+                <Chip
+                  size="small"
+                  label="LIVE"
+                  sx={{
+                    bgcolor: alpha(SUCCESS, 0.2),
+                    color: SUCCESS,
+                    fontWeight: 700,
+                    ml: "auto",
+                  }}
+                />
+              </Stack>
+            </Paper>
+          )}
+
+          {/* Enhanced Location status with address */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              borderRadius: 2.5,
+              border: `1px solid ${alpha(
+                geo.loading
+                  ? PRIMARY
+                  : geo.error
+                    ? DANGER
+                    : geo.latitude
+                      ? SUCCESS
+                      : "#000",
+                0.25,
+              )}`,
+              bgcolor: alpha(
+                geo.loading
+                  ? PRIMARY
+                  : geo.error
+                    ? DANGER
+                    : geo.latitude
+                      ? SUCCESS
+                      : "#000",
+                0.04,
+              ),
+            }}
+          >
+            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+              <Box
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: "50%",
+                  flexShrink: 0,
+                  bgcolor: alpha(
+                    geo.loading
+                      ? PRIMARY
+                      : geo.error
+                        ? DANGER
+                        : geo.latitude
+                          ? SUCCESS
+                          : "#000",
+                    0.1,
+                  ),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {geo.loading ? (
+                  <CircularProgress size={18} sx={{ color: PRIMARY }} />
+                ) : geo.error ? (
+                  <GpsNotFixed sx={{ fontSize: 18, color: DANGER }} />
+                ) : geo.latitude ? (
+                  <GpsFixed sx={{ fontSize: 18, color: SUCCESS }} />
+                ) : (
+                  <LocationOn sx={{ fontSize: 18, color: "text.secondary" }} />
+                )}
+              </Box>
+              <Box flex={1} minWidth={0}>
+                <Typography variant="body2" fontWeight={700}>
+                  {geo.loading
+                    ? "Detecting your location…"
+                    : geo.error
+                      ? "Location unavailable"
+                      : geo.latitude
+                        ? geo.address?.short || "Location acquired"
+                        : "Location not fetched"}
+                </Typography>
+                
+                {/* Full address display with expand/collapse */}
+                {geo.address?.full && (
+                  <Box sx={{ mt: 0.5 }}>
+                    <Stack 
+                      direction="row" 
+                      spacing={0.5} 
+                      alignItems="center"
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => setShowFullAddress(!showFullAddress)}
+                    >
+                      <Home sx={{ fontSize: 14, color: 'text.secondary' }} />
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary" 
+                        sx={{ 
+                          lineHeight: 1.3,
+                          ...(!showFullAddress && {
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '200px'
+                          })
+                        }}
+                      >
+                        {showFullAddress ? geo.address.full : geo.address.full.split(',')[0]}
+                      </Typography>
+                      <ExpandMore 
+                        sx={{ 
+                          fontSize: 14, 
+                          color: 'text.secondary',
+                          transform: showFullAddress ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 0.2s'
+                        }} 
+                      />
+                    </Stack>
+                    
+                    {/* Additional address details */}
+                    {showFullAddress && geo.address.city && (
+                      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, ml: 2.5 }}>
+                        <Business sx={{ fontSize: 12, color: 'text.disabled' }} />
+                        <Typography variant="caption" color="text.disabled">
+                          {[geo.address.city, geo.address.state, geo.address.country]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </Typography>
+                      </Stack>
+                    )}
+                  </Box>
+                )}
+                
+                {/* Coordinates fallback */}
+                {geo.latitude && !geo.error && !geo.address && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    📍 {geo.latitude.toFixed(5)}, {geo.longitude.toFixed(5)}
+                    {geo.accuracy && ` (±${Math.round(geo.accuracy)}m)`}
+                  </Typography>
+                )}
+                
+                {/* Fetching address indicator */}
+                {fetchingAddress && (
+                  <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
+                    <CircularProgress size={12} sx={{ color: PRIMARY }} />
+                    <Typography variant="caption" color="primary">
+                      Getting precise address...
+                    </Typography>
+                  </Stack>
+                )}
+                
+                {/* Error message */}
+                {geo.error && (
+                  <Typography
+                    variant="caption"
+                    color="error"
+                    sx={{ display: "block", lineHeight: 1.3, mt: 0.25 }}
+                  >
+                    {geo.error}
+                  </Typography>
+                )}
+              </Box>
+              {(geo.error || !geo.latitude) && !geo.loading && (
+                <IconButton
+                  size="small"
+                  onClick={() => geo.fetchLocation(true)}
+                  sx={{ bgcolor: alpha(PRIMARY, 0.08), flexShrink: 0 }}
+                >
+                  <Refresh fontSize="small" sx={{ color: PRIMARY }} />
+                </IconButton>
+              )}
+            </Stack>
+          </Paper>
+
+          {geo.error && (
+            <Alert severity="error" sx={{ borderRadius: 2, py: 0.75 }}>
+              Location is required to punch in/out. Please allow access and tap
+              retry.
+            </Alert>
+          )}
+        </Stack>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          px: { xs: 2, sm: 3 },
+          py: { xs: 2, sm: 2.5 },
+          gap: 1.5,
+          flexDirection: { xs: "column", sm: "row" },
+          borderTop: `1px solid ${alpha(PRIMARY, 0.08)}`,
+        }}
+      >
+        <Button
+          fullWidth={isMobile}
+          variant="outlined"
+          onClick={onClose}
+          disabled={punchLoading}
+          sx={{
+            borderRadius: 2.5,
+            px: 3,
+            borderColor: alpha(PRIMARY, 0.35),
+            color: PRIMARY,
+            order: isMobile ? 2 : 1,
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          fullWidth={isMobile}
+          variant="contained"
+          onClick={onConfirm}
+          disabled={
+            punchLoading || 
+            geo.loading || 
+            (!geo.latitude && !geo.loading) ||
+            fetchingAddress // Disable while fetching address
+          }
+          startIcon={
+            punchLoading ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : isPunchIn ? (
+              <Login />
+            ) : (
+              <Logout />
+            )
+          }
+          sx={{
+            borderRadius: 2.5,
+            px: 3,
+            fontWeight: 700,
+            order: isMobile ? 1 : 2,
+            bgcolor: accentColor,
+            "&:hover": { bgcolor: isPunchIn ? "#16a34a" : "#dc2626" },
+          }}
+        >
+          {punchLoading
+            ? "Processing…"
+            : fetchingAddress
+              ? "Getting address…"
+              : isPunchIn
+                ? "Confirm Punch In"
+                : "Confirm Punch Out"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ─── MobileLogCard ────────────────────────────────────────────────────────────
+const MobileLogCard = ({ entry, onView, onDelete, canDelete, index }) => {
+  const [exp, setExp] = useState(false);
+  const cfg = STATUS_CONFIG[entry.status] || STATUS_CONFIG.present;
+  const d = new Date(entry.date);
+  const ft = (ts) =>
+    ts
+      ? new Date(ts).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "—";
+
+  // Get address from punch in
+  const punchInAddress = entry.punchIn?.address;
+  const punchOutAddress = entry.punchOut?.address;
+
+  return (
+    <Fade in timeout={350 + index * 50}>
+      <Paper
+        sx={{
+          mb: 1.5,
+          borderRadius: 3,
+          border: `1px solid ${alpha(cfg.color, 0.2)}`,
+          overflow: "hidden",
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-start"
+            sx={{ mb: 1.5 }}
+          >
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Box
+                sx={{
+                  bgcolor: cfg.bg,
+                  borderRadius: 2,
+                  px: 1.25,
+                  py: 0.75,
+                  textAlign: "center",
+                  minWidth: 52,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  fontWeight={800}
+                  color={cfg.color}
+                  sx={{
+                    display: "block",
+                    lineHeight: 1,
+                    fontSize: "0.62rem",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  {d.toLocaleString("default", { month: "short" })}
+                </Typography>
+                <Typography
+                  variant="h6"
+                  fontWeight={900}
+                  lineHeight={1.1}
+                  color={cfg.color}
+                >
+                  {d.getDate()}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  {d.toLocaleDateString("en-US", { weekday: "long" })}
+                </Typography>
+                <StatusBadge status={entry.status || "present"} />
+              </Box>
+            </Stack>
+            <IconButton
+              size="small"
+              onClick={() => setExp(!exp)}
+              sx={{
+                bgcolor: alpha(cfg.color, 0.08),
+                transform: exp ? "rotate(180deg)" : "none",
+                transition: "transform .25s",
+              }}
+            >
+              <ExpandMore fontSize="small" />
+            </IconButton>
+          </Stack>
+
+          <Grid container spacing={1} sx={{ mb: 1.5 }}>
+            {[
+              ["Punch In", ft(entry.punchIn?.time), SUCCESS],
+              [
+                "Punch Out",
+                entry.punchOut ? ft(entry.punchOut.time) : "Ongoing",
+                entry.punchOut ? WARNING : PRIMARY,
+              ],
+              ["Hours", entry.workHoursFormatted || "—", PRIMARY],
+            ].map(([l, v, c]) => (
+              <Grid item xs={4} key={l}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: "block", mb: 0.25, fontSize: "0.68rem" }}
+                >
+                  {l}
+                </Typography>
+                <Typography variant="body2" fontWeight={700} color={c}>
+                  {v}
+                </Typography>
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Punch In Address */}
+          {punchInAddress && (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="flex-start"
+              sx={{ mb: 0.5 }}
+            >
+              <LocationOn sx={{ fontSize: 13, color: "text.disabled", mt: 0.2 }} />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ lineHeight: 1.3 }}
+              >
+                <strong>In:</strong> {punchInAddress.short || punchInAddress.full?.split(',')[0] || 'Unknown'}
+              </Typography>
+            </Stack>
+          )}
+
+          {/* Punch Out Address */}
+          {punchOutAddress && (
+            <Stack
+              direction="row"
+              spacing={0.5}
+              alignItems="flex-start"
+              sx={{ mb: 0.5 }}
+            >
+              <LocationOn sx={{ fontSize: 13, color: "text.disabled", mt: 0.2 }} />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ lineHeight: 1.3 }}
+              >
+                <strong>Out:</strong> {punchOutAddress.short || punchOutAddress.full?.split(',')[0] || 'Unknown'}
+              </Typography>
+            </Stack>
+          )}
+
+          <Collapse in={exp}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                mt: 2,
+                pt: 2,
+                borderTop: `1px dashed ${alpha(cfg.color, 0.2)}`,
+              }}
+            >
+              <Button
+                fullWidth
+                size="small"
+                variant="contained"
+                startIcon={<Visibility />}
+                onClick={() => onView(entry)}
+                sx={{
+                  borderRadius: 2,
+                  bgcolor: PRIMARY,
+                  "&:hover": { bgcolor: SECONDARY },
+                }}
+              >
+                View
+              </Button>
+              {canDelete && (
+                <Button
+                  fullWidth
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<Delete />}
+                  onClick={() => onDelete(entry)}
+                  sx={{ borderRadius: 2 }}
+                >
+                  Delete
+                </Button>
+              )}
+            </Stack>
+          </Collapse>
+        </Box>
+      </Paper>
+    </Fade>
+  );
+};
+
+// ─── LoadingSkeleton ──────────────────────────────────────────────────────────
+const LoadingSkeleton = () => (
+  <Box sx={{ p: { xs: 2, sm: 3 } }}>
+    <Grid container spacing={2} sx={{ mb: 3 }}>
+      {[1, 2, 3, 4].map((i) => (
+        <Grid item xs={6} sm={3} key={i}>
+          <Skeleton
+            variant="rectangular"
+            height={100}
+            sx={{ borderRadius: 3 }}
+          />
+        </Grid>
+      ))}
+    </Grid>
+    <Skeleton
+      variant="rectangular"
+      height={56}
+      sx={{ borderRadius: 2, mb: 2 }}
+    />
+    <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 3 }} />
+  </Box>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+export default function Attandance() {
+  const theme = useTheme();
+  const navigate = useNavigate();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const { user, getUserRole } = useAuth();
+  const {
+    attendances,
+    loading,
+    error,
+    success,
+    pagination,
+    summary,
+    fetchAttendances,
+    punchIn,
+    punchOut,
+    deleteAttendance,
+    clearMessages,
+  } = useAttendance();
+
+  const geo = useGeo();
+  const timer = useWorkTimer();
+
+  // ─── Role flags ─────────────────────────────────────────────────────────────
+  const userRole = getUserRole();
+  const isTeam = userRole === "TEAM";
+  const canManage = MANAGER_ROLES.includes(userRole);
+  const canDelete = userRole === "Head_office";
+
+  /**
+   * Manager roles (Head_office, ZSM, ASM) do NOT see punch-in / punch-out UI.
+   * They manage teams but do not clock attendance personally via this app.
+   */
+  const isManagerRole = MANAGER_ROLES.includes(userRole);
+
+  // ─── Today's attendance ──────────────────────────────────────────────────────
+  const [todayAtt, setTodayAtt] = useState(null);
+
+  useEffect(() => {
+    const ts = new Date().toDateString();
+    const found =
+      attendances?.find((a) => new Date(a.date).toDateString() === ts) || null;
+    setTodayAtt(found);
+
+    if (found?.punchIn && !found?.punchOut) {
+      timer.start(found.punchIn.time);
+    } else if (found?.punchOut) {
+      timer.stop();
+    } else {
+      timer.reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendances]);
+
+  const hasPunchedIn = !!todayAtt?.punchIn;
+  const hasPunchedOut = !!todayAtt?.punchOut;
+
+  // ─── State ───────────────────────────────────────────────────────────────────
+  const [period, setPeriod] = useState("Today");
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 10,
+    status: "",
+    search: "",
+  });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+  const [selLog, setSelLog] = useState(null);
+  const [logOpen, setLogOpen] = useState(false);
+  const [showTeam, setShowTeam] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [navValue, setNavValue] = useState(0);
+  const [punchModal, setPunchModal] = useState({ open: false, mode: "in" });
+  const [punchLoading, setPunchLoading] = useState(false);
+  const containerRef = useRef(null);
+
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (filters.search) n++;
+    if (filters.status) n++;
+    if (period !== "Today") n++;
+    return n;
+  }, [filters, period]);
+
+  // ─── Load data ───────────────────────────────────────────────────────────────
+  const loadData = useCallback(async () => {
+    const q = {
+      page: filters.page,
+      limit: filters.limit,
+      ...(filters.status && { status: filters.status }),
+      ...(filters.search && { search: filters.search }),
+      ...(isTeam && user?._id && { userId: user._id }),
+      ...(period !== "All" && {
+        period: period.toLowerCase().replace(" ", "_"),
+      }),
+    };
+    await fetchAttendances(q);
+  }, [filters, period, isTeam, user, fetchAttendances]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (error) setSnackbar({ open: true, message: error, severity: "error" });
+    if (success)
+      setSnackbar({ open: true, message: success, severity: "success" });
+  }, [error, success]);
+
+  // ─── Punch handlers ──────────────────────────────────────────────────────────
+  const openPunchModal = useCallback(
+    async (mode) => {
+      if (mode === "in" && hasPunchedIn) {
+        setSnackbar({
+          open: true,
+          message: hasPunchedOut
+            ? "You have already completed attendance for today. See you tomorrow!"
+            : "You are already punched in. Use Punch Out when you are done.",
+          severity: "warning",
+        });
+        return;
+      }
+      if (mode === "out" && hasPunchedOut) {
+        setSnackbar({
+          open: true,
+          message: "You have already punched out for today.",
+          severity: "info",
+        });
+        return;
+      }
+      setPunchModal({ open: true, mode });
+      // Pre-fetch fresh location — errors shown inside the modal
+      try {
+        await geo.fetchLocation(true); // Pass true to include address
+      } catch {
+        /* shown in modal */
+      }
+    },
+    [geo, hasPunchedIn, hasPunchedOut],
+  );
+
+  /**
+   * Handle punch confirmation with full address
+   */
+  const handlePunchConfirm = useCallback(async () => {
+    if (punchModal.mode === "in" && hasPunchedIn) {
+      setSnackbar({
+        open: true,
+        message: "Already punched in for today.",
+        severity: "warning",
+      });
+      setPunchModal((s) => ({ ...s, open: false }));
+      return;
+    }
+    if (punchModal.mode === "out" && hasPunchedOut) {
+      setSnackbar({
+        open: true,
+        message: "Already punched out for today.",
+        severity: "info",
+      });
+      setPunchModal((s) => ({ ...s, open: false }));
+      return;
+    }
+
+    setPunchLoading(true);
+    try {
+      let latitude = geo.latitude;
+      let longitude = geo.longitude;
+      let address = geo.address;
+
+      // If location not yet fetched, try one more time
+      if (latitude === null || longitude === null) {
+        try {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+              resolve,
+              reject,
+              {
+                enableHighAccuracy: true,
+                timeout: 30000,
+                maximumAge: 0,
+              }
+            );
+          });
+          
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+          
+          // Fetch address for the new coordinates
+          if (!address) {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
+            const response = await fetch(url, {
+              headers: { 
+                'Accept-Language': 'en',
+                'User-Agent': 'AttendanceApp/1.0'
+              }
+            });
+            const data = await response.json();
+            address = {
+              full: data.display_name,
+              short: data.address?.road 
+                ? `${data.address.road}${data.address.house_number ? ' ' + data.address.house_number : ''}`
+                : data.display_name?.split(',')[0] || 'Unknown location',
+              road: data.address?.road,
+              houseNumber: data.address?.house_number,
+              city: data.address?.city || data.address?.town || data.address?.village,
+              state: data.address?.state,
+              country: data.address?.country,
+              postcode: data.address?.postcode
+            };
+          }
+        } catch (locationError) {
+          console.error("Location fetch error:", locationError);
+          setSnackbar({
+            open: true,
+            message: "Unable to get your precise location. Please ensure GPS is enabled and try again.",
+            severity: "error",
+          });
+          setPunchLoading(false);
+          return;
+        }
+      }
+
+      // Validate coordinates
+      if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+        setSnackbar({
+          open: true,
+          message: "Could not get valid location. Please try again.",
+          severity: "error",
+        });
+        setPunchLoading(false);
+        return;
+      }
+
+      const fn = punchModal.mode === "in" ? punchIn : punchOut;
+      const label = punchModal.mode === "in" ? "Punch in" : "Punch out";
+
+      // Include complete location data
+      const result = await fn({
+        latitude: parseFloat(latitude.toFixed(6)),
+        longitude: parseFloat(longitude.toFixed(6)),
+        accuracy: geo.accuracy,
+        address: address
+      });
+
+      if (result?.success) {
+        setSnackbar({
+          open: true,
+          message: `${label} successful!`,
+          severity: "success",
+        });
+        setPunchModal({ open: false, mode: "in" });
+        await loadData();
+        
+        // Start timer if punch in was successful
+        if (punchModal.mode === "in") {
+          timer.start(new Date());
+        }
+      } else {
+        setSnackbar({
+          open: true,
+          message: result?.error || `${label} failed`,
+          severity: "error",
+        });
+      }
+    } catch (e) {
+      console.error("Punch error:", e);
+      setSnackbar({
+        open: true,
+        message: e.message || "Punch failed",
+        severity: "error",
+      });
+    } finally {
+      setPunchLoading(false);
+    }
+  }, [
+    geo,
+    punchModal.mode,
+    hasPunchedIn,
+    hasPunchedOut,
+    punchIn,
+    punchOut,
+    loadData,
+    timer,
+  ]);
+
+  // ─── Calendar ────────────────────────────────────────────────────────────────
+  const calendarDays = useMemo(() => {
+    const y = currentMonth.getFullYear();
+    const m = currentMonth.getMonth();
+    const firstDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const days = [];
+
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const d = new Date(y, m, -i);
+      days.push({ day: d.getDate(), date: d, isPrev: true });
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(y, m, i);
+      const att = attendances?.find(
+        (a) => new Date(a.date).toDateString() === date.toDateString(),
+      );
+      days.push({ day: i, date, status: att?.status, att });
+    }
+    return days;
+  }, [currentMonth, attendances]);
+
+  const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+  // ─── Misc handlers ────────────────────────────────────────────────────────────
+  const handleDateSelect = useCallback(
+    (d) => {
+      setSelectedDate(d);
+      const att = attendances?.find(
+        (a) => new Date(a.date).toDateString() === d.toDateString(),
+      );
+      if (att) {
+        setSelLog(att);
+        setLogOpen(true);
+      }
+    },
+    [attendances],
+  );
+
+  const handleDeleteOpen = useCallback((att) => {
+    setDeleteTarget(att);
+    setDeleteOpen(true);
+  }, []);
+  
+  const handleDeleteConfirm = useCallback(async () => {
+    const id = deleteTarget?._id || deleteTarget?.id;
+    if (!id) {
+      setDeleteOpen(false);
+      return;
+    }
+    const res = await deleteAttendance(id);
+    if (res?.success) await loadData();
+    setDeleteOpen(false);
+    setDeleteTarget(null);
+  }, [deleteTarget, deleteAttendance, loadData]);
+
+  const clearFilters = useCallback(() => {
+    setFilters({ page: 1, limit: 10, status: "", search: "" });
+    setPeriod("Today");
+  }, []);
+
+  const setFilter = (key) => (val) =>
+    setFilters((prev) => ({ ...prev, [key]: val, page: 1 }));
+
+  const fmtDate = (ts) =>
+    !ts
+      ? "—"
+      : new Date(ts).toLocaleDateString("en-US", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+
+  const fmtTime = (ts) =>
+    !ts
+      ? "—"
+      : new Date(ts).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+  if (loading && !attendances?.length) return <LoadingSkeleton />;
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
+  return (
+    <Box
+      ref={containerRef}
+      sx={{
+        p: { xs: 1.5, sm: 2, md: 3 },
+        minHeight: "100vh",
+        pb: { xs: 9, sm: 3 },
+        bgcolor: "#f4f6fb",
+      }}
+    >
+      {/* Punch Modal — only rendered when needed */}
+      <PunchModal
+        open={punchModal.open}
+        mode={punchModal.mode}
+        onClose={() =>
+          !punchLoading && setPunchModal((s) => ({ ...s, open: false }))
+        }
+        onConfirm={handlePunchConfirm}
+        punchLoading={punchLoading}
+        geo={geo}
+        timer={timer}
+      />
+
+      {/* ─── Header ──────────────────────────────────────────────────────── */}
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 2, sm: 3 },
+          mb: 3,
+          borderRadius: 3,
+          background: `linear-gradient(135deg, ${PRIMARY} 0%, ${SECONDARY} 100%)`,
+          color: "#fff",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* Decorative blobs */}
+        {[
+          { w: 200, h: 200, t: -70, r: -50 },
+          { w: 120, h: 120, t: 20, r: 100 },
+        ].map((b, i) => (
+          <Box
+            key={i}
+            sx={{
+              position: "absolute",
+              width: b.w,
+              height: b.h,
+              borderRadius: "50%",
+              bgcolor: "#fff",
+              opacity: i === 0 ? 0.05 : 0.04,
+              top: b.t,
+              right: b.r,
+              pointerEvents: "none",
+            }}
+          />
+        ))}
+
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+        >
+          <Box>
+            <Typography variant={isMobile ? "h6" : "h5"} fontWeight={800}>
+              Attendance Dashboard
+            </Typography>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ mt: 0.5 }}
+            >
+              <PulsingDot
+                dotcolor={
+                  !isManagerRole && hasPunchedIn && !hasPunchedOut
+                    ? SUCCESS
+                    : "rgba(255,255,255,0.5)"
+                }
+              />
+              <Typography variant="caption" sx={{ opacity: 0.85 }}>
+                {isManagerRole
+                  ? `Managing as ${userRole}`
+                  : hasPunchedIn && !hasPunchedOut
+                    ? "Currently clocked in"
+                    : hasPunchedOut
+                      ? "Clocked out for today"
+                      : "Not clocked in today"}
+              </Typography>
+            </Stack>
+          </Box>
+
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            {/*
+              Punch In / Punch Out buttons are HIDDEN for manager roles.
+              Head_office, ZSM, ASM manage teams and do not personally punch attendance.
+              Only TEAM role and other non-manager users see these buttons.
+            */}
+            {!showTeam && !isManagerRole && (
+              <>
+                {/* Not punched in yet */}
+                {!hasPunchedIn && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Login />}
+                    onClick={() => openPunchModal("in")}
+                    size={isMobile ? "small" : "medium"}
+                    sx={{
+                      bgcolor: SUCCESS,
+                      fontWeight: 700,
+                      borderRadius: 2.5,
+                      "&:hover": { bgcolor: "#16a34a" },
+                      boxShadow: `0 4px 12px ${alpha(SUCCESS, 0.4)}`,
+                    }}
+                  >
+                    Punch In
+                  </Button>
+                )}
+
+                {/* Punched in but not out */}
+                {hasPunchedIn && !hasPunchedOut && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Logout />}
+                    onClick={() => openPunchModal("out")}
+                    size={isMobile ? "small" : "medium"}
+                    sx={{
+                      bgcolor: DANGER,
+                      fontWeight: 700,
+                      borderRadius: 2.5,
+                      "&:hover": { bgcolor: "#dc2626" },
+                      boxShadow: `0 4px 12px ${alpha(DANGER, 0.4)}`,
+                    }}
+                  >
+                    Punch Out
+                  </Button>
+                )}
+
+                {/* Day complete */}
+                {hasPunchedIn && hasPunchedOut && (
+                  <Tooltip title="Attendance complete for today" arrow>
+                    <span>
+                      <Button
+                        variant="contained"
+                        startIcon={<CheckCircle />}
+                        disabled
+                        size={isMobile ? "small" : "medium"}
+                        sx={{
+                          fontWeight: 700,
+                          borderRadius: 2.5,
+                          bgcolor: "rgba(255,255,255,.15) !important",
+                          color: "rgba(255,255,255,.6) !important",
+                          cursor: "not-allowed",
+                        }}
+                      >
+                        Day Complete
+                      </Button>
+                    </span>
+                  </Tooltip>
+                )}
+              </>
+            )}
+
+            <Button
+              variant="contained"
+              startIcon={<Refresh />}
+              onClick={loadData}
+              disabled={loading}
+              size={isMobile ? "small" : "medium"}
+              sx={{
+                bgcolor: "rgba(255,255,255,.15)",
+                color: "#fff",
+                borderRadius: 2.5,
+                "&:hover": { bgcolor: "rgba(255,255,255,.25)" },
+              }}
+            >
+              Refresh
+            </Button>
+
+            {isMobile && (
+              <Button
+                variant="contained"
+                startIcon={<FilterAlt />}
+                onClick={() => setDrawerOpen(true)}
+                size="small"
+                sx={{
+                  bgcolor: "rgba(255,255,255,.15)",
+                  color: "#fff",
+                  borderRadius: 2.5,
+                  "&:hover": { bgcolor: "rgba(255,255,255,.25)" },
+                  position: "relative",
+                }}
+              >
+                Filter
+                {activeFilterCount > 0 && (
+                  <Badge
+                    badgeContent={activeFilterCount}
+                    color="error"
+                    sx={{ position: "absolute", top: -8, right: -8 }}
+                  />
+                )}
+              </Button>
+            )}
+
+            {canManage && (
+              <Button
+                variant="contained"
+                startIcon={<Group />}
+                onClick={() => setShowTeam((v) => !v)}
+                size={isMobile ? "small" : "medium"}
+                sx={{
+                  bgcolor: showTeam
+                    ? "rgba(255,255,255,.35)"
+                    : "rgba(255,255,255,.15)",
+                  color: "#fff",
+                  borderRadius: 2.5,
+                  "&:hover": { bgcolor: "rgba(255,255,255,.3)" },
+                }}
+              >
+                {showTeam ? "My View" : "Team"}
+              </Button>
+            )}
+          </Stack>
+        </Stack>
+
+        {/*
+          Live timer hidden for manager roles — they don't punch in personally.
+        */}
+        {!isManagerRole && hasPunchedIn && !hasPunchedOut && !showTeam && (
+          <Box sx={{ mt: 2 }}>
+            <LiveTimer startTime={todayAtt?.punchIn?.time} isRunning={true} />
+          </Box>
+        )}
+
+        {/*
+          Today's summary bar hidden for manager roles.
+        */}
+        {!isManagerRole && !showTeam && (hasPunchedIn || hasPunchedOut) && (
+          <Box
+            sx={{ mt: 2, pt: 2, borderTop: "1px solid rgba(255,255,255,.15)" }}
+          >
+            <Stack direction="row" spacing={3} flexWrap="wrap">
+              {[
+                todayAtt?.punchIn && [
+                  "Punch In",
+                  fmtTime(todayAtt.punchIn.time),
+                ],
+                todayAtt?.punchOut && [
+                  "Punch Out",
+                  fmtTime(todayAtt.punchOut.time),
+                ],
+                todayAtt?.workHoursFormatted && [
+                  "Work Hours",
+                  todayAtt.workHoursFormatted,
+                ],
+                todayAtt?.status && [
+                  "Status",
+                  todayAtt.status.charAt(0).toUpperCase() +
+                    todayAtt.status.slice(1),
+                ],
+              ]
+                .filter(Boolean)
+                .map(([label, value]) => (
+                  <Box key={label}>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.7, display: "block" }}
+                    >
+                      {label}
+                    </Typography>
+                    <Typography variant="body2" fontWeight={700}>
+                      {value}
+                    </Typography>
+                  </Box>
+                ))}
+            </Stack>
+          </Box>
+        )}
+      </Paper>
+
+      {showTeam && canManage ? (
+        <TeamAttendance />
+      ) : (
+        <>
+          {/* ─── Stat Cards ─────────────────────────────────────────────── */}
+          <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
+            {[
+              {
+                icon: CalendarToday,
+                label: "Total Days",
+                value: pagination?.totalItems || 0,
+                color: PRIMARY,
+                sub: "All records",
+                index: 0,
+              },
+              {
+                icon: AccessTime,
+                label: "Work Hours",
+                value: `${(summary?.totalWorkHours || 0).toFixed(1)}h`,
+                color: "#3b82f6",
+                sub: "Total logged",
+                index: 1,
+              },
+              {
+                icon: CheckCircle,
+                label: "Present",
+                value: summary?.presentCount || 0,
+                color: SUCCESS,
+                sub: "On time",
+                index: 2,
+              },
+              {
+                icon: Warning,
+                label: "Late / Absent",
+                value: `${summary?.lateCount || 0}/${summary?.absentCount || 0}`,
+                color: WARNING,
+                sub: "Needs review",
+                index: 3,
+              },
+            ].map((props) => (
+              <Grid item xs={6} sm={3} key={props.label}>
+                <StatCard {...props} loading={loading} />
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* ─── Mobile Search ───────────────────────────────────────────── */}
+          {isMobile && (
+            <Box sx={{ mb: 2 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search records…"
+                value={filters.search}
+                onChange={(e) => setFilter("search")(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                  endAdornment: filters.search && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => setFilter("search")("")}
+                      >
+                        <Close fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  sx: { borderRadius: 3, bgcolor: "#fff" },
+                }}
+              />
+            </Box>
+          )}
+
+          {/* ─── Desktop Filters ─────────────────────────────────────────── */}
+          {!isMobile && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                mb: 3,
+                borderRadius: 3,
+                border: `1px solid ${alpha(PRIMARY, 0.08)}`,
+              }}
+            >
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                flexWrap="wrap"
+              >
+                <TextField
+                  size="small"
+                  placeholder="Search records…"
+                  value={filters.search}
+                  onChange={(e) => setFilter("search")(e.target.value)}
+                  sx={{ minWidth: 240 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search
+                          sx={{ color: "text.secondary", fontSize: 18 }}
+                        />
+                      </InputAdornment>
+                    ),
+                    endAdornment: filters.search && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setFilter("search")("")}
+                        >
+                          <Close fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                    sx: { borderRadius: 2 },
+                  }}
+                />
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={filters.status}
+                    label="Status"
+                    sx={{ borderRadius: 2 }}
+                    onChange={(e) => setFilter("status")(e.target.value)}
+                  >
+                    <MenuItem value="">All Statuses</MenuItem>
+                    {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                      <MenuItem key={k} value={k}>
+                        {v.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Period</InputLabel>
+                  <Select
+                    value={period}
+                    label="Period"
+                    sx={{ borderRadius: 2 }}
+                    onChange={(e) => setPeriod(e.target.value)}
+                  >
+                    {PERIOD_OPTIONS.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>
+                        {o.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="text"
+                    startIcon={<Clear />}
+                    onClick={clearFilters}
+                    sx={{ color: DANGER, fontWeight: 600 }}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </Stack>
+
+              {activeFilterCount > 0 && (
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  flexWrap="wrap"
+                  sx={{ mt: 1.5 }}
+                >
+                  {filters.search && (
+                    <Chip
+                      size="small"
+                      label={`Search: "${filters.search}"`}
+                      onDelete={() => setFilter("search")("")}
+                      sx={{ bgcolor: alpha(PRIMARY, 0.08), color: PRIMARY }}
+                    />
+                  )}
+                  {filters.status && (
+                    <Chip
+                      size="small"
+                      label={`Status: ${filters.status}`}
+                      onDelete={() => setFilter("status")("")}
+                      sx={{ bgcolor: alpha(PRIMARY, 0.08), color: PRIMARY }}
+                    />
+                  )}
+                  {period !== "Today" && (
+                    <Chip
+                      size="small"
+                      label={`Period: ${period}`}
+                      onDelete={() => setPeriod("Today")}
+                      sx={{ bgcolor: alpha(PRIMARY, 0.08), color: PRIMARY }}
+                    />
+                  )}
+                </Stack>
+              )}
+            </Paper>
+          )}
+
+          {/* ─── Main Grid ──────────────────────────────────────────────── */}
+          <Grid container spacing={isMobile ? 2 : 3}>
+            {/* Calendar */}
+            <Grid item xs={12} md={5} lg={4}>
+              <GlassCard>
+                <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ mb: 2.5 }}
+                  >
+                    <Typography variant="h6" fontWeight={700}>
+                      {currentMonth.toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </Typography>
+                    <Stack direction="row" spacing={0.5}>
+                      {[
+                        { icon: <ChevronLeft fontSize="small" />, dir: -1 },
+                        { icon: <ChevronRight fontSize="small" />, dir: 1 },
+                      ].map(({ icon, dir }) => (
+                        <IconButton
+                          key={dir}
+                          size="small"
+                          onClick={() =>
+                            setCurrentMonth(
+                              (d) =>
+                                new Date(
+                                  d.getFullYear(),
+                                  d.getMonth() + dir,
+                                  1,
+                                ),
+                            )
+                          }
+                          sx={{
+                            bgcolor: alpha(PRIMARY, 0.07),
+                            "&:hover": { bgcolor: alpha(PRIMARY, 0.14) },
+                          }}
+                        >
+                          {icon}
+                        </IconButton>
+                      ))}
+                    </Stack>
+                  </Stack>
+
+                  <Grid container columns={7} spacing={0.25} sx={{ mb: 0.5 }}>
+                    {DOW.map((d) => (
+                      <Grid item xs={1} key={d}>
+                        <Typography
+                          align="center"
+                          variant="caption"
+                          fontWeight={700}
+                          color="text.disabled"
+                          sx={{ display: "block", fontSize: "0.6rem" }}
+                        >
+                          {d}
+                        </Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  <Grid container columns={7} spacing={0.25}>
+                    {calendarDays.map((c, i) => (
+                      <Grid item xs={1} key={i}>
+                        <CalCell
+                          day={c.day}
+                          isPrev={c.isPrev}
+                          isSelected={
+                            c.date?.toDateString() ===
+                            selectedDate.toDateString()
+                          }
+                          isToday={
+                            c.date?.toDateString() === new Date().toDateString()
+                          }
+                          isWeekend={c.date && [0, 6].includes(c.date.getDay())}
+                          status={c.status}
+                          onClick={() =>
+                            !c.isPrev && c.date && handleDateSelect(c.date)
+                          }
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  <Box
+                    sx={{
+                      mt: 2.5,
+                      pt: 2,
+                      borderTop: `1px solid ${alpha(PRIMARY, 0.08)}`,
+                    }}
+                  >
+                    <Grid container spacing={1}>
+                      {[
+                        ["Present", SUCCESS],
+                        ["Late", WARNING],
+                        ["Absent", DANGER],
+                        ["Holiday", "#3b82f6"],
+                      ].map(([l, c]) => (
+                        <Grid item xs={6} key={l}>
+                          <Stack
+                            direction="row"
+                            spacing={0.75}
+                            alignItems="center"
+                          >
+                            <Box
+                              sx={{
+                                width: 9,
+                                height: 9,
+                                borderRadius: "50%",
+                                bgcolor: c,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {l}
+                            </Typography>
+                          </Stack>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                </CardContent>
+              </GlassCard>
+            </Grid>
+
+            {/* Attendance Log */}
+            <Grid item xs={12} md={7} lg={8}>
+              <GlassCard sx={{ height: "100%" }}>
+                <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    sx={{ mb: 2.5 }}
+                  >
+                    <Box>
+                      <Typography variant="h6" fontWeight={700}>
+                        Attendance Log
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {pagination?.totalItems || 0} total records
+                      </Typography>
+                    </Box>
+                    {loading && (
+                      <CircularProgress size={20} sx={{ color: PRIMARY }} />
+                    )}
+                  </Stack>
+
+                  {attendances?.length > 0 ? (
+                    <>
+                      {isMobile ? (
+                        <Box>
+                          {attendances.map((a, i) => (
+                            <MobileLogCard
+                              key={a._id || a.id}
+                              entry={a}
+                              onView={(e) => {
+                                setSelLog(e);
+                                setLogOpen(true);
+                              }}
+                              onDelete={handleDeleteOpen}
+                              canDelete={canDelete}
+                              index={i}
+                            />
+                          ))}
+                        </Box>
+                      ) : (
+                        <TableContainer sx={{ maxHeight: 460 }}>
+                          <Table stickyHeader size="small">
+                            <TableHead>
+                              <TableRow>
+                                {[
+                                  "Date",
+                                  "Punch In",
+                                  "Punch Out",
+                                  "Hours",
+                                  "Status",
+                                  "Actions",
+                                ].map((h) => (
+                                  <TableCell
+                                    key={h}
+                                    sx={{
+                                      bgcolor: alpha(PRIMARY, 0.04),
+                                      fontWeight: 700,
+                                      fontSize: "0.76rem",
+                                      borderBottom: `2px solid ${alpha(PRIMARY, 0.1)}`,
+                                    }}
+                                  >
+                                    {h}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {attendances.map((a) => (
+                                <TableRow
+                                  key={a._id || a.id}
+                                  hover
+                                  sx={{
+                                    "&:hover": {
+                                      bgcolor: alpha(PRIMARY, 0.02),
+                                    },
+                                  }}
+                                >
+                                  <TableCell>
+                                    <Typography
+                                      variant="body2"
+                                      fontWeight={600}
+                                    >
+                                      {fmtDate(a.date)}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    {a.punchIn ? (
+                                      <Chip
+                                        label={fmtTime(a.punchIn.time)}
+                                        size="small"
+                                        sx={{
+                                          bgcolor: alpha(SUCCESS, 0.1),
+                                          color: SUCCESS,
+                                          fontWeight: 700,
+                                          fontSize: "0.72rem",
+                                        }}
+                                      />
+                                    ) : (
+                                      <Typography
+                                        variant="body2"
+                                        color="text.disabled"
+                                      >
+                                        —
+                                      </Typography>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {a.punchOut ? (
+                                      <Chip
+                                        label={fmtTime(a.punchOut.time)}
+                                        size="small"
+                                        sx={{
+                                          bgcolor: alpha(WARNING, 0.1),
+                                          color: WARNING,
+                                          fontWeight: 700,
+                                          fontSize: "0.72rem",
+                                        }}
+                                      />
+                                    ) : a.punchIn ? (
+                                      <Chip
+                                        label="Ongoing"
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{
+                                          color: PRIMARY,
+                                          borderColor: PRIMARY,
+                                          fontWeight: 700,
+                                        }}
+                                      />
+                                    ) : (
+                                      <Typography
+                                        variant="body2"
+                                        color="text.disabled"
+                                      >
+                                        —
+                                      </Typography>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography
+                                      variant="body2"
+                                      fontWeight={700}
+                                      color={PRIMARY}
+                                    >
+                                      {a.workHoursFormatted || "—"}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <StatusBadge
+                                      status={a.status || "present"}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Stack direction="row" spacing={0.5}>
+                                      <Tooltip title="View Details">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => {
+                                            setSelLog(a);
+                                            setLogOpen(true);
+                                          }}
+                                          sx={{
+                                            color: PRIMARY,
+                                            "&:hover": {
+                                              bgcolor: alpha(PRIMARY, 0.08),
+                                            },
+                                          }}
+                                        >
+                                          <Visibility fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                      {canDelete && (
+                                        <Tooltip title="Delete">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleDeleteOpen(a)}
+                                            sx={{
+                                              color: DANGER,
+                                              "&:hover": {
+                                                bgcolor: alpha(DANGER, 0.08),
+                                              },
+                                            }}
+                                          >
+                                            <Delete fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
+                                    </Stack>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+
+                      {pagination?.totalPages > 1 && (
+                        <Box
+                          display="flex"
+                          justifyContent="center"
+                          sx={{ mt: 2.5 }}
+                        >
+                          <Pagination
+                            count={pagination.totalPages}
+                            page={filters.page}
+                            onChange={(_, v) => {
+                              setFilters((p) => ({ ...p, page: v }));
+                              containerRef.current?.scrollIntoView({
+                                behavior: "smooth",
+                              });
+                            }}
+                            color="primary"
+                            shape="rounded"
+                            size={isMobile ? "small" : "medium"}
+                            sx={{
+                              "& .MuiPaginationItem-root.Mui-selected": {
+                                bgcolor: PRIMARY,
+                                color: "#fff",
+                              },
+                            }}
+                          />
+                        </Box>
+                      )}
+                    </>
+                  ) : (
+                    <Box sx={{ textAlign: "center", py: 7 }}>
+                      <Box
+                        sx={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: "50%",
+                          bgcolor: alpha(PRIMARY, 0.08),
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          mx: "auto",
+                          mb: 2,
+                        }}
+                      >
+                        <CalendarToday sx={{ fontSize: 36, color: PRIMARY }} />
+                      </Box>
+                      <Typography variant="h6" fontWeight={600} gutterBottom>
+                        No records found
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: activeFilterCount ? 2.5 : 0 }}
+                      >
+                        {activeFilterCount
+                          ? "No records match your current filters."
+                          : "Your attendance records will appear here."}
+                      </Typography>
+                      {activeFilterCount > 0 && (
+                        <Button
+                          variant="contained"
+                          startIcon={<Clear />}
+                          onClick={clearFilters}
+                          sx={{ bgcolor: PRIMARY, borderRadius: 2 }}
+                        >
+                          Clear Filters
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+                </CardContent>
+              </GlassCard>
+            </Grid>
+          </Grid>
+        </>
+      )}
+
+      {/* ─── Mobile Filter Drawer ─────────────────────────────────────────── */}
+      <SwipeableDrawer
+        anchor="bottom"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onOpen={() => {}}
+        PaperProps={{
+          sx: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+        }}
+      >
         <Box
           sx={{
             width: 40,
@@ -214,1526 +2418,102 @@ const MobileFilterDrawer = ({
             my: 1.5,
           }}
         />
-
-        {/* Header */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            px: 3,
-            pb: 2,
-            borderBottom: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-          }}
-        >
-          <Box>
-            <Typography variant="h6" fontWeight="700" color={PRIMARY_COLOR}>
-              Filter Attendance
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {activeFilterCount} active filter{activeFilterCount !== 1 && "s"}
-            </Typography>
-          </Box>
-          <IconButton
-            onClick={onClose}
-            size="small"
-            sx={{ bgcolor: alpha(PRIMARY_COLOR, 0.1) }}
+        <Box sx={{ px: 3, pb: 3 }}>
+          <Typography
+            variant="h6"
+            fontWeight={700}
+            color={PRIMARY}
+            sx={{ mb: 2.5 }}
           >
-            <Close />
-          </IconButton>
-        </Box>
-
-        {/* Filter Content */}
-        <Box sx={{ maxHeight: "calc(90vh - 120px)", overflow: "auto", p: 3 }}>
-          <Stack spacing={2.5}>
-            {/* Search Section */}
-            <Paper
-              elevation={0}
-              sx={{
-                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-                onClick={() => toggleSection("search")}
+            Filter Attendance
+          </Typography>
+          <Stack spacing={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={filters.status}
+                label="Status"
+                sx={{ borderRadius: 2 }}
+                onChange={(e) => setFilter("status")(e.target.value)}
               >
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Search sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Search
-                  </Typography>
-                </Stack>
-                {expandedSection === "search" ? <ExpandLess /> : <ExpandMore />}
-              </Box>
-              <Collapse in={expandedSection === "search"}>
-                <Box sx={{ p: 2 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search by name, email, ID..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search sx={{ color: "text.secondary", fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: searchQuery && (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setSearchQuery("")}
-                          >
-                            <Close fontSize="small" />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Box>
-              </Collapse>
-            </Paper>
-
-            {/* Period Section */}
-            <Paper
-              elevation={0}
-              sx={{
-                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-                onClick={() => toggleSection("period")}
+                <MenuItem value="">All Statuses</MenuItem>
+                {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                  <MenuItem key={k} value={k}>
+                    {v.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Period</InputLabel>
+              <Select
+                value={period}
+                label="Period"
+                sx={{ borderRadius: 2 }}
+                onChange={(e) => setPeriod(e.target.value)}
               >
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <DateRange sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Time Period
-                  </Typography>
-                </Stack>
-                {expandedSection === "period" ? <ExpandLess /> : <ExpandMore />}
-              </Box>
-              <Collapse in={expandedSection === "period"}>
-                <Box sx={{ p: 2 }}>
-                  <Grid container spacing={1}>
-                    {PERIOD_OPTIONS.map((option) => (
-                      <Grid item xs={6} key={option.value}>
-                        <Button
-                          fullWidth
-                          variant={
-                            period === option.value ? "contained" : "outlined"
-                          }
-                          onClick={() => setPeriod(option.value)}
-                          startIcon={option.icon}
-                          size="small"
-                          sx={{
-                            bgcolor:
-                              period === option.value
-                                ? PRIMARY_COLOR
-                                : "transparent",
-                            color:
-                              period === option.value ? "#fff" : PRIMARY_COLOR,
-                            borderColor: PRIMARY_COLOR,
-                            "&:hover": {
-                              bgcolor:
-                                period === option.value
-                                  ? SECONDARY_COLOR
-                                  : alpha(PRIMARY_COLOR, 0.1),
-                            },
-                          }}
-                        >
-                          {option.label}
-                        </Button>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              </Collapse>
-            </Paper>
-
-            {/* Status Section */}
-            <Paper
-              elevation={0}
-              sx={{
-                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-                onClick={() => toggleSection("status")}
-              >
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <FilterAlt sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Status
-                  </Typography>
-                </Stack>
-                {expandedSection === "status" ? <ExpandLess /> : <ExpandMore />}
-              </Box>
-              <Collapse in={expandedSection === "status"}>
-                <Box sx={{ p: 2 }}>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      displayEmpty
-                    >
-                      <MenuItem value="">All Statuses</MenuItem>
-                      <MenuItem value="present">Present</MenuItem>
-                      <MenuItem value="absent">Absent</MenuItem>
-                      <MenuItem value="late">Late</MenuItem>
-                      <MenuItem value="leave">Leave</MenuItem>
-                      <MenuItem value="holiday">Holiday</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Box>
-              </Collapse>
-            </Paper>
-
-            {/* Sort Section */}
-            <Paper
-              elevation={0}
-              sx={{
-                border: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: alpha(PRIMARY_COLOR, 0.02),
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-                onClick={() => toggleSection("sort")}
-              >
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Sort sx={{ color: PRIMARY_COLOR, fontSize: 20 }} />
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    Sort By
-                  </Typography>
-                </Stack>
-                {expandedSection === "sort" ? <ExpandLess /> : <ExpandMore />}
-              </Box>
-              <Collapse in={expandedSection === "sort"}>
-                <Box sx={{ p: 2 }}>
-                  <Stack spacing={1}>
-                    {[
-                      { key: "date", label: "Date" },
-                      { key: "status", label: "Status" },
-                    ].map((option) => (
-                      <Button
-                        key={option.key}
-                        fullWidth
-                        variant={
-                          sortConfig.key === option.key
-                            ? "contained"
-                            : "outlined"
-                        }
-                        onClick={() =>
-                          setSortConfig((prev) => ({
-                            key: option.key,
-                            direction:
-                              prev.key === option.key &&
-                              prev.direction === "asc"
-                                ? "desc"
-                                : "asc",
-                          }))
-                        }
-                        endIcon={
-                          sortConfig.key === option.key &&
-                          (sortConfig.direction === "asc" ? (
-                            <ArrowUpward fontSize="small" />
-                          ) : (
-                            <ArrowDownward fontSize="small" />
-                          ))
-                        }
-                        sx={{
-                          justifyContent: "space-between",
-                          bgcolor:
-                            sortConfig.key === option.key
-                              ? PRIMARY_COLOR
-                              : "transparent",
-                          color:
-                            sortConfig.key === option.key
-                              ? "#fff"
-                              : PRIMARY_COLOR,
-                          borderColor: PRIMARY_COLOR,
-                        }}
-                      >
-                        {option.label}
-                      </Button>
-                    ))}
-                  </Stack>
-                </Box>
-              </Collapse>
-            </Paper>
-          </Stack>
-        </Box>
-
-        {/* Action Buttons */}
-        <Box
-          sx={{
-            p: 3,
-            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
-            bgcolor: "#fff",
-          }}
-        >
-          <Stack direction="row" spacing={2}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                handleClearFilters();
-                onClose();
-              }}
-              startIcon={<Clear />}
-              sx={{
-                borderColor: PRIMARY_COLOR,
-                color: PRIMARY_COLOR,
-                "&:hover": {
-                  bgcolor: alpha(PRIMARY_COLOR, 0.05),
-                },
-              }}
-            >
-              Clear All
-            </Button>
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={onClose}
-              sx={{
-                bgcolor: PRIMARY_COLOR,
-                "&:hover": {
-                  bgcolor: SECONDARY_COLOR,
-                },
-              }}
-            >
-              Apply Filters
-            </Button>
-          </Stack>
-        </Box>
-      </Box>
-    </SwipeableDrawer>
-  );
-};
-
-// ========== STAT CARD COMPONENT ==========
-const StatCard = ({ icon: Icon, label, value, trend, color = PRIMARY_COLOR, loading, index }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-  if (loading) {
-    return (
-      <Paper sx={{ p: 2.5, borderRadius: 3 }}>
-        <Stack spacing={2}>
-          <Skeleton variant="circular" width={48} height={48} />
-          <Skeleton variant="text" width={80} height={20} />
-          <Skeleton variant="text" width={60} height={32} />
-        </Stack>
-      </Paper>
-    );
-  }
-
-  return (
-    <Fade in={true} timeout={500 + index * 100}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 1.5, sm: 2, md: 2.5 },
-          borderRadius: 3,
-          border: `1px solid ${alpha(color, 0.1)}`,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-          transition: "transform 0.2s",
-          height: "100%",
-          "&:hover": {
-            transform: "translateY(-2px)",
-            boxShadow: `0 8px 24px ${alpha(color, 0.15)}`,
-          },
-        }}
-      >
-        <Stack spacing={1}>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Box
-              sx={{
-                width: { xs: 32, sm: 40, md: 48 },
-                height: { xs: 32, sm: 40, md: 48 },
-                borderRadius: { xs: 1.5, sm: 2 },
-                bgcolor: alpha(color, 0.1),
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: color,
-              }}
-            >
-              <Icon sx={{ fontSize: { xs: 16, sm: 20, md: 24 } }} />
-            </Box>
-            {trend && (
-              <Chip
-                icon={trend.direction === 'up' ? <TrendingUp /> : <TrendingDown />}
-                label={trend.value}
-                size="small"
-                sx={{
-                  borderRadius: 2,
-                  bgcolor: trend.direction === 'up' ? alpha("#4caf50", 0.1) : alpha("#f44336", 0.1),
-                  color: trend.direction === 'up' ? "#4caf50" : "#f44336",
-                  height: 24,
-                  "& .MuiChip-icon": { fontSize: 14, color: "inherit" },
-                }}
-              />
-            )}
-          </Box>
-          <Box>
-            <Typography
-              variant="subtitle2"
-              fontWeight={600}
-              sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
-            >
-              {label}
-            </Typography>
-            <Typography
-              variant="h4"
-              fontWeight={700}
-              sx={{
-                color: color,
-                fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
-              }}
-            >
-              {value}
-            </Typography>
-          </Box>
-        </Stack>
-      </Paper>
-    </Fade>
-  );
-};
-
-// ========== CALENDAR CELL ==========
-const CalendarCell = ({ isSelected, isToday, isWeekend, status, onClick, day }) => {
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'present': return '#4caf50';
-      case 'absent': return '#f44336';
-      case 'late': return '#ff9800';
-      case 'leave': return '#9c27b0';
-      case 'holiday': return '#2196f3';
-      default: return 'transparent';
-    }
-  };
-
-  const getStatusBg = (status) => {
-    switch (status) {
-      case 'present': return alpha('#4caf50', 0.1);
-      case 'absent': return alpha('#f44336', 0.1);
-      case 'late': return alpha('#ff9800', 0.1);
-      case 'leave': return alpha('#9c27b0', 0.1);
-      case 'holiday': return alpha('#2196f3', 0.1);
-      default: return 'transparent';
-    }
-  };
-
-  return (
-    <Box
-      onClick={onClick}
-      sx={{
-        height: { xs: 40, sm: 48 },
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 2,
-        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-        fontWeight: 600,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        bgcolor: isSelected 
-          ? PRIMARY_COLOR 
-          : isToday 
-          ? alpha(PRIMARY_COLOR, 0.1)
-          : getStatusBg(status),
-        color: isSelected 
-          ? '#fff' 
-          : isToday 
-          ? PRIMARY_COLOR
-          : status
-          ? getStatusColor(status)
-          : isWeekend 
-          ? 'text.disabled' 
-          : 'text.primary',
-        border: isToday && !isSelected ? `2px solid ${PRIMARY_COLOR}` : 'none',
-        '&:hover': {
-          bgcolor: isSelected ? PRIMARY_COLOR : alpha(PRIMARY_COLOR, 0.1),
-          transform: 'scale(1.05)',
-        },
-        opacity: status ? 1 : isWeekend ? 0.7 : 1,
-      }}
-    >
-      {day}
-    </Box>
-  );
-};
-
-// ========== MOBILE LOG CARD ==========
-const MobileLogCard = ({ entry, onView, onDelete, canDelete, index }) => {
-  const [expanded, setExpanded] = useState(false);
-  const date = new Date(entry.date);
-  const status = entry.status || 'present';
-  const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.present;
-
-  const formatTime = (timestamp) => {
-    if (!timestamp) return '-';
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  return (
-    <Fade in={true} timeout={500 + index * 50}>
-      <Paper
-        sx={{
-          mb: 1.5,
-          borderRadius: 3,
-          border: `1px solid ${alpha(statusConfig.color, 0.2)}`,
-          overflow: "hidden",
-        }}
-      >
-        <Box sx={{ p: 2 }}>
-          {/* Header */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              mb: 1.5,
-            }}
-          >
-            <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
-              <Box
-                sx={{
-                  bgcolor: statusConfig.bg,
-                  borderRadius: 2,
-                  p: 1,
-                  minWidth: 50,
-                  textAlign: 'center',
-                }}
-              >
-                <Typography variant="caption" fontWeight={700} color={statusConfig.color}>
-                  {date.toLocaleString('default', { month: 'short' }).toUpperCase()}
-                </Typography>
-                <Typography variant="h6" fontWeight={800} lineHeight={1} color={statusConfig.color}>
-                  {date.getDate()}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography variant="subtitle1" fontWeight="700">
-                  {date.toLocaleDateString('en-US', { weekday: 'long' })}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {entry.user?.name || 'Regular Working Day'}
-                </Typography>
-              </Box>
-            </Box>
-            <IconButton
-              size="small"
-              onClick={() => setExpanded(!expanded)}
-              sx={{
-                transform: expanded ? "rotate(180deg)" : "none",
-                transition: "transform 0.3s",
-                bgcolor: alpha(statusConfig.color, 0.1),
-              }}
-            >
-              {expanded ? <ExpandLess /> : <ExpandMore />}
-            </IconButton>
-          </Box>
-
-          {/* Quick Info */}
-          <Grid container spacing={1} sx={{ mb: 1.5 }}>
-            <Grid item xs={4}>
-              <Typography variant="caption" color="text.secondary">
-                Punch In
-              </Typography>
-              <Typography variant="body2" fontWeight={600}>
-                {entry.punchIn ? formatTime(entry.punchIn.time) : '-'}
-              </Typography>
-            </Grid>
-            <Grid item xs={4}>
-              <Typography variant="caption" color="text.secondary">
-                Punch Out
-              </Typography>
-              <Typography variant="body2" fontWeight={600} color={entry.punchOut ? 'text.primary' : PRIMARY_COLOR}>
-                {entry.punchOut ? formatTime(entry.punchOut.time) : 'Ongoing'}
-              </Typography>
-            </Grid>
-            <Grid item xs={4}>
-              <Typography variant="caption" color="text.secondary">
-                Hours
-              </Typography>
-              <Typography variant="body2" fontWeight={600} color={PRIMARY_COLOR}>
-                {entry.workHoursFormatted || '00:00'}
-              </Typography>
-            </Grid>
-          </Grid>
-
-          {/* Status Chip */}
-          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1.5 }}>
-            <Chip
-              size="small"
-              label={statusConfig.label}
-              icon={statusConfig.icon}
-              sx={{
-                bgcolor: statusConfig.bg,
-                color: statusConfig.color,
-                fontWeight: 600,
-                height: 24,
-                fontSize: "0.7rem",
-                "& .MuiChip-icon": { fontSize: 14 },
-              }}
-            />
-          </Box>
-
-          {/* Location */}
-          {entry.punchIn?.address && (
-            <Box display="flex" alignItems="center" gap={1}>
-              <LocationOn sx={{ fontSize: 16, color: 'text.secondary' }} />
-              <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 200 }}>
-                {entry.punchIn.address.split(',')[0]}
-              </Typography>
-            </Box>
-          )}
-
-          {/* Expanded Details */}
-          <Collapse in={expanded}>
-            <Box
-              sx={{
-                mt: 2,
-                pt: 2,
-                borderTop: `1px solid ${alpha(statusConfig.color, 0.1)}`,
-              }}
-            >
-              {/* Additional Info */}
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                {entry.punchIn?.remarks && (
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Punch In Remarks
-                    </Typography>
-                    <Typography variant="body2">
-                      {entry.punchIn.remarks}
-                    </Typography>
-                  </Grid>
-                )}
-                {entry.punchOut?.remarks && (
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Punch Out Remarks
-                    </Typography>
-                    <Typography variant="body2">
-                      {entry.punchOut.remarks}
-                    </Typography>
-                  </Grid>
-                )}
-                <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Created
-                  </Typography>
-                  <Typography variant="body2">
-                    {entry.createdAt ? format(new Date(entry.createdAt), 'dd MMM yyyy') : 'N/A'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Last Updated
-                  </Typography>
-                  <Typography variant="body2">
-                    {entry.updatedAt ? format(new Date(entry.updatedAt), 'dd MMM yyyy') : 'N/A'}
-                  </Typography>
-                </Grid>
-              </Grid>
-
-              {/* Action Buttons */}
-              <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                <Button
-                  fullWidth
-                  size="small"
-                  variant="contained"
-                  startIcon={<Visibility />}
-                  onClick={() => onView(entry)}
-                  sx={{
-                    bgcolor: PRIMARY_COLOR,
-                    borderRadius: 2,
-                    "&:hover": { bgcolor: SECONDARY_COLOR },
-                  }}
-                >
-                  View
-                </Button>
-                {canDelete && (
-                  <Button
-                    fullWidth
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    startIcon={<Delete />}
-                    onClick={() => onDelete(entry)}
-                    sx={{
-                      borderRadius: 2,
-                      borderColor: "#f44336",
-                      color: "#f44336",
-                      "&:hover": { bgcolor: alpha("#f44336", 0.1) },
-                    }}
-                  >
-                    Delete
-                  </Button>
-                )}
-              </Stack>
-            </Box>
-          </Collapse>
-        </Box>
-      </Paper>
-    </Fade>
-  );
-};
-
-// ========== LOADING SKELETON ==========
-const LoadingSkeleton = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-  return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
-        {[1, 2, 3, 4].map((item) => (
-          <Grid item xs={6} sm={6} md={3} key={item}>
-            <Skeleton
-              variant="rectangular"
-              height={isMobile ? 90 : 120}
-              sx={{ borderRadius: 3 }}
-            />
-          </Grid>
-        ))}
-      </Grid>
-      {isMobile && (
-        <Skeleton
-          variant="rectangular"
-          height={56}
-          sx={{ borderRadius: 2, mb: 2 }}
-        />
-      )}
-      <Skeleton
-        variant="rectangular"
-        height={isMobile ? 500 : 400}
-        sx={{ borderRadius: 3, mb: 2 }}
-      />
-      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2 }} />
-    </Box>
-  );
-};
-
-// ========== EMPTY STATE ==========
-const EmptyState = ({ onClearFilters, hasFilters }) => (
-  <Box sx={{ textAlign: "center", py: 8, px: 2 }}>
-    <Box
-      sx={{
-        width: 120,
-        height: 120,
-        borderRadius: "50%",
-        bgcolor: alpha(PRIMARY_COLOR, 0.1),
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        mx: "auto",
-        mb: 3,
-      }}
-    >
-      <CalendarToday sx={{ fontSize: 48, color: PRIMARY_COLOR }} />
-    </Box>
-    <Typography variant="h6" fontWeight={600} gutterBottom>
-      No attendance records found
-    </Typography>
-    <Typography
-      variant="body2"
-      color="text.secondary"
-      sx={{ mb: 3, maxWidth: 400, mx: "auto" }}
-    >
-      {hasFilters
-        ? "No records match your current filters. Try adjusting your search criteria."
-        : "Attendance records will appear here."}
-    </Typography>
-    {hasFilters && (
-      <Button
-        variant="contained"
-        onClick={onClearFilters}
-        startIcon={<Clear />}
-        sx={{ bgcolor: PRIMARY_COLOR, "&:hover": { bgcolor: SECONDARY_COLOR } }}
-      >
-        Clear All Filters
-      </Button>
-    )}
-  </Box>
-);
-
-// ========== GLASS CARD ==========
-const GlassCard = styled(Card)(({ theme }) => ({
-  background: 'rgba(255, 255, 255, 0.9)',
-  backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255, 255, 255, 0.2)',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
-  borderRadius: 20,
-}));
-
-// ========== MAIN COMPONENT ==========
-export default function Attandance() {
-  const theme = useTheme();
-  const navigate = useNavigate();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { user, getUserRole } = useAuth();
-  const {
-    attendances,
-    loading,
-    error,
-    success,
-    pagination,
-    summary,
-    fetchAttendances,
-    deleteAttendance,
-    clearMessages,
-  } = useAttendance();
-
-  // State Management
-  const [period, setPeriod] = useState('Today');
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState('calendar');
-  const [filters, setFilters] = useState({
-    page: 1,
-    limit: isMobile ? 5 : 10,
-    status: '',
-    search: '',
-  });
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-
-  const [showPunchModal, setShowPunchModal] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [selectedLog, setSelectedLog] = useState(null);
-  const [logModalOpen, setLogModalOpen] = useState(false);
-  const [showTeamView, setShowTeamView] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [attendanceToDelete, setAttendanceToDelete] = useState(null);
-  const [navValue, setNavValue] = useState(0);
-
-  // Refs
-  const containerRef = useRef(null);
-
-  const userRole = getUserRole();
-  const isTeam = userRole === 'TEAM';
-  const isASM = userRole === 'ASM';
-  const isZSM = userRole === 'ZSM';
-  const isHeadOffice = userRole === 'Head_office';
-  const canManage = isASM || isZSM || isHeadOffice;
-  const canDelete = isHeadOffice;
-
-  // Active filter count
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filters.search) count++;
-    if (filters.status) count++;
-    if (period !== "Today") count++;
-    return count;
-  }, [filters.search, filters.status, period]);
-
-  useEffect(() => {
-    loadData();
-  }, [filters.page, filters.limit, filters.status, filters.search, period]);
-
-  const loadData = async () => {
-    const queryFilters = {
-      page: filters.page,
-      limit: filters.limit,
-      ...(filters.status && { status: filters.status }),
-      ...(filters.search && { search: filters.search }),
-      ...(isTeam && { userId: user._id }),
-      ...(period !== 'All' && { period: period.toLowerCase() }),
-    };
-    await fetchAttendances(queryFilters);
-  };
-
-  useEffect(() => {
-    if (error) {
-      setSnackbar({ open: true, message: error, severity: 'error' });
-    }
-    if (success) {
-      setSnackbar({ open: true, message: success, severity: 'success' , color:"#fff"});
-    }
-  }, [error, success]);
-
-  // Calendar functions
-  const getDaysInMonth = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDay = firstDay.getDay();
-    
-    const days = [];
-    
-    for (let i = 0; i < startingDay; i++) {
-      const prevDate = new Date(year, month, -i);
-      days.unshift({ day: prevDate.getDate(), prev: true });
-    }
-    
-    for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(year, month, i);
-      const attendance = attendances?.find(a => 
-        new Date(a.date).toDateString() === date.toDateString()
-      );
-      days.push({ 
-        day: i, 
-        date,
-        status: attendance?.status,
-        attendance
-      });
-    }
-    
-    return days;
-  };
-
-  const calendarDays = getDaysInMonth();
-  const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-
-  const handlePrevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-  };
-
-  const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    const attendance = attendances?.find(a => 
-      new Date(a.date).toDateString() === date.toDateString()
-    );
-    if (attendance) {
-      setSelectedLog(attendance);
-      setLogModalOpen(true);
-    }
-  };
-
-  const handleStatusChange = (e) => {
-    setFilters(prev => ({ ...prev, status: e.target.value, page: 1 }));
-  };
-
-  const handleSearchChange = (e) => {
-    setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }));
-  };
-
-  const handlePageChange = (event, value) => {
-    setFilters(prev => ({ ...prev, page: value }));
-    if (containerRef.current) {
-      containerRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
-  const handleViewLog = (log) => {
-    setSelectedLog(log);
-    setLogModalOpen(true);
-  };
-
-  const handleDelete = (attendance) => {
-    if (canDelete) {
-      setAttendanceToDelete(attendance);
-      setDeleteDialogOpen(true);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (attendanceToDelete) {
-      const result = await deleteAttendance(attendanceToDelete.id);
-      if (result.success) {
-        loadData();
-      }
-      setDeleteDialogOpen(false);
-      setAttendanceToDelete(null);
-    }
-  };
-
-  const handleClearFilters = () => {
-    setFilters({
-      page: 1,
-      limit: isMobile ? 5 : 10,
-      status: '',
-      search: '',
-    });
-    setPeriod('Today');
-    setSortConfig({ key: null, direction: "asc" });
-  };
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-';
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
-  // Loading state
-  if (loading && !attendances.length) {
-    return <LoadingSkeleton />;
-  }
-
-  return (
-    <Box
-      ref={containerRef}
-      sx={{
-        p: { xs: 1.5, sm: 2, md: 3 },
-        minHeight: '100vh',
-        pb: { xs: 8, sm: 3 },
-        bgcolor: '#f8fafc',
-      }}
-    >
-      {/* Mobile Filter Drawer */}
-      <MobileFilterDrawer
-        open={mobileFilterOpen}
-        onClose={() => setMobileFilterOpen(false)}
-        period={period}
-        setPeriod={setPeriod}
-        statusFilter={filters.status}
-        setStatusFilter={handleStatusChange}
-        handleClearFilters={handleClearFilters}
-        searchQuery={filters.search}
-        setSearchQuery={handleSearchChange}
-        sortConfig={sortConfig}
-        setSortConfig={setSortConfig}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        activeFilterCount={activeFilterCount}
-      />
-
-      {/* Header with Gradient Background */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 2, sm: 3 },
-          mb: 3,
-          borderRadius: 3,
-          background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, ${SECONDARY_COLOR} 100%)`,
-          color: "#fff",
-        }}
-      >
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
-        >
-          <Box>
-            <Typography
-              variant={isMobile ? "h6" : "h5"}
-              fontWeight={700}
-              gutterBottom
-            >
-              Attendance Dashboard
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                opacity: 0.9,
-                fontSize: { xs: "0.75rem", sm: "0.875rem" },
-              }}
-            >
-              {isTeam ? 'Your Attendance Overview' : 'Team Attendance Management'}
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: "flex", gap: 1 }}>
-            {isMobile && (
+                {PERIOD_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Stack direction="row" spacing={1.5}>
               <Button
-                variant="contained"
-                startIcon={<FilterAlt />}
-                onClick={() => setMobileFilterOpen(true)}
-                size="small"
-                sx={{
-                  bgcolor: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                  position: "relative",
-                }}
-              >
-                Filter
-                {activeFilterCount > 0 && (
-                  <Badge
-                    badgeContent={activeFilterCount}
-                    color="error"
-                    sx={{
-                      position: "absolute",
-                      top: -8,
-                      right: -8,
-                      "& .MuiBadge-badge": {
-                        fontSize: "0.6rem",
-                        minWidth: 16,
-                        height: 16,
-                      },
-                    }}
-                  />
-                )}
-              </Button>
-            )}
-            <Button
-              variant="contained"
-              startIcon={<Refresh />}
-              onClick={loadData}
-              disabled={loading}
-              size={isMobile ? "small" : "medium"}
-              sx={{
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#fff",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-              }}
-            >
-              Refresh
-            </Button>
-            {canManage && (
-              <Button
-                variant="contained"
-                startIcon={<Group />}
-                onClick={() => setShowTeamView(!showTeamView)}
-                size={isMobile ? "small" : "medium"}
-                sx={{
-                  bgcolor: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                }}
-              >
-                {showTeamView ? 'My View' : 'Team View'}
-              </Button>
-            )}
-          </Box>
-        </Stack>
-      </Paper>
-
-      {showTeamView && canManage ? (
-        <TeamAttendance />
-      ) : (
-        <>
-          {/* Stats Cards */}
-          <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
-            <Grid item xs={6} sm={3}>
-              <StatCard
-                icon={CalendarToday}
-                label="Total Days"
-                value={pagination?.totalItems || 0}
-                color={PRIMARY_COLOR}
-                index={0}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <StatCard
-                icon={AccessTime}
-                label="Total Hours"
-                value={`${summary?.totalWorkHours?.toFixed(1) || 0}h`}
-                color="#2196f3"
-                index={1}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <StatCard
-                icon={CheckCircle}
-                label="Present"
-                value={summary?.presentCount || 0}
-                color="#4caf50"
-                index={2}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <StatCard
-                icon={Warning}
-                label="Late/Absent"
-                value={`${summary?.lateCount || 0}/${summary?.absentCount || 0}`}
-                color="#ff9800"
-                index={3}
-                loading={loading}
-              />
-            </Grid>
-          </Grid>
-
-          {/* Mobile Search Bar */}
-          {isMobile && (
-            <Box sx={{ mb: 2 }}>
-              <TextField
                 fullWidth
-                size="small"
-                placeholder="Search by name, email, ID..."
-                value={filters.search}
-                onChange={handleSearchChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  ),
-                  endAdornment: filters.search && (
-                    <InputAdornment position="end">
-                      <IconButton size="small" onClick={() => handleSearchChange({ target: { value: '' } })}>
-                        <Close />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
+                variant="outlined"
+                startIcon={<Clear />}
+                onClick={() => {
+                  clearFilters();
+                  setDrawerOpen(false);
                 }}
                 sx={{
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: 3,
-                    bgcolor: "#fff",
-                  },
+                  borderRadius: 2,
+                  borderColor: alpha(PRIMARY, 0.35),
+                  color: PRIMARY,
                 }}
-              />
-            </Box>
-          )}
+              >
+                Clear
+              </Button>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => setDrawerOpen(false)}
+                sx={{ borderRadius: 2, bgcolor: PRIMARY }}
+              >
+                Apply
+              </Button>
+            </Stack>
+          </Stack>
+        </Box>
+      </SwipeableDrawer>
 
-          {/* Desktop Filters */}
-          {!isMobile && (
-            <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-              <Stack spacing={2.5}>
-                <Stack
-                  direction={{ xs: "column", md: "row" }}
-                  spacing={2}
-                  alignItems={{ xs: "stretch", md: "center" }}
-                >
-                  <TextField
-                    size="small"
-                    placeholder="Search by name, email, ID..."
-                    value={filters.search}
-                    onChange={handleSearchChange}
-                    sx={{ minWidth: 250 }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search sx={{ color: "text.secondary" }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={filters.status}
-                      onChange={handleStatusChange}
-                      label="Status"
-                      sx={{ borderRadius: 2 }}
-                    >
-                      <MenuItem value="">All</MenuItem>
-                      <MenuItem value="present">Present</MenuItem>
-                      <MenuItem value="absent">Absent</MenuItem>
-                      <MenuItem value="late">Late</MenuItem>
-                      <MenuItem value="leave">Leave</MenuItem>
-                      <MenuItem value="holiday">Holiday</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Period</InputLabel>
-                    <Select
-                      value={period}
-                      onChange={(e) => setPeriod(e.target.value)}
-                      label="Period"
-                      sx={{ borderRadius: 2 }}
-                    >
-                      {PERIOD_OPTIONS.map((option) => (
-                        <MenuItem key={option.value} value={option.value}>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            {option.icon}
-                            <span>{option.label}</span>
-                          </Stack>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  {activeFilterCount > 0 && (
-                    <Button
-                      variant="text"
-                      startIcon={<Clear />}
-                      onClick={handleClearFilters}
-                      sx={{ color: "error.main" }}
-                    >
-                      Clear All
-                    </Button>
-                  )}
-                </Stack>
-
-                {activeFilterCount > 0 && (
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mb: 1, display: "block" }}
-                    >
-                      Active Filters:
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {filters.search && (
-                        <Chip
-                          label={`Search: ${filters.search}`}
-                          size="small"
-                          onDelete={() => handleSearchChange({ target: { value: '' } })}
-                          sx={{
-                            bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                            color: PRIMARY_COLOR,
-                          }}
-                        />
-                      )}
-                      {filters.status && (
-                        <Chip
-                          label={`Status: ${filters.status}`}
-                          size="small"
-                          onDelete={() => handleStatusChange({ target: { value: '' } })}
-                          sx={{
-                            bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                            color: PRIMARY_COLOR,
-                          }}
-                        />
-                      )}
-                      {period !== "Today" && (
-                        <Chip
-                          label={`Period: ${period}`}
-                          size="small"
-                          onDelete={() => setPeriod('Today')}
-                          sx={{
-                            bgcolor: alpha(PRIMARY_COLOR, 0.1),
-                            color: PRIMARY_COLOR,
-                          }}
-                        />
-                      )}
-                    </Stack>
-                  </Box>
-                )}
-              </Stack>
-            </Paper>
-          )}
-
-          {/* Main Grid */}
-          <Grid container spacing={3}>
-            {/* Left Column - Calendar */}
-            <Grid item xs={12} md={5} lg={4}>
-              <GlassCard>
-                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                    <Typography variant="h6" fontWeight={700}>
-                      {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </Typography>
-                    <Box display="flex" gap={1}>
-                      <IconButton size="small" onClick={handlePrevMonth}>
-                        <ChevronLeft />
-                      </IconButton>
-                      <IconButton size="small" onClick={handleNextMonth}>
-                        <ChevronRight />
-                      </IconButton>
-                    </Box>
-                  </Box>
-
-                  <Grid container columns={7} spacing={0.5} sx={{ mb: 1 }}>
-                    {daysOfWeek.map((day) => (
-                      <Grid item xs={1} key={day}>
-                        <Typography 
-                          align="center" 
-                          variant="caption" 
-                          fontWeight={700} 
-                          color="text.secondary"
-                          sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}
-                        >
-                          {day}
-                        </Typography>
-                      </Grid>
-                    ))}
-                  </Grid>
-
-                  <Grid container columns={7} spacing={0.5}>
-                    {calendarDays.map((cell, index) => (
-                      <Grid item xs={1} key={index}>
-                        <CalendarCell
-                          isSelected={cell.date && cell.date.toDateString() === selectedDate.toDateString()}
-                          isToday={cell.date && cell.date.toDateString() === new Date().toDateString()}
-                          isWeekend={cell.date && (cell.date.getDay() === 0 || cell.date.getDay() === 6)}
-                          status={cell.status}
-                          onClick={() => cell.date && handleDateSelect(cell.date)}
-                          day={cell.day}
-                        />
-                      </Grid>
-                    ))}
-                  </Grid>
-
-                  <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                    <Stack direction="row" spacing={2} flexWrap="wrap" justifyContent="center">
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: PRIMARY_COLOR }} />
-                        <Typography variant="caption">Today</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#4caf50' }} />
-                        <Typography variant="caption">Present</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#f44336' }} />
-                        <Typography variant="caption">Absent</Typography>
-                      </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#ff9800' }} />
-                        <Typography variant="caption">Late</Typography>
-                      </Box>
-                    </Stack>
-                  </Box>
-                </CardContent>
-              </GlassCard>
-            </Grid>
-
-            {/* Right Column - Logs */}
-            <Grid item xs={12} md={7} lg={8}>
-              <GlassCard>
-                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                  <Box
-                    display="flex"
-                    flexDirection={{ xs: 'column', sm: 'row' }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: 'stretch', sm: 'center' }}
-                    sx={{ mb: 3 }}
-                    gap={2}
-                  >
-                    <Typography variant="h6" fontWeight={700}>
-                      Daily Log Entries
-                    </Typography>
-                  </Box>
-
-                  {loading && !attendances.length ? (
-                    <Box display="flex" justifyContent="center" p={4}>
-                      <CircularProgress />
-                    </Box>
-                  ) : attendances && attendances.length > 0 ? (
-                    <Box sx={{ maxHeight: 500, overflowY: 'auto', pr: 1 }}>
-                      {attendances.map((attendance, index) => (
-                        <MobileLogCard
-                          key={attendance.id}
-                          entry={attendance}
-                          onView={handleViewLog}
-                          onDelete={handleDelete}
-                          canDelete={canDelete}
-                          index={index}
-                        />
-                      ))}
-                    </Box>
-                  ) : (
-                    <EmptyState
-                      onClearFilters={handleClearFilters}
-                      hasFilters={activeFilterCount > 0}
-                    />
-                  )}
-
-                  {pagination && pagination.totalPages > 1 && (
-                    <Box display="flex" justifyContent="center" sx={{ mt: 3 }}>
-                      <Pagination
-                        count={pagination.totalPages}
-                        page={filters.page}
-                        onChange={handlePageChange}
-                        color="primary"
-                        shape="rounded"
-                        size={isMobile ? 'small' : 'medium'}
-                        sx={{
-                          "& .MuiPaginationItem-root": {
-                            borderRadius: 2,
-                            "&.Mui-selected": {
-                              bgcolor: PRIMARY_COLOR,
-                              color: "#fff",
-                            },
-                          },
-                        }}
-                      />
-                    </Box>
-                  )}
-                </CardContent>
-              </GlassCard>
-            </Grid>
-          </Grid>
-        </>
-      )}
-
-      {/* Mobile FAB */}
-      {isMobile && (
-        <Zoom in={true}>
+      {/* ─── Mobile FAB ──────────────────────────────────────────────────── */}
+      {isMobile && !showTeam && (
+        <Zoom in>
           <Fab
-            color="primary"
-            aria-label="filter"
-            onClick={() => setMobileFilterOpen(true)}
+            size="medium"
+            onClick={() => setDrawerOpen(true)}
             sx={{
               position: "fixed",
               bottom: 80,
               right: 16,
               zIndex: 1000,
-              bgcolor: PRIMARY_COLOR,
-              "&:hover": { bgcolor: SECONDARY_COLOR },
-              boxShadow: `0 4px 12px ${alpha(PRIMARY_COLOR, 0.3)}`,
+              bgcolor: PRIMARY,
+              color: "#fff",
+              boxShadow: `0 4px 16px ${alpha(PRIMARY, 0.38)}`,
+              "&:hover": { bgcolor: SECONDARY },
             }}
           >
-            <Badge
-              badgeContent={activeFilterCount}
-              color="error"
-              max={9}
-              sx={{
-                "& .MuiBadge-badge": {
-                  fontSize: "0.6rem",
-                  minWidth: 16,
-                  height: 16,
-                },
-              }}
-            >
+            <Badge badgeContent={activeFilterCount} color="error">
               <FilterAlt />
             </Badge>
           </Fab>
         </Zoom>
       )}
 
-      {/* Mobile Bottom Navigation */}
+      {/* ─── Bottom Navigation ────────────────────────────────────────────── */}
       {isMobile && (
         <Paper
           sx={{
@@ -1743,110 +2523,103 @@ export default function Attandance() {
             right: 0,
             zIndex: 1000,
             borderRadius: 0,
-            borderTop: `1px solid ${alpha(PRIMARY_COLOR, 0.1)}`,
+            borderTop: `1px solid ${alpha(PRIMARY, 0.1)}`,
           }}
           elevation={3}
         >
           <BottomNavigation
             showLabels
             value={navValue}
-            onChange={(event, newValue) => {
-              setNavValue(newValue);
-              if (newValue === 0) {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              } else if (newValue === 1) {
-                navigate("/dashboard");
-              }
+            onChange={(_, v) => {
+              setNavValue(v);
+              if (v === 0) window.scrollTo({ top: 0, behavior: "smooth" });
+              else if (v === 1) navigate("/dashboard");
             }}
-            sx={{
-              height: 64,
-              "& .MuiBottomNavigationAction-root": {
-                color: "text.secondary",
-                "&.Mui-selected": { color: PRIMARY_COLOR },
-              },
-            }}
+            sx={{ height: 60, "& .Mui-selected": { color: PRIMARY } }}
           >
-            <BottomNavigationAction label="Attendance" icon={<CalendarToday />} />
+            <BottomNavigationAction
+              label="Attendance"
+              icon={<CalendarToday />}
+            />
             <BottomNavigationAction label="Dashboard" icon={<Dashboard />} />
           </BottomNavigation>
         </Paper>
       )}
 
-      {/* Attendance Details Modal */}
+      {/* ─── Attendance Details Modal ─────────────────────────────────────── */}
       <AttendanceDetails
-        open={logModalOpen}
-        onClose={() => setLogModalOpen(false)}
-        attendance={selectedLog}
+        open={logOpen}
+        onClose={() => setLogOpen(false)}
+        attendance={selLog}
         canEdit={canManage}
         canDelete={canDelete}
-        onDelete={handleDelete}
+        onDelete={handleDeleteOpen}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* ─── Delete Confirmation ──────────────────────────────────────────── */}
       <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        fullScreen={isMobile}
-        PaperProps={{
-          sx: {
-            borderRadius: isMobile ? 0 : 4,
-            margin: isMobile ? 0 : 24,
-          },
-        }}
-        TransitionComponent={isMobile ? Slide : Fade}
-        transitionDuration={300}
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 4, overflow: "hidden" } }}
       >
-        <DialogTitle sx={{ bgcolor: "#f44336", color: "white", px: { xs: 2, sm: 3 } }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Typography variant="h6" fontWeight={700}>
-              Confirm Delete
-            </Typography>
-            <IconButton onClick={() => setDeleteDialogOpen(false)} size="small" sx={{ color: "white" }}>
-              <Close />
-            </IconButton>
-          </Box>
+        <Box sx={{ height: 5, bgcolor: DANGER }} />
+        <DialogTitle sx={{ pt: 2.5, pb: 1 }}>
+          <Typography variant="h6" fontWeight={700}>
+            Confirm Delete
+          </Typography>
         </DialogTitle>
-        <DialogContent sx={{ py: { xs: 2, sm: 3 }, px: { xs: 2, sm: 3 } }}>
+        <DialogContent>
           <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
             This action cannot be undone.
           </Alert>
-          {attendanceToDelete && (
-            <Paper sx={{ p: 2, bgcolor: alpha('#f44336', 0.05), borderRadius: 2 }}>
+          {deleteTarget && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: alpha(DANGER, 0.04),
+                border: `1px solid ${alpha(DANGER, 0.12)}`,
+              }}
+            >
               <Typography variant="body2">
-                <strong>Employee:</strong> {attendanceToDelete.user?.name}<br />
-                <strong>Date:</strong> {formatDate(attendanceToDelete.date)}<br />
-                <strong>Status:</strong> {attendanceToDelete.status}
+                <strong>Date:</strong> {fmtDate(deleteTarget.date)}
+                <br />
+                <strong>Status:</strong> {deleteTarget.status}
               </Typography>
+              {deleteTarget.punchIn?.address && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  <strong>Location:</strong> {deleteTarget.punchIn.address.short}
+                </Typography>
+              )}
             </Paper>
           )}
         </DialogContent>
         <DialogActions
           sx={{
-            p: { xs: 2, sm: 3 },
-            pt: { xs: 1.5, sm: 2 },
-            borderTop: 1,
-            borderColor: "divider",
+            px: 3,
+            pb: 3,
             gap: 1.5,
-            flexDirection: { xs: "column", sm: "row" },
+            borderTop: `1px solid ${alpha(DANGER, 0.08)}`,
           }}
         >
           <Button
-            onClick={() => setDeleteDialogOpen(false)}
             variant="outlined"
-            fullWidth={isMobile}
+            onClick={() => setDeleteOpen(false)}
             sx={{
               borderRadius: 2,
-              borderColor: PRIMARY_COLOR,
-              color: PRIMARY_COLOR,
+              borderColor: alpha(PRIMARY, 0.35),
+              color: PRIMARY,
             }}
           >
             Cancel
           </Button>
           <Button
-            onClick={confirmDelete}
             variant="contained"
             color="error"
-            fullWidth={isMobile}
+            onClick={handleDeleteConfirm}
             sx={{ borderRadius: 2 }}
           >
             Delete
@@ -1854,12 +2627,12 @@ export default function Attandance() {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
+      {/* ─── Snackbar ─────────────────────────────────────────────────────── */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={3500}
         onClose={() => {
-          setSnackbar({ ...snackbar, open: false });
+          setSnackbar((s) => ({ ...s, open: false }));
           clearMessages();
         }}
         anchorOrigin={{
@@ -1870,7 +2643,7 @@ export default function Attandance() {
         <Alert
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%", borderRadius: 2 , color:"#fff" }}
+          sx={{ borderRadius: 2, color: "#fff", fontWeight: 600 }}
         >
           {snackbar.message}
         </Alert>

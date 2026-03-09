@@ -1,4 +1,3 @@
-// components/Sidebar.jsx
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Drawer,
@@ -11,11 +10,15 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  SwipeableDrawer,Avatar,
+  SwipeableDrawer,
+  Avatar,
   useTheme,
   useMediaQuery,
   Collapse,
   Badge,
+  AppBar,
+  Toolbar,
+  Backdrop,
 } from "@mui/material";
 import {
   Dashboard,
@@ -34,295 +37,262 @@ import {
   PendingActions,
   Insights,
   AccountTree,
-  PeopleAlt,
-  SupervisorAccount,
-  WorkspacePremium,
-  Engineering,
   Logout,
   ChevronLeft,
   ChevronRight,
   ExpandLess,
   ExpandMore,
-  Home,
-  Analytics,
-  Settings,
-  Help,
+  Menu as MenuIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 
-// Color Constants
+// ─── Color Constants ──────────────────────────────────────────────────────────
 const PRIMARY_COLOR = "#4569ea";
-const PRIMARY_LIGHT = "#5c7cec";
 const PRIMARY_DARK = "#3a5ac8";
 const TEXT_COLOR = "#ffffff";
-const HOVER_BG = "rgba(255, 255, 255, 0.15)";
-const ACTIVE_BG = "rgba(255, 255, 255, 0.25)";
-const BORDER_COLOR = "rgba(255, 255, 255, 0.25)";
+const HOVER_BG = "rgba(255,255,255,0.15)";
+const ACTIVE_BG = "rgba(255,255,255,0.25)";
+const BORDER_COLOR = "rgba(255,255,255,0.18)";
+const SIDEBAR_BG = `linear-gradient(170deg, ${PRIMARY_COLOR} 0%, ${PRIMARY_DARK} 100%)`;
 
-// Constants
-const SIDEBAR_WIDTH = 280;
-const COLLAPSED_WIDTH = 70;
+// ─── Width Constants ──────────────────────────────────────────────────────────
+const SIDEBAR_WIDTH = 268;
+const COLLAPSED_WIDTH = 68;
+const MOBILE_WIDTH = 272;
 
-const Sidebar = ({ open, toggleDrawer, onClose, isMobile, isTablet }) => {
+// ─── Sidebar Component ────────────────────────────────────────────────────────
+const Sidebar = ({ open, toggleDrawer, onClose }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));   // < 600px
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md")); // 600–900px
   const navigate = useNavigate();
   const location = useLocation();
 
+  // ── Collapsed state (desktop only) ────────────────────────────────────────
   const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
     const saved = localStorage.getItem("sidebarCollapsed");
     return saved ? JSON.parse(saved) : false;
   });
 
-  const [expandedItems, setExpandedItems] = useState({});
-
-  // Mock user data (replace with actual auth context)
-  const user = {
-    firstName: "John",
-    lastName: "Doe",
-    role: "Head_office",
-  };
-
-  // Save collapsed state
   useEffect(() => {
     if (!isMobile && !isTablet) {
       localStorage.setItem("sidebarCollapsed", JSON.stringify(isCollapsed));
     }
   }, [isCollapsed, isMobile, isTablet]);
 
-  // Role-based configurations
-  const roleConfig = useMemo(() => {
-    const config = {
-      Head_office: {
-        label: "Head Office",
-        icon: <WorkspacePremium sx={{ fontSize: 20 }} />,
-        color: "#ff6d00",
-      },
-      ZSM: {
-        label: "Zonal Manager",
-        icon: <SupervisorAccount sx={{ fontSize: 20 }} />,
-        color: "#1a237e",
-      },
-      ASM: {
-        label: "Area Manager",
-        icon: <PeopleAlt sx={{ fontSize: 20 }} />,
-        color: "#2e7d32",
-      },
-      TEAM: {
-        label: "Field Executive",
-        icon: <Engineering sx={{ fontSize: 20 }} />,
-        color: "#6a1b9a",
-      },
-    };
-    return (
-      config[user?.role] || {
-        label: "User",
-        icon: <PeopleAlt />,
-        color: "#666",
-      }
-    );
-  }, [user]);
+  // On tablet, sidebar is always expanded (not collapsible)
+  const effectiveCollapsed = isCollapsed && !isMobile && !isTablet;
 
-  // Menu items with categories for better organization
-  const menuCategories = useMemo(() => [
-    {
-      title: "Main",
-      items: [
-        {
-          text: "Dashboard",
-          icon: <Dashboard />,
-          path: "/dashboard",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-      ],
-    },
-    {
-      title: "Leads & Visits",
-      items: [
-        {
-          text: "Total Visits",
-          icon: <Groups />,
-          path: "/total-visits",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Registration",
-          icon: <PersonAdd />,
-          path: "/registration",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "All Leads",
-          icon: <FilterAlt />,
-          path: "/all-leads",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Lead Funnel",
-          icon: <AccountTree />,
-          path: "/lead-funnel",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Missed Leads",
-          icon: <Warning />,
-          path: "/missed-leads",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Import Leads",
-          icon: <CloudUpload />,
-          path: "/import-leads",
-          roles: ["Head_office", "ZSM"],
-        },
-      ],
-    },
-    {
-      title: "Financial",
-      items: [
-        {
-          text: "Bank Loan",
-          icon: <AccountBalance />,
-          path: "/bank-loan-apply",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Loan Pending",
-          icon: <PendingActions />,
-          path: "/bank-at-pending",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Disbursement",
-          icon: <ReceiptLong />,
-          path: "/disbursement",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Expense",
-          icon: <Paid />,
-          path: "/expense",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-      ],
-    },
-    {
-      title: "Operations",
-      items: [
-        {
-          text: "Document",
-          icon: <Description />,
-          path: "/document-submission",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Installation",
-          icon: <TaskAlt />,
-          path: "/installation-completion",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Attendance",
-          icon: <CalendarMonth />,
-          path: "/attendance",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-        {
-          text: "Location Visit",
-          icon: <LocationOnIcon />,
-          path: "/visit-summary",
-          roles: ["Head_office", "ZSM", "ASM", "TEAM"],
-        },
-      ],
-    },
-    {
-      title: "Management",
-      items: [
-        {
-          text: "Users",
-          icon: <AdminPanelSettings />,
-          path: "/user-management",
-          roles: ["Head_office", "ZSM", "ASM"],
-        },
-        {
-          text: "Reports",
-          icon: <Insights />,
-          path: "/reports",
-          roles: ["Head_office", "ZSM", "ASM"],
-        },
-      ],
-    },
-    
-  ], []);
+  // ── Expanded category groups ───────────────────────────────────────────────
+  const [expandedItems, setExpandedItems] = useState({});
 
-  // Filter items based on user role
-  const filteredCategories = useMemo(() => {
-    return menuCategories
-      .map(category => ({
-        ...category,
-        items: category.items.filter(item => item.roles.includes(user?.role))
-      }))
-      .filter(category => category.items.length > 0);
-  }, [menuCategories, user?.role]);
+  const toggleExpand = useCallback((title) => {
+    setExpandedItems((prev) => ({ ...prev, [title]: !prev[title] }));
+  }, []);
 
+  // ── Mock user ──────────────────────────────────────────────────────────────
+  const user = { firstName: "John", lastName: "Doe", role: "Head_office" };
+
+  // ── Menu categories ────────────────────────────────────────────────────────
+  const menuCategories = useMemo(
+    () => [
+      {
+        title: "Main",
+        items: [
+          {
+            text: "Dashboard",
+            icon: <Dashboard />,
+            path: "/dashboard",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+        ],
+      },
+      {
+        title: "Leads & Visits",
+        items: [
+          {
+            text: "Total Visits",
+            icon: <Groups />,
+            path: "/total-visits",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Registration",
+            icon: <PersonAdd />,
+            path: "/registration",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "All Leads",
+            icon: <FilterAlt />,
+            path: "/all-leads",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Lead Funnel",
+            icon: <AccountTree />,
+            path: "/lead-funnel",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Missed Leads",
+            icon: <Warning />,
+            path: "/missed-leads",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Import Leads",
+            icon: <CloudUpload />,
+            path: "/import-leads",
+            roles: ["Head_office", "ZSM"],
+          },
+        ],
+      },
+      {
+        title: "Financial",
+        items: [
+          {
+            text: "Bank Loan",
+            icon: <AccountBalance />,
+            path: "/bank-loan-apply",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Loan Pending",
+            icon: <PendingActions />,
+            path: "/bank-at-pending",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Disbursement",
+            icon: <ReceiptLong />,
+            path: "/disbursement",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Expense",
+            icon: <Paid />,
+            path: "/expense",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+        ],
+      },
+      {
+        title: "Operations",
+        items: [
+          {
+            text: "Document",
+            icon: <Description />,
+            path: "/document-submission",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Installation",
+            icon: <TaskAlt />,
+            path: "/installation-completion",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Attendance",
+            icon: <CalendarMonth />,
+            path: "/attendance",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+          {
+            text: "Location Visit",
+            icon: <LocationOnIcon />,
+            path: "/visit-summary",
+            roles: ["Head_office", "ZSM", "ASM", "TEAM"],
+          },
+        ],
+      },
+      {
+        title: "Management",
+        items: [
+          {
+            text: "Users",
+            icon: <AdminPanelSettings />,
+            path: "/user-management",
+            roles: ["Head_office", "ZSM", "ASM"],
+          },
+          {
+            text: "Reports",
+            icon: <Insights />,
+            path: "/reports",
+            roles: ["Head_office", "ZSM", "ASM"],
+          },
+        ],
+      },
+    ],
+    [],
+  );
+
+  const filteredCategories = useMemo(
+    () =>
+      menuCategories
+        .map((cat) => ({
+          ...cat,
+          items: cat.items.filter((i) => i.roles.includes(user?.role)),
+        }))
+        .filter((cat) => cat.items.length > 0),
+    [menuCategories, user?.role],
+  );
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
   const isActive = (path) => location.pathname === path;
 
-  const handleNavigate = (path) => {
-    navigate(path);
-    if (isMobile || isTablet) {
-      onClose();
-    }
-  };
+  const handleNavigate = useCallback(
+    (path) => {
+      navigate(path);
+      if (isMobile || isTablet) onClose?.();
+    },
+    [navigate, isMobile, isTablet, onClose],
+  );
 
-  const handleLogout = () => {
-    // Add logout logic here
-    navigate("/login");
-  };
+  const handleLogout = () => navigate("/login");
 
-  const toggleExpand = (categoryTitle) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [categoryTitle]: !prev[categoryTitle]
-    }));
-  };
+  const getUserInitials = () =>
+    `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase() || "U";
 
-  const getUserInitials = () => {
-    if (!user?.firstName && !user?.lastName) return "U";
-    return `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase();
-  };
+  // ── Item button styles ─────────────────────────────────────────────────────
+  const itemBtnSx = (active, indent = false) => ({
+    pl: effectiveCollapsed ? 0 : indent ? 3.5 : 2,
+    justifyContent: effectiveCollapsed ? "center" : "flex-start",
+    borderRadius: "10px",
+    mx: effectiveCollapsed ? 0.5 : 1,
+    my: 0.3,
+    bgcolor: active ? ACTIVE_BG : "transparent",
+    color: TEXT_COLOR,
+    minHeight: isMobile ? 52 : 44,
+    py: isMobile ? 1.3 : 0.9,
+    transition: "all 0.2s ease",
+    "&:hover": {
+      bgcolor: HOVER_BG,
+      transform: isMobile ? "none" : "translateX(3px)",
+    },
+  });
 
-  const getUserFullName = () => {
-    if (!user?.firstName && !user?.lastName) return "User";
-    return `${user.firstName || ""} ${user.lastName || ""}`.trim();
-  };
-
-  // Render menu item
-  const renderMenuItem = (item, isInGroup = false) => {
+  // ── Render single menu item ────────────────────────────────────────────────
+  const renderMenuItem = (item, indent = false) => {
     const active = isActive(item.path);
-    const bgColor = active ? ACTIVE_BG : "transparent";
-    const hoverBgColor = HOVER_BG;
 
-    const buttonContent = (
+    const btn = (
       <ListItemButton
+        key={item.path}
         onClick={() => handleNavigate(item.path)}
-        sx={{
-          pl: isInGroup ? 4 : 2,
-          borderRadius: "8px",
-          mx: 1,
-          my: 0.3,
-          bgcolor: bgColor,
-          color: TEXT_COLOR,
-          "&:hover": {
-            bgcolor: hoverBgColor,
-            transform: !isMobile && !isCollapsed ? "translateX(4px)" : "none",
-          },
-          py: 1,
-          minHeight: 40,
-          transition: "all 0.2s ease",
-        }}
+        sx={itemBtnSx(active, indent)}
       >
-        <ListItemIcon sx={{ minWidth: 40, color: TEXT_COLOR }}>
+        <ListItemIcon
+          sx={{
+            minWidth: effectiveCollapsed ? "auto" : 40,
+            color: active ? "#fff" : "rgba(255,255,255,0.85)",
+            "& svg": { fontSize: isMobile ? "1.35rem" : "1.25rem" },
+          }}
+        >
           {item.badge ? (
             <Badge badgeContent={item.badge} color="error" variant="dot">
               {item.icon}
@@ -331,24 +301,30 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile, isTablet }) => {
             item.icon
           )}
         </ListItemIcon>
-        <ListItemText
-          primary={item.text}
-          primaryTypographyProps={{
-            fontSize: isMobile ? "0.95rem" : "0.9rem",
-            fontWeight: active ? 600 : 400,
-          }}
-        />
-        {item.badge && !isCollapsed && (
+
+        {!effectiveCollapsed && (
+          <ListItemText
+            primary={item.text}
+            primaryTypographyProps={{
+              fontSize: isMobile ? "0.92rem" : "0.875rem",
+              fontWeight: active ? 700 : 400,
+              letterSpacing: "0.01em",
+              noWrap: true,
+            }}
+          />
+        )}
+
+        {item.badge && !effectiveCollapsed && (
           <Box
             sx={{
               bgcolor: "error.main",
-              color: "white",
-              borderRadius: "12px",
-              px: 1,
-              py: 0.25,
-              fontSize: "0.7rem",
+              color: "#fff",
+              borderRadius: "10px",
+              px: 0.9,
+              py: 0.2,
+              fontSize: "0.68rem",
               fontWeight: "bold",
-              ml: 1,
+              flexShrink: 0,
             }}
           >
             {item.badge}
@@ -357,431 +333,548 @@ const Sidebar = ({ open, toggleDrawer, onClose, isMobile, isTablet }) => {
       </ListItemButton>
     );
 
-    if (isCollapsed && !isMobile && !isTablet) {
+    return effectiveCollapsed ? (
+      <Tooltip key={item.path} title={item.text} placement="right" arrow>
+        {btn}
+      </Tooltip>
+    ) : (
+      <React.Fragment key={item.path}>{btn}</React.Fragment>
+    );
+  };
+
+  // ── Render category group ──────────────────────────────────────────────────
+  const renderCategory = (category) => {
+    const isExpanded = expandedItems[category.title] !== false; // default open
+
+    if (effectiveCollapsed) {
       return (
-        <Tooltip key={item.path} title={item.text} placement="right" arrow>
-          {buttonContent}
-        </Tooltip>
+        <Box key={category.title}>
+          <Divider sx={{ borderColor: BORDER_COLOR, my: 0.5, mx: 1 }} />
+          {category.items.map((item) => renderMenuItem(item, false))}
+        </Box>
       );
     }
 
-    return buttonContent;
-  };
-
-  // Render category
-  const renderCategory = (category) => {
-    const isExpanded = expandedItems[category.title] !== false;
-    const hasActiveItem = category.items.some(item => isActive(item.path));
-
-    if (isCollapsed && !isMobile && !isTablet) {
-      return category.items.map(item => renderMenuItem(item));
-    }
-
     return (
-      <Box key={category.title} sx={{ mb: 1 }}>
+      <Box key={category.title} sx={{ mb: 0.5 }}>
         <ListItemButton
           onClick={() => toggleExpand(category.title)}
           sx={{
             px: 2,
-            py: 0.5,
+            py: 0.6,
             borderRadius: "8px",
             mx: 1,
-            "&:hover": {
-              bgcolor: HOVER_BG,
-            },
+            "&:hover": { bgcolor: HOVER_BG },
           }}
         >
           <ListItemText
             primary={category.title}
             primaryTypographyProps={{
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.7)",
+              fontSize: "0.68rem",
+              fontWeight: 700,
+              color: "rgba(255,255,255,0.55)",
               textTransform: "uppercase",
-              letterSpacing: "0.5px",
+              letterSpacing: "1px",
             }}
           />
-          {category.items.length > 0 && (
-            isExpanded ? <ExpandLess sx={{ color: "rgba(255,255,255,0.7)", fontSize: 18 }} /> 
-                     : <ExpandMore sx={{ color: "rgba(255,255,255,0.7)", fontSize: 18 }} />
+          {isExpanded ? (
+            <ExpandLess sx={{ color: "rgba(255,255,255,0.5)", fontSize: 16 }} />
+          ) : (
+            <ExpandMore sx={{ color: "rgba(255,255,255,0.5)", fontSize: 16 }} />
           )}
         </ListItemButton>
-        
+
         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-          {category.items.map(item => renderMenuItem(item, true))}
+          {category.items.map((item) => renderMenuItem(item, true))}
         </Collapse>
       </Box>
     );
   };
 
-  // Desktop Sidebar content
-  const DesktopSidebarContent = (
+  // ── Scroll area ────────────────────────────────────────────────────────────
+  const scrollArea = (
     <Box
       sx={{
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: PRIMARY_COLOR,
-        width: isCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH,
-        transition: "all 0.3s ease",
-        background: `linear-gradient(180deg, ${PRIMARY_COLOR} 0%, ${PRIMARY_DARK} 100%)`,
-        boxShadow: "2px 0 8px rgba(0,0,0,0.1)",
+        flex: 1,
+        overflowY: "auto",
+        overflowX: "hidden",
+        py: 1.5,
+        px: 0.5,
+        "&::-webkit-scrollbar": { width: "3px" },
+        "&::-webkit-scrollbar-thumb": {
+          background: "rgba(255,255,255,0.2)",
+          borderRadius: "4px",
+        },
+        "&::-webkit-scrollbar-track": { background: "transparent" },
       }}
     >
-      {/* Logo Section */}
+      {filteredCategories.map((cat) => renderCategory(cat))}
+    </Box>
+  );
+
+  // ── Logo bar ───────────────────────────────────────────────────────────────
+  const logoBar = (
+    <Box
+      sx={{
+        px: effectiveCollapsed ? 1 : 2.5,
+        py: 2,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: effectiveCollapsed ? "center" : "flex-start",
+        gap: 1.5,
+        borderBottom: `1px solid ${BORDER_COLOR}`,
+        minHeight: 68,
+        flexShrink: 0,
+      }}
+    >
       <Box
         sx={{
-          p: isCollapsed ? 2 : 3,
+          width: effectiveCollapsed ? 36 : 42,
+          height: effectiveCollapsed ? 36 : 42,
+          borderRadius: "10px",
+          bgcolor: "rgba(255,255,255,0.15)",
           display: "flex",
           alignItems: "center",
-          justifyContent: isCollapsed ? "center" : "flex-start",
-          gap: 2,
-          borderBottom: `1px solid ${BORDER_COLOR}`,
-          minHeight: 80,
+          justifyContent: "center",
+          border: "2px solid rgba(255,255,255,0.28)",
+          flexShrink: 0,
         }}
       >
+        <Typography
+          sx={{ fontSize: effectiveCollapsed ? "1rem" : "1.2rem", lineHeight: 1 , color:"#fff" }}
+        >
+          ☀
+        </Typography>
+      </Box>
+      {!effectiveCollapsed && (
+        <Box sx={{ overflow: "hidden" }}>
+          <Typography
+            variant="subtitle1"
+            color={TEXT_COLOR}
+            fontWeight={800}
+            sx={{ lineHeight: 1.2, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}
+          >
+            SunergyTech
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ color: "rgba(255,255,255,0.7)", fontSize: "0.68rem" }}
+          >
+            Solar Management
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+
+  // ── Mobile header (with close button) ─────────────────────────────────────
+  const mobileHeader = (
+    <Box
+      sx={{
+        px: 2.5,
+        py: 1.8,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderBottom: `1px solid ${BORDER_COLOR}`,
+        flexShrink: 0,
+        minHeight: 68,
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
         <Box
           sx={{
-            width: isCollapsed ? 40 : 48,
-            height: isCollapsed ? 40 : 48,
-            borderRadius: "12px",
-            bgcolor: "rgba(255, 255, 255, 0.2)",
+            width: 40,
+            height: 40,
+            borderRadius: "10px",
+            bgcolor: "rgba(255,255,255,0.15)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: `2px solid rgba(255, 255, 255, 0.3)`,
+            border: "2px solid rgba(255,255,255,0.28)",
           }}
         >
-          <Typography variant="h6" color={TEXT_COLOR} fontWeight="bold">
-            S
+          <Typography sx={{ fontSize: "1.1rem" , color:"#fff" }}>☀</Typography>
+        </Box>
+        <Box>
+          <Typography
+            variant="subtitle1"
+            color={TEXT_COLOR}
+            fontWeight={800}
+            sx={{ lineHeight: 1.2 }}
+          >
+            SunergyTech
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{ color: "rgba(255,255,255,0.7)", fontSize: "0.68rem" }}
+          >
+            Solar Management
           </Typography>
         </Box>
-
-        {!isCollapsed && (
-          <Box>
-            <Typography variant="h6" color={TEXT_COLOR} fontWeight="bold">
-              SunergyTech
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "rgba(255,255,255,0.8)" }}
-            >
-              Solar Management
-            </Typography>
-          </Box>
-        )}
       </Box>
-
-      {/* Menu Items */}
-      <Box
+      <IconButton
+        onClick={onClose}
+        size="small"
         sx={{
-          flex: 1,
-          overflowY: "auto",
-          py: 2,
-          px: isCollapsed ? 1 : 1.5,
-          "&::-webkit-scrollbar": {
-            width: "4px",
-          },
-          "&::-webkit-scrollbar-thumb": {
-            background: "rgba(255,255,255,0.2)",
-            borderRadius: "4px",
-          },
-          "&::-webkit-scrollbar-track": {
-            background: "transparent",
-          },
+          color: TEXT_COLOR,
+          bgcolor: "rgba(255,255,255,0.12)",
+          "&:hover": { bgcolor: "rgba(255,255,255,0.22)" },
+          width: 34,
+          height: 34,
         }}
       >
-        {filteredCategories.map(category => renderCategory(category))}
-      </Box>
+        <CloseIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  );
 
-      {/* Footer */}
-      <Box
-        sx={{
-          p: isCollapsed ? 1.5 : 2,
-          borderTop: `1px solid ${BORDER_COLOR}`,
-        }}
-      >
-        {/* Collapse Toggle - Only for desktop/tablet */}
-        {!isMobile && !isTablet && (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              mb: isCollapsed ? 1 : 2,
-            }}
-          >
-            <IconButton
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              size="small"
-              sx={{
-                color: TEXT_COLOR,
-                bgcolor: "rgba(255,255,255,0.1)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
-                width: 36,
-                height: 36,
-              }}
-            >
-              {isCollapsed ? <ChevronRight /> : <ChevronLeft />}
-            </IconButton>
-          </Box>
-        )}
-
-        {/* Version and Logout */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          {!isCollapsed && (
-            <Typography
-              variant="caption"
-              sx={{ color: "rgba(255,255,255,0.7)" }}
-            >
-              v2.2.0
-            </Typography>
-          )}
+  // ── Footer ─────────────────────────────────────────────────────────────────
+  const footer = (
+    <Box
+      sx={{
+        p: effectiveCollapsed ? 1.5 : 2,
+        borderTop: `1px solid ${BORDER_COLOR}`,
+        flexShrink: 0,
+      }}
+    >
+      {/* Collapse toggle — desktop only */}
+      {!isMobile && !isTablet && (
+        <Box sx={{ display: "flex", justifyContent: "center", mb: effectiveCollapsed ? 1 : 1.5 }}>
           <Tooltip
-            title="Logout"
-            placement={isCollapsed ? "right" : "top"}
+            title={effectiveCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            placement="right"
             arrow
           >
             <IconButton
+              onClick={() => setIsCollapsed((v) => !v)}
               size="small"
-              onClick={handleLogout}
               sx={{
                 color: TEXT_COLOR,
-                bgcolor: "rgba(255,255,255,0.1)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
-                width: 36,
-                height: 36,
+                bgcolor: "rgba(255,255,255,0.12)",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.22)" },
+                width: 34,
+                height: 34,
               }}
             >
-              <Logout fontSize="small" />
+              {effectiveCollapsed ? (
+                <ChevronRight fontSize="small" />
+              ) : (
+                <ChevronLeft fontSize="small" />
+              )}
             </IconButton>
           </Tooltip>
         </Box>
+      )}
+
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: effectiveCollapsed ? "center" : "space-between",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        {!effectiveCollapsed && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, overflow: "hidden", flex: 1 }}>
+            <Avatar
+              sx={{
+                width: 32,
+                height: 32,
+                bgcolor: "rgba(255,255,255,0.22)",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              {getUserInitials()}
+            </Avatar>
+            <Box sx={{ overflow: "hidden" }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#fff",
+                  fontWeight: 600,
+                  display: "block",
+                  lineHeight: 1.2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {user.firstName} {user.lastName}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: "rgba(255,255,255,0.55)", fontSize: "0.63rem" }}
+              >
+                v2.2.0
+              </Typography>
+            </Box>
+          </Box>
+        )}
+        <Tooltip
+          title="Logout"
+          placement={effectiveCollapsed ? "right" : "top"}
+          arrow
+        >
+          <IconButton
+            size="small"
+            onClick={handleLogout}
+            sx={{
+              color: TEXT_COLOR,
+              bgcolor: "rgba(255,255,255,0.12)",
+              "&:hover": { bgcolor: "rgba(255,255,255,0.22)" },
+              width: 34,
+              height: 34,
+              flexShrink: 0,
+            }}
+          >
+            <Logout fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
     </Box>
   );
 
-  // Mobile Sidebar content (Optimized for touch)
-  const MobileSidebarContent = (
+  // ── Desktop / Tablet drawer content ───────────────────────────────────────
+  const DesktopContent = (
     <Box
       sx={{
         height: "100vh",
         display: "flex",
         flexDirection: "column",
-        bgcolor: PRIMARY_COLOR,
-        width: 300,
-        background: `linear-gradient(180deg, ${PRIMARY_COLOR} 0%, ${PRIMARY_DARK} 100%)`,
+        background: SIDEBAR_BG,
+        boxShadow: "2px 0 20px rgba(69,105,234,0.2)",
       }}
     >
-      {/* Mobile Header with User Info */}
-      <Box
-        sx={{
-          p: 2,
-          borderBottom: `1px solid ${BORDER_COLOR}`,
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-          <Box
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: "12px",
-              bgcolor: "rgba(255, 255, 255, 0.2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: `2px solid rgba(255, 255, 255, 0.3)`,
-            }}
-          >
-            <Typography variant="h6" color={TEXT_COLOR} fontWeight="bold">
-              S
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="h6" color={TEXT_COLOR} fontWeight="bold">
-              SunergyTech
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "rgba(255,255,255,0.8)" }}
-            >
-              Solar Management
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
+      {logoBar}
+      {scrollArea}
+      {footer}
+    </Box>
+  );
 
-      {/* Mobile Menu - Scrollable */}
-      <Box
-        sx={{
-          flex: 1,
-          overflowY: "auto",
-          py: 2,
-          px: 1.5,
-          "&::-webkit-scrollbar": {
-            width: "4px",
-          },
-          "&::-webkit-scrollbar-thumb": {
-            background: "rgba(255,255,255,0.2)",
-            borderRadius: "4px",
-          },
-        }}
-      >
-        {filteredCategories.map((category) => (
-          <Box key={category.title} sx={{ mb: 2 }}>
-            <Typography
-              sx={{
-                px: 2,
-                py: 1,
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                color: "rgba(255,255,255,0.7)",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}
-            >
-              {category.title}
-            </Typography>
-            {category.items.map((item) => (
-              <ListItemButton
-                key={item.path}
-                onClick={() => handleNavigate(item.path)}
-                sx={{
-                  pl: 2,
-                  borderRadius: "8px",
-                  mx: 1,
-                  my: 0.5,
-                  bgcolor: isActive(item.path) ? ACTIVE_BG : "transparent",
-                  color: TEXT_COLOR,
-                  "&:hover": {
-                    bgcolor: HOVER_BG,
-                  },
-                  py: 1.5,
-                  minHeight: 48,
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 40, color: TEXT_COLOR }}>
-                  {item.badge ? (
-                    <Badge badgeContent={item.badge} color="error">
-                      {item.icon}
-                    </Badge>
-                  ) : (
-                    item.icon
-                  )}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontSize: "0.95rem",
-                    fontWeight: isActive(item.path) ? 600 : 400,
-                  }}
-                />
-                {item.badge && (
-                  <Box
-                    sx={{
-                      bgcolor: "error.main",
-                      color: "white",
-                      borderRadius: "12px",
-                      px: 1,
-                      py: 0.25,
-                      fontSize: "0.7rem",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {item.badge}
-                  </Box>
-                )}
-              </ListItemButton>
-            ))}
-          </Box>
-        ))}
-      </Box>
-
-      {/* Mobile Footer */}
-      <Box
-        sx={{
-          p: 2,
-          borderTop: `1px solid ${BORDER_COLOR}`,
-        }}
-      >
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Typography
-            variant="caption"
-            sx={{ color: "rgba(255,255,255,0.7)" }}
-          >
-            © 2025 Sunergytech
-          </Typography>
-          <IconButton
-            onClick={handleLogout}
-            sx={{
-              color: TEXT_COLOR,
-              bgcolor: "rgba(255,255,255,0.1)",
-              "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
-              width: 40,
-              height: 40,
-            }}
-          >
-            <Logout />
-          </IconButton>
-        </Box>
-      </Box>
+  // ── Mobile swipeable drawer content ───────────────────────────────────────
+  const MobileContent = (
+    <Box
+      sx={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background: SIDEBAR_BG,
+        width: MOBILE_WIDTH,
+      }}
+    >
+      {mobileHeader}
+      {scrollArea}
+      {footer}
     </Box>
   );
 
   return (
     <>
-      {/* Desktop/Tablet Sidebar */}
+      {/* ── Desktop permanent drawer ─────────────────────────────────────── */}
       {!isMobile && (
         <Drawer
           variant="permanent"
           sx={{
             display: { xs: "none", sm: "block" },
-            width: isCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH,
+            width: effectiveCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH,
             flexShrink: 0,
             "& .MuiDrawer-paper": {
-              width: isCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH,
+              width: effectiveCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH,
               boxSizing: "border-box",
               overflowX: "hidden",
-              transition: "all 0.3s ease",
+              transition: "width 0.3s cubic-bezier(0.4,0,0.2,1)",
               backgroundColor: "transparent",
               border: "none",
               boxShadow: "none",
             },
           }}
         >
-          {DesktopSidebarContent}
+          {DesktopContent}
         </Drawer>
       )}
 
-      {/* Mobile Sidebar */}
+      {/* ── Mobile swipeable drawer ──────────────────────────────────────── */}
       {isMobile && (
         <SwipeableDrawer
           anchor="left"
           open={open}
           onClose={onClose}
           onOpen={toggleDrawer}
-          swipeAreaWidth={30}
+          swipeAreaWidth={28}
           disableSwipeToOpen={false}
           ModalProps={{ keepMounted: true }}
           sx={{
+            zIndex: (theme) => theme.zIndex.drawer + 2,
             "& .MuiDrawer-paper": {
-              width: 300,
-              maxWidth: "85vw",
+              width: MOBILE_WIDTH,
+              maxWidth: "88vw",
               backgroundColor: "transparent",
               border: "none",
-              boxShadow: "4px 0 20px rgba(0,0,0,0.2)",
+              boxShadow: "8px 0 32px rgba(0,0,0,0.28)",
             },
           }}
         >
-          {MobileSidebarContent}
+          {MobileContent}
         </SwipeableDrawer>
       )}
     </>
+  );
+};
+
+// ─── Mobile Top AppBar ─────────────────────────────────────────────────────────
+export const MobileTopBar = ({ onMenuClick, title = "Dashboard" }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  if (!isMobile) return null;
+
+  return (
+    <AppBar
+      position="fixed"
+      elevation={0}
+      sx={{
+        background: `linear-gradient(90deg, ${PRIMARY_COLOR} 0%, ${PRIMARY_DARK} 100%)`,
+        borderBottom: `1px solid ${BORDER_COLOR}`,
+        zIndex: theme.zIndex.drawer + 1,
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <Toolbar
+        sx={{
+          minHeight: "60px !important",
+          px: { xs: 1.5, sm: 2 },
+          gap: 1,
+        }}
+      >
+        <IconButton
+          edge="start"
+          onClick={onMenuClick}
+          sx={{
+            color: "#fff",
+            mr: 0.5,
+            bgcolor: "rgba(255,255,255,0.1)",
+            borderRadius: "10px",
+            width: 40,
+            height: 40,
+            "&:hover": { bgcolor: "rgba(255,255,255,0.2)" },
+          }}
+          size="medium"
+        >
+          <MenuIcon />
+        </IconButton>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: "8px",
+              bgcolor: "rgba(255,255,255,0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1.5px solid rgba(255,255,255,0.25)",
+            }}
+          >
+            <Typography sx={{ fontSize: "0.95rem", lineHeight: 1 , color:"#fff" }}>☀</Typography>
+          </Box>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              color: "#fff",
+              fontWeight: 800,
+              letterSpacing: "-0.01em",
+              fontSize: "1rem",
+            }}
+          >
+            SunergyTech
+          </Typography>
+        </Box>
+
+        {/* Page title chip */}
+        <Typography
+          variant="caption"
+          sx={{
+            color: "rgba(255,255,255,0.8)",
+            fontSize: "0.72rem",
+            fontWeight: 500,
+            bgcolor: "rgba(255,255,255,0.12)",
+            px: 1.2,
+            py: 0.5,
+            borderRadius: "8px",
+            letterSpacing: "0.02em",
+            display: { xs: "none", sm: "block" },
+          }}
+        >
+          {title}
+        </Typography>
+
+        <Avatar
+          sx={{
+            width: 34,
+            height: 34,
+            bgcolor: "rgba(255,255,255,0.22)",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            border: "2px solid rgba(255,255,255,0.3)",
+          }}
+        >
+          JD
+        </Avatar>
+      </Toolbar>
+    </AppBar>
+  );
+};
+
+// ─── Layout Wrapper ────────────────────────────────────────────────────────────
+export const AppLayout = ({ children }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const [isCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const s = localStorage.getItem("sidebarCollapsed");
+    return s ? JSON.parse(s) : false;
+  });
+
+  const effectiveCollapsed = isCollapsed && !isMobile && !isTablet;
+  const sidebarW = isMobile ? 0 : effectiveCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH;
+
+  return (
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#f4f6fb" }}>
+      {/* Mobile top bar */}
+      <MobileTopBar onMenuClick={() => setMobileOpen(true)} />
+
+      {/* Sidebar */}
+      <Sidebar
+        open={mobileOpen}
+        toggleDrawer={() => setMobileOpen(true)}
+        onClose={() => setMobileOpen(false)}
+      />
+
+      {/* Main content */}
+      <Box
+        component="main"
+        sx={{
+          flex: 1,
+          ml: { xs: 0, sm: `${sidebarW}px` },
+          mt: { xs: "60px", sm: 0 },
+          minHeight: "100vh",
+          transition: "margin-left 0.3s cubic-bezier(0.4,0,0.2,1)",
+          overflow: "auto",
+          // Safe area insets for notched phones
+          pb: { xs: "env(safe-area-inset-bottom)", sm: 0 },
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
   );
 };
 

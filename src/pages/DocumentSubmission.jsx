@@ -2512,9 +2512,9 @@ const EditLeadModal = ({
         formDataToSend.append("documentNotes", formData.documentNotes);
       }
 
-      const jsonData = {
-        documentStatus: formData.documentStatus,
-      };
+       if (formData.documentNotes) {
+        formDataToSend.append("documentStatus", formData.documentStatus);
+      }
 
       if (formData.documentSubmissionDate) {
         jsonData.documentSubmissionDate = format(
