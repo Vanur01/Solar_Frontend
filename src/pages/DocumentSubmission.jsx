@@ -1,4 +1,4 @@
-// pages/DocumentSubmissionPage.jsx (Bug-Free Version)
+// pages/DocumentSubmissionPage.jsx (Fixed - jsonData not defined)
 import React, {
   useState,
   useEffect,
@@ -238,18 +238,17 @@ const ROLE_CONFIG = {
 // ========== HELPER FUNCTIONS ==========
 const hasAccess = (userRole) => ALLOWED_ROLES.includes(userRole);
 
-// ✅ FIXED: canSeeAll now excludes TEAM; TEAM only uses canSeeOwn
 const getUserPermissions = (userRole) => ({
   canView: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canEdit: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
   canDelete: userRole === "Head_office",
   canManage: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
-  canSeeAll: ["Head_office", "ZSM", "ASM"].includes(userRole),  // ✅ TEAM removed
+  canSeeAll: ["Head_office", "ZSM", "ASM"].includes(userRole),
   canSeeOwn: userRole === "TEAM",
   canUpdateStatus: ["Head_office", "ZSM", "ASM", "TEAM"].includes(userRole),
 });
 
-// ✅ Helper: safely compare an id field that may be a string OR a populated object
+// Helper: safely compare an id field that may be a string OR a populated object
 const matchesUserId = (field, userId) => {
   if (!field || !userId) return false;
   if (typeof field === "string") return field === userId;
@@ -2491,7 +2490,26 @@ const EditLeadModal = ({
 
     try {
       const formDataToSend = new FormData();
+      
+      // ✅ FIXED: jsonData is now properly defined
+      const jsonData = {};
 
+      if (formData.documentNotes) {
+        jsonData.documentNotes = formData.documentNotes;
+      }
+
+      if (formData.documentStatus) {
+        jsonData.documentStatus = formData.documentStatus;
+      }
+
+      if (formData.documentSubmissionDate) {
+        jsonData.documentSubmissionDate = format(
+          formData.documentSubmissionDate,
+          "yyyy-MM-dd",
+        );
+      }
+
+      // Append files to FormData
       if (formData.aadhaar.file) {
         formDataToSend.append("aadhaar", formData.aadhaar.file);
       }
@@ -2508,21 +2526,7 @@ const EditLeadModal = ({
         }
       });
 
-      if (formData.documentNotes) {
-        formDataToSend.append("documentNotes", formData.documentNotes);
-      }
-
-       if (formData.documentNotes) {
-        formDataToSend.append("documentStatus", formData.documentStatus);
-      }
-
-      if (formData.documentSubmissionDate) {
-        jsonData.documentSubmissionDate = format(
-          formData.documentSubmissionDate,
-          "yyyy-MM-dd",
-        );
-      }
-
+      // Append JSON data as string
       formDataToSend.append("data", JSON.stringify(jsonData));
 
       const progressInterval = setInterval(() => {
@@ -3138,7 +3142,7 @@ export default function DocumentSubmissionPage() {
     setSnackbar({ open: true, message, severity });
   }, []);
 
-  // ✅ FIXED: fetchDocumentsData with proper populated-object ID comparison
+  // Fetch documents data with proper populated-object ID comparison
   const fetchDocumentsData = useCallback(async () => {
     try {
       setLoading(true);
@@ -3170,7 +3174,7 @@ export default function DocumentSubmissionPage() {
         const data = response.result || {};
         let rawDocuments = data.documents || [];
 
-        // ✅ FIXED: Role-based filtering using matchesUserId helper
+        // Role-based filtering using matchesUserId helper
         // This handles both plain string IDs and Mongoose populated objects
         if (userRole === "TEAM" && user?._id) {
           const uid = user._id?.toString();
