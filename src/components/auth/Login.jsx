@@ -508,7 +508,7 @@ const Login = () => {
 
         setTimeout(() => {
           if (userRole === "TEAM") {
-            navigate("/visit-summary", { replace: true });
+            navigate("/attendance", { replace: true });
           } else {
             navigate("/dashboard", { replace: true });
           }
