@@ -8,7 +8,7 @@ import React, {
 } from "react";
 
 const AuthContext = createContext({});
-const API_BASE_URL = "http://localhost:9001/api/v1";
+const API_BASE_URL = "https://backend.sunergytechsolar.com/api/v1";
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -169,59 +169,65 @@ export const AuthProvider = ({ children }) => {
   =============================== */
 
   // ✅ FIX: Define punchIn and punchOut as proper functions
-  const punchIn = useCallback(async (locationData) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetchAPI('/attendance/punch-in', {
-        method: 'POST',
-        body: JSON.stringify(locationData)
-      });
-      
-      if (response.success) {
-        // Update user or do any other necessary state updates
-        setUser(prev => ({
-          ...prev,
-          lastPunchIn: new Date().toISOString()
-        }));
-      }
-      
-      return response;
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchAPI]);
+  const punchIn = useCallback(
+    async (locationData) => {
+      setLoading(true);
+      setError(null);
 
-  const punchOut = useCallback(async (locationData) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetchAPI('/attendance/punch-out', {
-        method: 'POST',
-        body: JSON.stringify(locationData)
-      });
-      
-      if (response.success) {
-        // Update user or do any other necessary state updates
-        setUser(prev => ({
-          ...prev,
-          lastPunchOut: new Date().toISOString()
-        }));
+      try {
+        const response = await fetchAPI("/attendance/punch-in", {
+          method: "POST",
+          body: JSON.stringify(locationData),
+        });
+
+        if (response.success) {
+          // Update user or do any other necessary state updates
+          setUser((prev) => ({
+            ...prev,
+            lastPunchIn: new Date().toISOString(),
+          }));
+        }
+
+        return response;
+      } catch (err) {
+        setError(err.message);
+        return { success: false, error: err.message };
+      } finally {
+        setLoading(false);
       }
-      
-      return response;
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchAPI]);
+    },
+    [fetchAPI],
+  );
+
+  const punchOut = useCallback(
+    async (locationData) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetchAPI("/attendance/punch-out", {
+          method: "POST",
+          body: JSON.stringify(locationData),
+        });
+
+        if (response.success) {
+          // Update user or do any other necessary state updates
+          setUser((prev) => ({
+            ...prev,
+            lastPunchOut: new Date().toISOString(),
+          }));
+        }
+
+        return response;
+      } catch (err) {
+        setError(err.message);
+        return { success: false, error: err.message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchAPI],
+  );
 
   const getUserRole = useCallback(() => user?.role || null, [user]);
   const isTeamMember = useCallback(() => user?.role === "TEAM", [user]);
@@ -238,8 +244,8 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     fetchAPI,
-       punchIn,      // ✅ Make sure these are included
-    punchOut, 
+    punchIn, // ✅ Make sure these are included
+    punchOut,
     safeFetchAPI,
     isAuthenticated,
     getUserRole,
